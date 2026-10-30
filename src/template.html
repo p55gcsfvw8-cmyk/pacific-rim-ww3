@@ -205,6 +205,10 @@ button.row { cursor: pointer; }
 .cmdbar { position: sticky; top: 0; z-index: 3; margin: 10px -14px 4px; padding: 10px 14px; background: linear-gradient(180deg, var(--panel) 85%, rgba(0,0,0,0)); border-bottom: 1px solid var(--line); }
 .cmdhint { font-size: 12.5px; color: var(--muted); margin-bottom: 7px; } .cmdhint b { color: var(--signal); }
 .cmdbtns { display: flex; flex-wrap: wrap; gap: 8px; } .cmdbtns .btn { min-height: 40px; }
+.cmdbats { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; padding-bottom: 2px; }
+.bchip { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: rgba(12,26,42,.9); color: var(--ink); font: 600 12.5px var(--f-body); cursor: pointer; }
+.bchip.on { border-color: var(--signal); color: var(--signal); }
+.bchip .ech { font: 700 10px var(--f-display); color: var(--muted); }
 .uchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
 .uchip { position: relative; display: grid; place-items: center; width: 48px; height: 40px; border-radius: 9px; border: 1px solid var(--line); background: rgba(12,26,42,.85); cursor: pointer; padding: 0; overflow: hidden; }
 .uchip canvas { width: 34px !important; height: 26px !important; }
@@ -1020,8 +1024,11 @@ function bldList(z) {
   return out.length ? out : null;
 }
 // What a shooter fires at: the first category on its priority list it can hurt, finishing off damaged targets first.
-function pickTarget(u, foes, all, proj, blds) {
-  const pri = priOf(u), rank = c => { const i = pri.indexOf(c); return i < 0 ? 50 : i; };
+// strike runs: jets go for tanks, ships, troops and supply before enemy aircraft; the player can put any category first
+const STRIKE_PRI = { jet: ["armor", "ship", "inf", "support", "struct", "air", "sub"] };
+const strikePri = u => { const base = STRIKE_PRI[u.t] || priOf(u); return u.spri && u.spri !== "auto" ? [u.spri, ...base.filter(c => c !== u.spri)] : base; };
+function pickTarget(u, foes, all, proj, blds, priOverride) {
+  const pri = priOverride || priOf(u), rank = c => { const i = pri.indexOf(c); return i < 0 ? 50 : i; };
   let best = null, bk = Infinity;
   for (const v of foes) {
     if (v.hp <= 0 || !hitValue(u, v) || screened(v, all)) continue;
@@ -1146,12 +1153,13 @@ function strikeTargets(n, z) {
 }
 // Expected result of one unit's strike on z (preview and AI).
 function strikePreview(u, z, foes, blds) {
-  const tg = pickTarget(u, foes, unitsAt(z), new Map(), blds);
+  const tg = pickTarget(u, foes, unitsAt(z), new Map(), blds, strikePri(u));
   if (!tg) return null;
   const out = { tgt: tg.bld ? BLD[tg.bld.k].name : UT[tg.t].name, dmg: tg.bld ? structDmg(u, z, true) : rawDamage(u, tg, z, true), aa: 0, kill: !tg.bld && rawDamage(u, tg, z, true) >= tg.hp };
   if (UT[u.t].dom === "air") for (const e of foes) if (UT[e.t].a > 0 && e.hp > 0) out.aa += UT[e.t].a * K_DMG * .35 * hpF(e) * ammoF(e) * (12 / (12 + UT[u.t].d));
   return out;
 }
+const AA_SAT = { t: -1, g: null, n: {} };
 let STRIKE_REP = null; // strikes fired during movement report with the turn's combat
 // A fire mission on a cell catches enemies pulling out of it: the guns were already laid on them.
 function fireOnDeparture(u) {
@@ -1179,7 +1187,7 @@ function doStrike(u, tAt, rep, forced) {
   }
   const { foes, blds } = strikeTargets(u.o, z);
   if (!foes.length && !blds) { if (u.o === G.player) news("home", 1, `${UT[u.t].name} ceased fire: nothing left to hit at ${Z[z].n}.`, { z }); u.strike = null; return; }
-  const tg = forced || pickTarget(u, foes, unitsAt(z), new Map(), blds);
+  const tg = forced || pickTarget(u, foes, unitsAt(z), new Map(), blds, strikePri(u));
   if (!tg) { if (u.o === G.player) news("home", 1, `${UT[u.t].name} has nothing it can hit at ${Z[z].n}.`, { z }); u.strike = null; return; }
   u.fired = G.turn;
   const T = UT[u.t], hops = strikeZones(u).get(z), r = .85 + .3 * rng();
@@ -1190,7 +1198,10 @@ function doStrike(u, tAt, rep, forced) {
   if (T.apb) u.am = Math.max(0, (u.am ?? 100) - T.apb * .6);
   if (T.dom === "air") {
     u.fu = Math.max(0, (u.fu ?? 100) - T.fpm * hops * 2);
-    for (const e of foes) if (UT[e.t].a > 0 && e.hp > 0) u.hp -= ((batBonus(u) || {}).aa || 1) * UT[e.t].a * K_DMG * .35 * hpF(e) * ammoF(e) * (12 / (12 + T.d)) * (.85 + .3 * rng());
+    // air defences saturate: each further aircraft hitting the same cell this turn faces less fire (1, 2/3, 1/2, 2/5...)
+    if (AA_SAT.t !== G.turn || AA_SAT.g !== G) { AA_SAT.t = G.turn; AA_SAT.g = G; AA_SAT.n = {}; }
+    const kth = AA_SAT.n[z] = (AA_SAT.n[z] || 0) + 1, sat = 1 / (1 + .5 * (kth - 1));
+    for (const e of foes) if (UT[e.t].a > 0 && e.hp > 0) u.hp -= sat * ((batBonus(u) || {}).aa || 1) * UT[e.t].a * K_DMG * .35 * hpF(e) * ammoF(e) * (12 / (12 + T.d)) * (.85 + .3 * rng());
   }
   u.spotted = G.turn; u.spotBy = foes.length ? foes[0].o : ownerOf(z);
   rec("strike", { from: u.z, to: z, t: tAt + rng() * .3, o: u.o, air: T.dom === "air", ut: u.t, uid: u.id, vid: tg.bld ? -1 : tg.id, vo: tg.bld ? ownerOf(z) : tg.o, d: Math.round(d), kill: !tg.bld && tg.hp <= 0, aa: T.dom === "air" && foes.some(e => UT[e.t].a > 0 && e.hp > 0), lost: u.hp <= 0 });
@@ -1484,7 +1495,7 @@ function eta(u, path) {
 function issueOrders(units, dest) {
   let n = 0, maxEta = 0;
   for (const u of units) {
-    u.chase = null;
+    u.chase = null; u.tz = null;
     if (u.z === dest) { u.ord = null; continue; }
     if (UT[u.t].dom === "air" && atAirbase(u)) u.base = u.z; // remember where it took off from
     u.drop = null;
@@ -1624,9 +1635,34 @@ function firingPosition(u, tz) {
   }
   return best && best.p.length ? best : null;
 }
+// A strike mission: ranged units ordered onto a cell close to firing range, fire every turn,
+// and aircraft cycle home to refuel and back, until there's nothing left there to hit.
+function endMission(u, why, said) {
+  if (u.o === G.player && why) { const k = "m" + u.tz + why; if (!said || !said.has(k)) { said && said.add(k); news("home", 1, `Strike mission on ${Z[u.tz].n} ended: ${why}.`, { z: u.tz }); } }
+  u.tz = null;
+}
+function missionLive(u) { const z = u.tz, { foes, blds } = strikeTargets(u.o, z); return foes.length > 0 || !!blds; }
+function planMission(u, said) {
+  const z = u.tz, T = UT[u.t];
+  if (u.ord && u.ord.rtb) return "rtb";
+  if (!missionLive(u)) { endMission(u, "nothing left there to hit", said); u.strike = null; return null; }
+  const why = strikeBlock(u, z);
+  if (!why) { u.ord = null; u.strike = z; return "fire"; }
+  if (why === "is out of ammunition") { if (!(T.dom === "air" && !atAirbase(u))) { endMission(u, "out of ammunition", said); return null; } }
+  if (why === "is out of ammunition" || why === "lacks the fuel for the round trip") { // aircraft head home to refuel and rearm, then go again
+    if (T.dom === "air" && !atAirbase(u)) { const b = homeBase(u), p = b != null && fullPath(u, b); if (p) { u.ord = { d: b, p, dis: false, rtb: true }; u.strike = null; } }
+    return "refuel";
+  }
+  if (why === "is busy fighting where it stands" || why === "is aboard a transport") return "hold";
+  const fp = firingPosition(u, z);
+  if (!fp) { endMission(u, `no route to within range of ${Z[z].n}`, said); return null; }
+  u.ord = { d: fp.c, p: fp.p, dis: false, mission: true }; if (u.strike != null && u.strike !== z) u.strike = null;
+  return "move";
+}
 function updateChases(n) {
   const said = new Set();
   for (const u of G.units) if (u.o === n && u.chase != null && !u.in && u.hp > 0) planChase(u, said);
+  for (const u of G.units) if (u.o === n && u.tz != null && u.chase == null && !u.in && u.hp > 0) planMission(u, said);
 }
 // Resolve a nation's standing orders tick by tick so units arriving together fight together.
 function executeOrders(n) {
@@ -1641,6 +1677,7 @@ function executeOrders(n) {
     for (const u of G.units) {
       if (u.o !== n || u.in || !u.ord || !u.ord.p.length || u.mp <= 0) continue;
       if (u.ord.chase && UT[u.t].rng) { const q = chaseTgt(u); if (q && !strikeBlock(u, q.z)) { u.ord = null; u.strike = q.z; continue; } }
+      if (u.ord.mission && u.tz != null && !strikeBlock(u, u.tz)) { u.ord = null; u.strike = u.tz; continue; }
       if (!u.ord.dis && isEngaged(u)) continue; // engaged units hold until the fight is settled or they're told to pull out
       if (isLocked(u)) continue;                // and nobody leaves on the first turn of a fight
       const nx = u.ord.p[0], c = edgeCost(u.z, nx, u.t);
@@ -1716,6 +1753,7 @@ function executeOrders(n) {
   syncCargo();
   // ranged hunters that reached their firing position open fire the same turn
   for (const u of G.units) if (u.o === n && u.chase != null && UT[u.t].rng && !u.ord && u.strike == null && !u.in && u.hp > 0) { const q = chaseTgt(u); if (q && !strikeBlock(u, q.z)) u.strike = q.z; }
+  for (const u of G.units) if (u.o === n && u.tz != null && u.chase == null && !u.ord && u.strike == null && !u.in && u.hp > 0 && !strikeBlock(u, u.tz)) u.strike = u.tz;
   if (n === G.player) for (const [z, k] of arrived) { ts().arrived += k; news("home", 1, `${k} unit${k > 1 ? "s" : ""} arrived at ${Z[z].n}.`, { z }); }
   return tick;
 }
@@ -2312,7 +2350,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.3 beta"; // early access playtest build
+const VERSION = "1.0.4 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -2518,7 +2556,7 @@ const UI = { sel: -1, lanes: { land: false, sea: false, air: false }, fog: true,
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let PB = null, animReq = 0, lastAmb = 0;
 const pingLive = () => UI.ping && performance.now() - UI.ping.t0 < 2600;
-const ambientNeeded = () => !!G && !REDUCED && (!!UI.move || !!UI.strike || pingLive() || G.units.some(u => u.o === G.player && u.ord));
+const ambientNeeded = () => !!G && !REDUCED && (!!UI.move || !!UI.strike || pingLive() || G.units.some(u => u.o === G.player && u.ord) || sensorsActive());
 function animLoop() {
   if (animReq) return;
   const step = now => {
@@ -2684,8 +2722,10 @@ function drawNow() {
     const l = LM[Z[e.z].lm]; if (!l) continue;
     ctx.save(); ctx.clip(l.path); ctx.fillStyle = hexA(C[e.o].color, .8 * (1 - k / 1.6)); ctx.fill(CELL[e.z].path); ctx.restore();
   }
+  if (G && !PB && UI.strike && UI.strike.far) { ctx.lineWidth = px * 1.3; ctx.setLineDash([px * 5, px * 4]); for (const [i] of UI.strike.far) { if (!overlap(CELL[i].bb, vb)) continue; ctx.fillStyle = "rgba(245,150,70,.16)"; ctx.fill(CELL[i].path); ctx.strokeStyle = "rgba(245,150,70,.85)"; ctx.stroke(CELL[i].path); } ctx.setLineDash([]); }
+  if (G && !PB && sensorsActive()) drawSensorCells(vb, px);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  if (G && PB) drawPlayback(vb); else if (G) { drawUnits(vb); drawFronts(vb); drawStrikeLines(); }
+  if (G && PB) drawPlayback(vb); else if (G) { drawUnits(vb); drawFronts(vb); drawStrikeLines(); if (sensorsActive()) drawSensorsScreen(); }
   if (pingLive()) {
     const k = (performance.now() - UI.ping.t0) / 2600, [x, y] = toScreen(Z[UI.ping.z].x, Z[UI.ping.z].y);
     for (let r = 0; r < 3; r++) { const q = (k * 2.2 - r * .3); if (q < 0 || q > 1) continue; ctx.strokeStyle = hexA(COL.signal, (1 - q) * (1 - k * .6)); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 8 + q * 46, 0, Math.PI * 2); ctx.stroke(); }
@@ -2754,6 +2794,63 @@ function drawLabels(vb) {
   }
   if (s > 6) for (const [n, x, y] of M.unalignedLabels) { const [sx, sy] = toScreen(x, y); label(n.toUpperCase(), sx, sy, `600 10.5px ${FONT_D}`, "rgba(170,182,198,0.55)", { halo: 0, track: 1.5, h: 11 }); }
   if (s > 40) for (const i of SEA_IDS) { const z = Z[i]; if (z.x < vb[0] || z.x > vb[2] || z.y < vb[1] || z.y > vb[3]) continue; const [x, y] = toScreen(z.x, z.y); label(z.n, x, y, `italic 500 11px ${FONT_B}`, "rgba(150,190,225,0.7)", { halo: 0, h: 12 }); }
+}
+// ---------- radar and sonar: coverage, sweeps and contacts, live while air or naval units are selected ----------
+function sensorsActive() {
+  if (!G || PB) return false;
+  if (UI.sensors) return true;
+  let ids = UI.move ? UI.move.ids : UI.strike ? UI.strike.ids : null;
+  if (!ids && sheetView && sheetView.type === "zone") ids = unitsAt(sheetView.arg).filter(u => u.o === G.player && !u.in && (!UI.pick || !UI.pick.size || UI.pick.has(u.id))).map(u => u.id);
+  if (!ids || !ids.length) return false;
+  return ids.some(id => { const u = G.units.find(v => v.id === id); return u && (UT[u.t].dom === "air" || isShipT(u.t)); });
+}
+let _sens = null;
+function sensorNet() {
+  if (_sens && _sens.v === stateVer && _sens.g === G) return _sens;
+  const P = G.player, radar = new Map(), sonar = new Map(), srcR = new Map(), srcS = new Map();
+  const spread = (src, r, into) => { const d = new Map([[src, 0]]); let fr = [src]; for (let k = 1; k <= r; k++) { const nx = []; for (const i of fr) for (const [j] of ADJ[i]) if (!d.has(j)) { d.set(j, k); nx.push(j); } fr = nx; } for (const [j, k] of d) if (!into.has(j) || into.get(j) > k) into.set(j, k); return d; };
+  for (const u of G.units) {
+    if (u.in || !friendly(P, u.o)) continue;
+    const T = UT[u.t], radarish = T.dom === "air" || isShipT(u.t) || u.t === "lrad";
+    if (radarish && T.det >= 1 && !(u.t === "ss")) { const r = T.det; if ((srcR.get(u.z) || 0) < r) srcR.set(u.z, r); }
+    if (T.sonar != null) { const r = Math.max(T.sonar, 0) + (u.t === "ss" ? 1 : 0); if ((srcS.get(u.z) ?? -1) < r) srcS.set(u.z, r); }
+  }
+  const cellsR = new Map(), cellsS = new Map(), rad = new Map();
+  for (const [z, r] of srcR) { const d = spread(z, r, cellsR); let m = 0; for (const j of d.keys()) m = Math.max(m, Math.hypot(Z[j].x - Z[z].x, Z[j].y - Z[z].y)); rad.set("r" + z, m + .3); }
+  for (const [z, r] of srcS) { const d = spread(z, r, cellsS); let m = 0; for (const j of d.keys()) m = Math.max(m, Math.hypot(Z[j].x - Z[z].x, Z[j].y - Z[z].y)); rad.set("s" + z, m + .3); }
+  const contacts = G.units.filter(v => !v.in && atWar(P, v.o) && (UT[v.t].dom === "air" || isShipT(v.t)) && ((v.t === "ss" ? cellsS.has(v.z) : cellsR.has(v.z)) && unitVisible(v)));
+  return (_sens = { v: stateVer, g: G, cellsR, cellsS, srcR, srcS, rad, contacts });
+}
+function drawSensorCells(vb, px) {
+  const N = sensorNet();
+  ctx.lineWidth = px;
+  for (const [i] of N.cellsR) { if (!overlap(CELL[i].bb, vb)) continue; ctx.fillStyle = "rgba(90,230,150,.08)"; ctx.fill(CELL[i].path); }
+  for (const [i] of N.cellsS) { if (isLand(i) || !overlap(CELL[i].bb, vb)) continue; ctx.fillStyle = "rgba(90,170,255,.10)"; ctx.fill(CELL[i].path); }
+}
+function drawSensorsScreen() {
+  const N = sensorNet(), now = performance.now(), s = cam.s;
+  for (const [z] of N.srcR) { // a rotating radar sweep from each radar cell
+    const [x, y] = toScreen(Z[z].x, Z[z].y), R = N.rad.get("r" + z) * s; if (R < 6) continue;
+    const a = ((now / 2600) + z * .37) % 1 * Math.PI * 2;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, R); g.addColorStop(0, "rgba(110,255,170,.28)"); g.addColorStop(1, "rgba(110,255,170,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, R, a - .55, a); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(110,255,170,.35)"; ctx.lineWidth = 1; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  }
+  for (const [z] of N.srcS) { // sonar pings ripple out from each sonar cell
+    const [x, y] = toScreen(Z[z].x, Z[z].y), R = Math.max(14, N.rad.get("s" + z) * s);
+    for (let k = 0; k < 2; k++) { const q = ((now / 1800) + k * .5 + z * .13) % 1; ctx.strokeStyle = `rgba(110,180,255,${.55 * (1 - q)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, R * q, 0, Math.PI * 2); ctx.stroke(); }
+  }
+  const pulse = (Math.sin(now / 260) + 1) / 2, byZ = new Map();
+  for (const v of N.contacts) (byZ.get(v.z) || byZ.set(v.z, []).get(v.z)).push(v);
+  for (const [z, vs] of byZ) {
+    const [x, y] = toScreen(Z[z].x, Z[z].y);
+    ctx.strokeStyle = `rgba(255,110,90,${.5 + .5 * pulse})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y - 4, 13 + pulse * 3, 0, Math.PI * 2); ctx.stroke();
+    const air = vs.filter(v => UT[v.t].dom === "air").length, sea = vs.filter(v => UT[v.t].dom === "sea").length, sub = vs.filter(v => v.t === "ss").length;
+    const txt = [air ? `${air} AIR` : "", sea ? `${sea} SEA` : "", sub ? `${sub} SUB` : ""].filter(Boolean).join(" · ");
+    ctx.font = `700 9.5px ${FONT_D}`; const w = ctx.measureText(txt).width + 10;
+    ctx.fillStyle = "rgba(40,8,8,.9)"; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - w / 2, y - 34, w, 14, 4) : ctx.rect(x - w / 2, y - 34, w, 14); ctx.fill();
+    ctx.fillStyle = "#ff8b7e"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(txt, x, y - 27);
+  }
 }
 // ---------- unit figures: the unit-card silhouettes, without the backdrop, in each side's colour ----------
 const SPRITES = new Map();
@@ -2933,6 +3030,7 @@ function drawExpanded(x, y, us, aff, own) {
 }
 function drawUnits(vb) {
   const s = cam.s, P = G.player;
+  UI.plates = [];
   const byZ = new Map();
   for (const u of G.units) {
     const z = Z[u.z]; if (z.x < vb[0] - 1 || z.x > vb[2] + 1 || z.y < vb[1] - 1 || z.y > vb[3] + 1) continue;
@@ -2947,7 +3045,7 @@ function drawUnits(vb) {
     const owners = [...m.keys()].sort((a, b) => rank(a) - rank(b));
     const yb = y0 + (isLand(z) && Z[z].t !== "prov" ? 20 : 4);
     if (s < 8) {
-      owners.forEach((o, i) => { const aff = affOf(o), x = x0 + i * 7, y = y0 + 9; ctx.fillStyle = COL[aff]; ctx.strokeStyle = "#0b1622"; ctx.lineWidth = 1.4; ctx.beginPath(); if (aff === "hostile") { ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); } else ctx.rect(x - 4, y - 4, 8, 8); ctx.fill(); ctx.stroke(); });
+      owners.forEach((o, i) => { const aff = affOf(o), x = x0 + i * 7, y = y0 + 9; UI.plates.push({ z, o, x0: x - 7, y0: y - 7, x1: x + 7, y1: y + 7 }); ctx.fillStyle = COL[aff]; ctx.strokeStyle = "#0b1622"; ctx.lineWidth = 1.4; ctx.beginPath(); if (aff === "hostile") { ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); } else ctx.rect(x - 4, y - 4, 8, 8); ctx.fill(); ctx.stroke(); });
       continue;
     }
     // sides spread out from the centre: you on the left, enemies on the right
@@ -2956,6 +3054,7 @@ function drawUnits(vb) {
       const x = x0 + (i - (n - 1) / 2) * gap, us = m.get(o), aff = affOf(o), own = o === P;
       const sel = UI.move && UI.move.zone === z && own;
       if (expanded) drawExpanded(x, yb - 6, us, aff, own); else drawPlate(x, yb, us, aff, own, cards, sel);
+      UI.plates.push(expanded ? { z, o, x0: x - 95, y0: yb - 32, x1: x + 95, y1: yb + 140 } : cards ? { z, o, x0: x - 30, y0: yb - 22, x1: x + 30, y1: yb + 52 } : { z, o, x0: x - 20, y0: yb - 20, x1: x + 20, y1: yb + 20 });
     });
   }
 }
@@ -3532,6 +3631,7 @@ const $ = id => document.getElementById(id);
 const sheet = $("sheet"), body = $("sheetBody");
 let sheetView = null; // {type, arg}
 function openSheet(html, view) {
+  setTimeout(() => { if (G && sensorsActive()) animLoop(); }, 0);
   sheetView = view || null;
   const same = view && UI._lastView && UI._lastView.type === view.type && UI._lastView.arg === view.arg;
   if (!same) UI.pend = null;
@@ -3820,6 +3920,7 @@ function showZone(i, refresh) {
     else if (u.drop != null) sub += ` · landing at ${esc(Z[u.drop].n)} at end of turn`;
     const l = leaderOf(u); if (l && l.z !== u.z) sub += ` · following ${UT[l.t].name} at ${esc(Z[l.z].n)}`;
     if (u.strike != null) sub += ` · <span class="fcast">firing on ${esc(Z[u.strike].n)}</span>`;
+    if (u.tz != null && u.chase == null) sub += ` · <b class="warn">strike mission on ${esc(Z[u.tz].n)}</b>`;
     if (u.chase != null) { const q = chaseTgt(u); if (q) sub += ` · <b class="warn">hunting ${esc(shortName(q.o))} ${esc(UT[q.t].name)}${q.z !== u.z ? ` at ${esc(Z[q.z].n)}` : ""}</b>`; }
     if (T.dom === "air" && !u.in) { if (atAirbase(u)) sub += ` · at base`; else { const bz = homeBase(u); sub += u.ord && u.ord.rtb ? ` · <b class="warn">returning to base on reserve</b>` : ` · airborne, burns ${fmt(T.fpm * 1.5, 0)} fuel a turn, returns to ${bz != null ? esc(Z[bz].n) : "base"} at 0%`; } }
     if (isLocked(u)) sub += ` · <b class="neg">locked in combat this turn</b>`;
@@ -3857,7 +3958,7 @@ function showZone(i, refresh) {
     const sel = myCombat.filter(u => pick && pick.has(u.id)), pool = sel.length ? sel : myCombat;
     const ordered = pool.filter(u => u.ord || u.chase != null).length;
     html += `${myCombatFree.length ? `<div class="section-title">${batIds.length ? "Other units" : "Your forces"} <small>commanders with their support</small></div><div class="rows">${myCombatFree.map(u => tree(u, 0)).join("")}</div>` : ""}
-      <div class="actions"><button class="btn primary" data-act="move" data-grp="combat">Order ${sel.length || "all"}</button>${pool.some(u => UT[u.t].rng && !isEngaged(u)) ? `<button class="btn" data-act="strike">Attack in range</button>` : ""}${pool.some(u => u.strike != null) ? `<button class="btn" data-act="ceasefire">Cease fire</button>` : ""}<button class="btn" data-act="targets">Targets</button>${sel.length === 1 ? `<button class="btn" data-codex="${sel[0].t}">Unit card</button>` : ""}${ordered ? `<button class="btn" data-act="cancelord" data-grp="combat">Cancel ${ordered} order${ordered > 1 ? "s" : ""}</button>` : ""}${loadBtns("combat", pool)}${pick ? '<button class="btn" data-act="clearpick">Clear selection</button>' : ""}</div>`;
+      <div class="actions"><button class="btn primary" data-act="move" data-grp="combat">Order ${sel.length || "all"}</button>${pool.some(u => UT[u.t].rng && !isEngaged(u)) ? `<button class="btn" data-act="strike">Attack in range</button>` : ""}${pool.some(u => u.strike != null || u.tz != null) ? `<button class="btn" data-act="ceasefire">Cease fire</button>` : ""}<button class="btn" data-act="targets">Targets</button>${sel.length === 1 ? `<button class="btn" data-codex="${sel[0].t}">Unit card</button>` : ""}${ordered ? `<button class="btn" data-act="cancelord" data-grp="combat">Cancel ${ordered} order${ordered > 1 ? "s" : ""}</button>` : ""}${loadBtns("combat", pool)}${pick ? '<button class="btn" data-act="clearpick">Clear selection</button>' : ""}</div>`;
   }
   if (formBtn) html += `<div class="actions">${formBtn}</div>`;
   const loose = mySup.filter(s => { const l = leaderOf(s); return (!l || l.z !== s.z) && !inBat(s); });
@@ -3922,7 +4023,7 @@ function showZone(i, refresh) {
     const combat = mine.filter(u => isCombatT(u.t)), sup = mine.filter(u => isPassiveT(u.t)), pk = UI.pick && UI.pick.size ? mine.filter(u => UI.pick.has(u.id)) : [];
     const pc = pk.filter(u => isCombatT(u.t)), pool = pc.length ? pc : combat;
     const n = pk.length, ranged = pool.some(u => UT[u.t].rng && !isEngaged(u));
-    const bar = `<div class="cmdbar"><div class="cmdhint">${n ? `<b>${n} selected</b> · tap units to add or remove` : `Tap units to pick some, or order them all`}</div><div class="cmdbtns">${combat.length ? `<button class="btn primary" data-act="move" data-grp="combat">Order ${pc.length || "all " + combat.length}</button>` : ""}${!combat.length && sup.length ? `<button class="btn primary" data-act="move" data-grp="support">Order ${pk.length || "all"} support</button>` : ""}${ranged ? `<button class="btn" data-act="strike">Attack in range</button>` : ""}${n ? `<button class="btn" data-act="clearpick">Clear</button>` : mine.length > 1 ? `<button class="btn" data-act="selall">Select all</button>` : ""}${combat.length ? `<button class="btn" data-act="targets">Targets</button>` : ""}</div></div>`;
+    const bar = `<div class="cmdbar"><div class="cmdhint">${n ? `<b>${n} selected</b> · tap units to add or remove` : `Tap units to pick some, or order them all`}</div><div class="cmdbtns">${combat.length ? `<button class="btn primary" data-act="move" data-grp="combat">Order ${pc.length || "all " + combat.length}</button>` : ""}${!combat.length && sup.length ? `<button class="btn primary" data-act="move" data-grp="support">Order ${pk.length || "all"} support</button>` : ""}${ranged ? `<button class="btn" data-act="strike">Attack in range</button>` : ""}${n ? `<button class="btn" data-act="clearpick">Clear</button>` : mine.length > 1 ? `<button class="btn" data-act="selall">Select all</button>` : ""}${combat.length ? `<button class="btn" data-act="targets">Targets</button>` : ""}${formBtn || ""}</div>${batIds.length ? `<div class="cmdbats">${batIds.map(id => { const sel = UI.pick && mine.filter(u => u.bat === id).every(u => UI.pick.has(u.id)); return `<button class="bchip${sel ? " on" : ""}" data-batsel="${id}"><span class="ech">${batIndex().get(id).type.ech}</span>${esc(batName(id))}</button>`; }).join("")}</div>` : ""}</div>`;
     html = html.replace("<!--CMDBAR-->", bar);
   }
   openSheet(html, { type: "zone", arg: i });
@@ -3952,29 +4053,48 @@ function startStrike(zone) {
     if (strikeBlock(u, z) || !strikeable(u, z)) continue;
     if (!reachZ.has(z) || reachZ.get(z) > h) reachZ.set(z, h);
   }
-  if (!reachZ.size) { toast(`No targets you can see within range. ${[...new Set(us.map(u => u.t))].map(t => `${UT[t].name}: ${UT[t].rng} cell${UT[t].rng > 1 ? "s" : ""}`).join(" · ")}.`); return; }
-  UI.move = null; UI.strike = { zone, ids: us.map(u => u.id), reach: reachZ };
+  // beyond range: enemy cells the units can close on (aircraft fly out, ships sail, guns drive), within a few turns
+  const far = new Map(), V2 = playerVis().vis, depth = Math.max(...us.map(u => UT[u.t].rng + (UT[u.t].dom === "air" ? 6 : 4)));
+  { const d = new Map([[zone, 0]]); let fr = [zone];
+    for (let k = 1; k <= depth; k++) { const nx = []; for (const i of fr) for (const [j] of ADJ[i]) if (!d.has(j)) { d.set(j, k); nx.push(j); } fr = nx; }
+    for (const [z, k] of d) { if (reachZ.has(z) || z === zone) continue; const { foes, blds } = strikeTargets(P, z); if ((V2[z] && foes.some(unitVisible)) || ((blds || foes.length) && us.some(u => UT[u.t].dom === "air") && isLand(z) && atWar(P, G.owner[z]))) far.set(z, k); } }
+  if (!reachZ.size && !far.size) { toast(`No enemy targets within reach. ${[...new Set(us.map(u => u.t))].map(t => `${UT[t].name}: fires ${UT[t].rng} cell${UT[t].rng > 1 ? "s" : ""}`).join(" · ")}.`); return; }
+  UI.move = null; UI.strike = { zone, ids: us.map(u => u.id), reach: reachZ, far };
   closeSheet();
   $("modeBanner").hidden = false;
   $("modeText").textContent = `Attack with ${us.length} unit${us.length > 1 ? "s" : ""}: tap a red cell. ${us.some(u => UT[u.t].dom === "air") ? "Aircraft can fly attack runs into any enemy cell in range, seen or not." : "Only cells in range with targets you can see are marked."}`;
   draw();
 }
-function showStrikePreview(z, ids) {
-  const P = G.player, us = ids.map(id => G.units.find(u => u.id === id)).filter(u => u && !strikeBlock(u, z));
-  const { foes, blds } = strikeTargets(P, z), vf = foes.filter(unitVisible);
-  let tot = 0, aa = 0, kills = 0;
-  const rows = us.map(u => {
-    const pv = playerVis().vis[z] ? strikePreview(u, z, vf, blds) : { dmg: 0, aa: 0, tgt: "", kill: false };
-    if (!pv) return `<div class="row unit">${symCanvas(u.t)}<div class="t"><span>${UT[u.t].name}</span></div><div class="s">nothing here it can hurt</div></div>`;
-    tot += pv.dmg; aa += pv.aa; if (pv.kill) kills++;
-    if (!playerVis().vis[z]) return `<div class="row unit">${symCanvas(u.t)}<div class="t"><span>${UT[u.t].name}</span></div><div class="s">attack run into a cell you can't see: it hits whatever it finds${UT[u.t].dom === "air" ? ` · fuel −${UT[u.t].fpm * strikeZones(u).get(z) * 2}` : ""}</div></div>`;
-    return `<div class="row unit">${symCanvas(u.t)}<div class="t"><span>${UT[u.t].name}</span></div><div class="s"><span class="fcast">→ ~${Math.round(pv.dmg)} to ${esc(pv.tgt)}${pv.kill ? " (likely destroyed)" : ""}</span>${pv.aa ? ` · takes ~${Math.round(pv.aa)} from air defence` : ""}${UT[u.t].dom === "air" ? ` · fuel −${UT[u.t].fpm * strikeZones(u).get(z) * 2}` : ""}</div></div>`;
+const SPRI_OPTS = [["auto", "Auto"], ["armor", "Armour"], ["inf", "Infantry"], ["ship", "Ships"], ["air", "Aircraft"], ["support", "Supply"], ["struct", "Buildings"]];
+function showStrikePreview(z, ids, spri) {
+  const P = G.player, all = ids.map(id => G.units.find(u => u.id === id)).filter(Boolean);
+  spri = spri || (sheetView && sheetView.type === "strikeprev" && sheetView.arg.z === z ? sheetView.arg.spri : null) || all.find(u => u.spri) && all.find(u => u.spri).spri || "auto";
+  const { foes, blds } = strikeTargets(P, z), vf = foes.filter(unitVisible), seen = playerVis().vis[z];
+  let tot = 0, aa = 0, kills = 0, now = 0, later = 0;
+  const rows = all.map(u => {
+    const why = strikeBlock(u, z), keep = u.spri; u.spri = spri;
+    let row;
+    if (!why) {
+      now++;
+      const pv = seen ? strikePreview(u, z, vf, blds) : null;
+      if (seen && !pv) row = `<div class="s">nothing here it can hurt</div>`;
+      else if (!seen) row = `<div class="s">attack run into a cell you can't see: it hits whatever it finds</div>`;
+      else { tot += pv.dmg; aa += pv.aa; if (pv.kill) kills++; row = `<div class="s"><span class="fcast">→ ~${Math.round(pv.dmg)} to ${esc(pv.tgt)}${pv.kill ? " (likely destroyed)" : ""}</span>${pv.aa ? ` · takes ~${Math.round(pv.aa)} from air defence` : ""}</div>`; }
+    } else if (why === "is out of range") {
+      const fp = firingPosition(u, z);
+      if (fp) { later++; const e = eta(u, fp.p).turns; row = `<div class="s">${UT[u.t].dom === "air" ? "flies" : isShipT(u.t) ? "sails" : "moves"} into range (${e === 1 ? "this turn" : `about ${e} turns`}), then strikes every turn${UT[u.t].dom === "air" ? ", refuelling at base between sorties" : ""}</div>`; }
+      else row = `<div class="s" style="color:var(--bad)">can't reach a firing position</div>`;
+    } else if (why === "lacks the fuel for the round trip" && UT[u.t].dom === "air") { later++; row = `<div class="s">refuels at base first, then flies the strike</div>`; }
+    else row = `<div class="s" style="color:var(--bad)">${esc(why)}</div>`;
+    u.spri = keep;
+    return `<div class="row unit">${symCanvas(u.t)}<div class="t"><span>${UT[u.t].name}</span></div>${row}</div>`;
   }).join("");
-  openSheet(`<div class="eyebrow"><span class="pill st-W">Ranged attack</span><span class="pill">${us.length} unit${us.length > 1 ? "s" : ""}</span></div><h2>Fire on ${esc(Z[z].n)}</h2>
-    <p class="note" style="margin-top:4px">Ranged fire lands at the end of the turn, before the cells fight, and repeats every turn until the target is clear, the unit runs dry, or you cease fire. Each unit picks its target by its priority list.</p>
+  openSheet(`<div class="eyebrow"><span class="pill st-W">${now ? "Ranged attack" : "Strike mission"}</span><span class="pill">${all.length} unit${all.length > 1 ? "s" : ""}</span></div><h2>Strike ${esc(Z[z].n)}</h2>
+    <div class="section-title">Hit first</div><div class="seg">${SPRI_OPTS.map(([k, n]) => `<button data-spri="${k}" aria-pressed="${spri === k}">${n}</button>`).join("")}</div>
+    <p class="note" style="margin-top:6px">${spri === "auto" ? "Auto: jets go for tanks, ships, troops and supply before enemy aircraft; guns follow each unit's target priorities." : `Each attacker goes for ${SPRI_OPTS.find(o => o[0] === spri)[1].toLowerCase()} first, then its usual targets.`} Strikes land at the end of the turn and repeat every turn until there's nothing left to hit or you cease fire.</p>
     <div class="rows" style="margin-top:10px">${rows}</div>
-    <div class="fcbox"><p>Expected this turn: <b>~${Math.round(tot)}</b> damage${kills ? `, ${kills} likely kill${kills > 1 ? "s" : ""}` : ""}.</p>${aa ? `<p class="bad">Your aircraft would take about ${Math.round(aa)} damage from air defences.</p>` : ""}</div>
-    <div class="actions"><button class="btn primary" data-strikego="1" ${us.length ? "" : "disabled"}>Fire</button><button class="btn" data-strikeno="1">Cancel</button></div>`, { type: "strikeprev", arg: { z, ids } });
+    <div class="fcbox"><p>${now ? `This turn: <b>~${Math.round(tot)}</b> damage${kills ? `, ${kills} likely kill${kills > 1 ? "s" : ""}` : ""}.` : "Nothing in range yet."}${later ? ` ${later} more on the way.` : ""}</p>${aa ? `<p class="bad">Your aircraft would take about ${Math.round(aa)} damage from air defences.</p>` : ""}</div>
+    <div class="actions"><button class="btn primary" data-strikego="1" ${now + later ? "" : "disabled"}>${now && !later ? "Fire" : "Launch strike"}</button><button class="btn" data-strikeno="1">Cancel</button></div>`, { type: "strikeprev", arg: { z, ids, spri } });
 }
 function showAttackPreview(z, ids) {
   const P = G.player, movers = ids.map(id => G.units.find(u => u.id === id)).filter(Boolean);
@@ -4087,13 +4207,14 @@ body.addEventListener("click", e => {
   }
   if (b.dataset.act === "strike") { startStrike(sheetView.arg); return; }
   if (b.dataset.act === "retreat") { UI.pick = null; startMove(sheetView.arg, "all"); return; }
-  if (b.dataset.act === "ceasefire") { const pk = UI.pick && UI.pick.size ? UI.pick : null; let k = 0; unitsAt(sheetView.arg).forEach(u => { if (u.o === P && u.strike != null && (!pk || pk.has(u.id))) { u.strike = null; k++; } }); toast(`${k} unit${k > 1 ? "s" : ""} ceased fire.`); refreshSheet(); draw(); save(); return; }
+  if (b.dataset.act === "ceasefire") { const pk = UI.pick && UI.pick.size ? UI.pick : null; let k = 0; unitsAt(sheetView.arg).forEach(u => { if (u.o === P && (u.strike != null || u.tz != null) && (!pk || pk.has(u.id))) { u.strike = null; u.tz = null; k++; } }); toast(`${k} unit${k > 1 ? "s" : ""} ceased fire.`); refreshSheet(); draw(); save(); return; }
   if (b.dataset.act === "targets") { const pk = UI.pick && UI.pick.size ? UI.pick : null; let us = unitsAt(sheetView.arg).filter(u => u.o === P && isCombatT(u.t) && (!pk || pk.has(u.id))); if (!us.length) us = unitsAt(sheetView.arg).filter(u => u.o === P && isCombatT(u.t)); if (!us.length) { toast("No combat units of yours here."); return; } showTargets({ ids: us.map(u => u.id), z: sheetView.arg }); return; }
   if (b.dataset.tgt) { const c = b.dataset.tgt; sheetView.arg.ids.forEach(id => { const u = G.units.find(x => x.id === id); if (u) u.pri = [c, ...priOf(u).filter(x => x !== c)]; }); refreshSheet(); save(); return; }
   if (b.dataset.tgtreset) { sheetView.arg.ids.forEach(id => { const u = G.units.find(x => x.id === id); if (u) delete u.pri; }); refreshSheet(); save(); return; }
   if (b.dataset.tgtdone) { const z = sheetView.arg.z; UI.pick = null; showZone(z); return; }
   if (b.dataset.strikein != null) { const z = +b.dataset.strikein; showStrikePreview(z, strikersFor(z).map(u => u.id)); return; }
-  if (b.dataset.strikego) { const { z, ids } = sheetView.arg; let k = 0; ids.forEach(id => { const u = G.units.find(x => x.id === id); if (u && !strikeBlock(u, z)) { u.strike = z; k++; } }); endMove(); closeSheet(); toast(k ? `${k} unit${k > 1 ? "s" : ""} will fire on ${Z[z].n} at the end of the turn.` : "None of those units can fire there now."); draw(); save(); return; }
+  if (b.dataset.spri) { const { z, ids } = sheetView.arg; showStrikePreview(z, ids, b.dataset.spri); return; }
+  if (b.dataset.strikego) { const { z, ids, spri } = sheetView.arg; let k = 0, f = 0; ids.forEach(id => { const u = G.units.find(x => x.id === id); if (!u) return; u.spri = spri; u.chase = null; u.tz = z; const r = planMission(u); if (r) { k++; if (r === "fire") f++; } else u.tz = null; }); endMove(); closeSheet(); toast(k ? `${k} unit${k > 1 ? "s" : ""} on a strike mission against ${Z[z].n}.${f ? ` ${f} firing this turn.` : ""}${k > f ? ` ${k - f} closing to range.` : ""} They keep striking until it's clear or you cease fire.` : "None of these units can reach that target."); draw(); save(); return; }
   if (b.dataset.strikeno) { closeSheet(); return; }
   if (b.dataset.atkgo) { const { z, ids } = sheetView.arg; closeSheet(); const us = ids.map(id => G.units.find(u => u.id === id)).filter(Boolean), q = chaseQuarry(z); if (q) orderChase(us, q, z); else orderMove(z, us); return; }
   if (b.dataset.atkno) { closeSheet(); return; }
@@ -4133,8 +4254,9 @@ body.addEventListener("click", e => {
   if (b.dataset.pickunit) { const u = G.units.find(v => v.id === +b.dataset.pickunit); if (u) { UI.pick = new Set([u.id]); const zz = Z[u.z]; flyTo({ x: zz.x, y: zz.y, s: Math.max(cam.s, 22) }); showZone(u.z); } return; }
   if (b.dataset.act === "clearpick") { UI.pick = null; refreshSheet(); return; }
   if (b.dataset.act === "selall") { UI.pick = new Set(unitsAt(sheetView.arg).filter(u => u.o === P && !u.in).map(u => u.id)); refreshSheet(); return; }
-  if (b.dataset.act === "cancelord") { const sel = UI.pick && UI.pick.size, grp = b.dataset.grp; unitsAt(sheetView.arg).forEach(u => { if (u.o === P && (grp === "support" ? isPassiveT(u.t) : isCombatT(u.t)) && (!sel || UI.pick.has(u.id))) { u.ord = null; u.drop = null; u.chase = null; } }); toast("Orders cancelled."); draw(); refreshSheet(); save(); return; }
+  if (b.dataset.act === "cancelord") { const sel = UI.pick && UI.pick.size, grp = b.dataset.grp; unitsAt(sheetView.arg).forEach(u => { if (u.o === P && (grp === "support" ? isPassiveT(u.t) : isCombatT(u.t)) && (!sel || UI.pick.has(u.id))) { u.ord = null; u.drop = null; u.chase = null; u.tz = null; } }); toast("Orders cancelled."); draw(); refreshSheet(); save(); return; }
   if (b.dataset.infra) { UI.infra = !UI.infra; draw(); showLayers(null, true); return; }
+  if (b.dataset.sens) { UI.sensors = !UI.sensors; draw(); showLayers(null, true); return; }
   if (b.dataset.supl) { UI.supplyLayer = !UI.supplyLayer; draw(); showLayers(null, true); return; }
   if (b.dataset.confirm) { applyPending(); return; }
   if (b.dataset.cancel) { UI.pend = null; refreshSheet(); return; }
@@ -4334,6 +4456,7 @@ function showLayers() {
     <div class="toggle-row"><span><b>Air lanes</b> · every connection</span>${sw(UI.lanes.air, 'data-lane="air" aria-label="Air lanes"')}</div>
         <div class="toggle-row"><span><b>Fog of war</b> · hide what you can't see</span>${sw(UI.fog, 'data-fogt="1" aria-label="Fog of war"')}</div>
     <div class="toggle-row"><span><b>Resources & infrastructure</b> · deposits, mines, wells, depots</span>${sw(UI.infra, 'data-infra="1" aria-label="Resources and infrastructure"')}</div>
+    <div class="toggle-row"><span><b>Radar & sonar</b> · always on (otherwise only while air or naval units are selected)</span>${sw(!!UI.sensors, 'data-sens="1" aria-label="Radar and sonar"')}</div>
     <div class="toggle-row"><span><b>Supply network</b> · where units get fuel and ammo</span>${sw(UI.supplyLayer, 'data-supl="1" aria-label="Supply network"')}</div>
     <div class="legend"><i style="background:#1b1f24;border:2px dashed #7d93ab"></i><span>Untapped deposit (dark = oil, grey = ore). Zoom in for building icons.</span>
       <i style="background:#0b1622;border:2px solid var(--signal)"></i><span>Built: mine, oil well, factory, depot, airbase, defences, hospital</span>
@@ -4811,6 +4934,14 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.4 beta", date: "31 Oct 2026", items: [
+    "Strike missions: Attack in range now also shows targets beyond reach (orange). Aircraft fly out to striking distance, hit it, return to base to refuel and go again, every other turn, until the target's clear. Ships and artillery move into range the same way. This fixes jets that seemed to do nothing on distant targets like Singapore.",
+    "Hit first: the strike screen lets you choose what to go for (armour, infantry, ships, aircraft, supply, buildings). By default jets on a strike now go for tanks, ships, troops and supply before enemy aircraft.",
+    "Air defences saturate: each extra aircraft striking the same cell in a turn faces less anti-aircraft fire, so big strike packages no longer get shredded one by one.",
+    "Radar and sonar: select air or naval units and their radar coverage (with a sweep), sonar rings and enemy contacts (AIR / SEA / SUB) appear on the map. Turn it on permanently under Layers.",
+    "Tap a unit's tag to pick its cell; while giving orders, tap an enemy's tag to hunt it.",
+    "Command bar: battalions in the cell appear as quick-select chips, and Form battalion sits on the bar.",
+  ] },
   { v: "1.0.3 beta", date: "31 Oct 2026", items: [
     "Command bar: Order, Attack in range, Select all and Targets now sit at the top of every cell panel and stay there while you scroll. No more hunting for the move button.",
     "Quick select: in the Army panel, tap any unit's icon to jump to it with that unit selected, ready to order. Select all and Clear on the command bar.",
@@ -4860,6 +4991,7 @@ const TIPS = {
 const tipsSeen = (() => { try { return JSON.parse(localStorage.getItem("prww3-tips") || "{}"); } catch (e) { return {}; } })();
 function showTip(k, tries = 0) {
   if (!G || G.tutorial || TUT.on || tipsSeen[k] || tipsSeen._off) return;
+  if (k === "start" && (tipsSeen.cell || UI.move || UI.strike)) { tipsSeen.start = 1; return; } // they've already found their way in
   if (k === "start" && (PB || sheet.classList.contains("open"))) { if (tries < 90) setTimeout(() => showTip(k, tries + 1), 1000); return; } // wait until the opening report is closed
   if (PB) return;
   const T = TIPS[k]; if (!T) return;
@@ -4874,7 +5006,7 @@ function showTip(k, tries = 0) {
 // ---------- tutorial: a very basic guided first turn ----------
 // Edit TUTORIAL_STEPS to grow it each patch. A step with done() advances by itself when the player does the thing;
 // a step without one shows a Next button. ping() returns a cell to highlight.
-const TUTORIAL_UPDATED = "1.0.3 beta";
+const TUTORIAL_UPDATED = "1.0.4 beta";
 const TUT_NATION = "AU";
 const TUTORIAL_STEPS = [
   { title: "Welcome, Commander", text: "You lead Australia in a war for the Pacific. Win by holding 30% of the region's victory points: capitals, cities and provinces. This practice game walks you through the basics." },
@@ -4886,7 +5018,7 @@ const TUTORIAL_STEPS = [
   { title: "Build something", text: "Tap one of your provinces and, under Construction, add Roads or a Factory. Buildings go up over a few turns and level up to 5.", done: () => G.queue.some(q => q.n === G.player && q.kind !== "u") },
   { title: "Your army", text: "Tap Army in the dock to see every unit you own. Tap any unit's icon to jump straight to it, selected and ready to order.", done: () => TUT.saw.army },
   { title: "Diplomacy", text: "Tap Diplomacy. Every nation starts neutral: you can sign pacts, send aid, form alliances, or declare war.", done: () => TUT.saw.dip },
-  { title: "Going to war", text: "Once at war, tap your units, tap Order, then tap an enemy. Your units hunt it down: ships and artillery stop in range and fire." },
+  { title: "Going to war", text: "Once at war, tap your units, tap Order, then tap an enemy or its tag: your units hunt it down. For aircraft, ships and artillery, Attack in range shows red cells they can hit now and orange ones they'll fly or sail out to strike." },
   { title: "You're ready", text: "That's the basics. The Units tab has a card for every unit, and Patch notes show what's new. Keep practising here, or head back and start a real campaign.", end: true },
 ];
 const TUT = { on: false, i: 0, saw: {}, timer: 0 };
@@ -5114,12 +5246,20 @@ function showSetup(ci) {
 function afterStart() { homeView(true); updateHud(); draw(); setTimeout(() => showReports("last"), 300); setTimeout(() => { if (G && G.turn <= 2) showTip("start"); }, 1600); }
 
 // ---------- taps ----------
+function plateAt(sx, sy) { const L = UI.plates || []; for (let k = L.length - 1; k >= 0; k--) { const p = L[k]; if (sx >= p.x0 && sx <= p.x1 && sy >= p.y0 && sy <= p.y1) return p; } return null; }
 function onTap(sx, sy) {
   if (!G) return;
   const [x, y] = toWorld(sx, sy);
-  const hit = zoneAt(x, y);
+  const tag = PB ? null : plateAt(sx, sy);
+  let hit = zoneAt(x, y);
+  if (tag && (!UI.move || tag.o !== G.player)) hit = { kind: "zone", id: tag.z }; // a unit's tag counts as its cell
+  if (tag && UI.move && atWar(G.player, tag.o)) { // tapping an enemy's tag while giving orders: hunt that nation's best unit there
+    const units = UI.move.ids.map(id => G.units.find(u => u.id === id)).filter(Boolean);
+    const q = unitsAt(tag.z).filter(u => u.o === tag.o && unitVisible(u)).sort((a, b) => (isCombatT(b.t) - isCombatT(a.t)) || sig(b.t) - sig(a.t))[0];
+    if (q && units.some(u => isCombatT(u.t))) { orderChase(units, q, tag.z); return; }
+  }
   if (UI.strike) {
-    if (hit.kind === "zone" && UI.strike.reach.has(hit.id)) showStrikePreview(hit.id, UI.strike.ids);
+    if (hit.kind === "zone" && (UI.strike.reach.has(hit.id) || (UI.strike.far && UI.strike.far.has(hit.id)))) showStrikePreview(hit.id, UI.strike.ids);
     else toast("Out of range, or nothing there you can see to hit. Red cells are valid targets.");
     return;
   }
@@ -5127,7 +5267,7 @@ function onTap(sx, sy) {
     if (hit.kind !== "zone") { toast(`${hit.name} is unaligned. No unit can enter it.`); return; }
     const i = hit.id;
     const units = UI.move.ids.map(id => G.units.find(u => u.id === id)).filter(Boolean);
-    if (i === UI.move.zone) { units.forEach(u => { u.ord = null; u.drop = null; u.chase = null; }); toast("Orders cleared. These units will hold."); endMove(); save(); return; }
+    if (i === UI.move.zone) { units.forEach(u => { u.ord = null; u.drop = null; u.chase = null; u.tz = null; }); toast("Orders cleared. These units will hold."); endMove(); save(); return; }
     const P = G.player;
     if (isLand(i)) { const o = G.owner[i]; if (o !== P && !friendly(P, o) && !atWar(P, o)) { toast(`${shortName(o)} is neutral. Declare war or sign an alliance to enter.`); return; } }
     if (units.some(u => isCombatT(u.t)) && unitsAt(i).some(u => atWar(P, u.o) && unitVisible(u))) { const q = chaseQuarry(i); if (q) { orderChase(units, q, i); return; } showAttackPreview(i, UI.move.ids); return; }
@@ -5220,6 +5360,6 @@ const fontsP = document.fonts && document.fonts.load ? Promise.all([document.fon
 fontsP.catch(() => {}).finally(() => { fontsReady = true; draw(); });
 setTimeout(() => { fontsReady = true; draw(); }, 1500);
 // test hook (harmless in play)
-window.__prw = { get G() { return G; }, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, get UI() { return UI; }, get stateVer() { return stateVer; } };
+window.__prw = { get G() { return G; }, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; } };
 })();
 </script>
