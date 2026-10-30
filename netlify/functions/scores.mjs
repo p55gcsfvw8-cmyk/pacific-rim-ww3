@@ -1,7 +1,7 @@
 // Online leaderboard.
 // GET  /api/scores?top=N  -> top N campaigns by score (default 20, max 100)
 // POST /api/scores        -> submit or update one campaign's score {gid, name, nation, score, turn, result, vp, v}
-import { store, cleanName, cleanId, int, json, readBody, readAll, logEvent, NATIONS, RESULTS } from "./_shared.mjs";
+import { store, cleanName, cleanId, int, json, readBody, readAll, logEvent, NATIONS, RESULTS } from "../lib/shared.mjs";
 
 const NATION_NAME = { CN: "China", JP: "Japan", KR: "South Korea", KP: "North Korea", TW: "Taiwan", PH: "the Philippines", VN: "Vietnam", TH: "Thailand", MY: "Malaysia", SG: "Singapore", ID: "Indonesia", PG: "Papua New Guinea", AU: "Australia", NZ: "New Zealand", FJ: "Fiji", US: "the United States" };
 

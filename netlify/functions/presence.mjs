@@ -1,7 +1,7 @@
 // Players online and the activity log.
 // POST /api/presence  -> heartbeat {did, name, nation, turn, view} every minute while the game is open
 // GET  /api/presence  -> { online: [...], feed: [...] }
-import { store, cleanName, cleanId, int, json, readBody, logEvent, recentFeed, NATIONS, ONLINE_MS } from "./_shared.mjs";
+import { store, cleanName, cleanId, int, json, readBody, logEvent, recentFeed, NATIONS, ONLINE_MS } from "../lib/shared.mjs";
 
 export default async (req) => {
   const s = store();

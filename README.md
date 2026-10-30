@@ -16,7 +16,7 @@ Turn-based grand strategy across the Asia-Pacific, played in a phone browser. Si
 | `netlify.toml` | Deploy settings: publish `site/`, no build command, no caching. |
 | `netlify/functions/scores.mjs` | Online leaderboard API: `GET /api/scores?top=N`, `POST /api/scores`. |
 | `netlify/functions/presence.mjs` | Players online + activity log: `POST /api/presence` heartbeat, `GET /api/presence`. |
-| `netlify/functions/_shared.mjs` | Validation and Netlify Blobs helpers (store `prww3`: `scores/`, `presence/`, `feed/` keys). |
+| `netlify/lib/shared.mjs` | Validation and Netlify Blobs helpers (store `prww3`: `scores/`, `presence/`, `feed/` keys). |
 
 ## Patch workflow
 
