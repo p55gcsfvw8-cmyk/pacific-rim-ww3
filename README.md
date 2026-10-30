@@ -14,6 +14,9 @@ Turn-based grand strategy across the Asia-Pacific, played in a phone browser. Si
 | `src/map.json` | The map: 1,451 cells (722 land, 729 sea), lanes, borders, labels. |
 | `build.py` | Builds `site/index.html` (web) and `dist/claude-artifact.html` (Claude artifact) from `src/`. |
 | `netlify.toml` | Deploy settings: publish `site/`, no build command, no caching. |
+| `netlify/functions/scores.mjs` | Online leaderboard API: `GET /api/scores?top=N`, `POST /api/scores`. |
+| `netlify/functions/presence.mjs` | Players online + activity log: `POST /api/presence` heartbeat, `GET /api/presence`. |
+| `netlify/functions/_shared.mjs` | Validation and Netlify Blobs helpers (store `prww3`: `scores/`, `presence/`, `feed/` keys). |
 
 ## Patch workflow
 

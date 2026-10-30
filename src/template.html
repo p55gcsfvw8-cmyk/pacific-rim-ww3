@@ -197,6 +197,21 @@ button.row { cursor: pointer; }
 .menu .btn.big span { font-size: 16px; font-weight: 700; }
 .menu .btn.big small { font-size: 12px; opacity: .78; font-weight: 500; text-transform: none; letter-spacing: 0; }
 .menu-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.coach { position: fixed; left: 50%; transform: translateX(-50%); width: min(92vw, 460px); top: 200px; z-index: 46; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(245,184,74,.55); background: rgba(10,22,38,.96); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+.coach[hidden] { display: none; }
+.coach .ch { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.coach b { display: block; margin-top: 8px; font-family: var(--f-display); font-size: 15px; letter-spacing: .04em; color: var(--signal); text-transform: uppercase; }
+.coach p { margin: 4px 0 0; font-size: 14px; line-height: 1.45; color: var(--ink); }
+.coach .actions { margin-top: 10px; display: flex; gap: 8px; align-items: center; }
+.coach .actions .note { margin: 0; }
+.online-chip { margin-top: 12px; display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: rgba(12,26,42,.85); color: var(--ink); font: 600 13px var(--f-body); cursor: pointer; }
+.online-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: #7ddc8b; box-shadow: 0 0 0 3px rgba(125,220,139,.2); }
+.online-chip .dot.off { background: #6b7c8f; box-shadow: none; }
+.btn.has-new { position: relative; }
+.btn.has-new::after { content: "NEW"; position: absolute; top: -7px; right: -6px; padding: 1px 6px; border-radius: 6px; background: #ff7b6b; color: #1a0b08; font: 700 10px var(--f-display); letter-spacing: .06em; }
+.notes { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; }
+.bugbox h3.nv { margin: 14px 0 0; font-family: var(--f-display); font-size: 14px; } .bugbox h3.nv small { color: var(--muted); font-weight: 500; }
+.feed p { margin: 0; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 13.5px; line-height: 1.4; } .feed p span { display: block; color: var(--muted); font-size: 11.5px; }
 .ea { margin-top: 16px; padding: 10px 12px; border-radius: 12px; border: 1px dashed rgba(245,184,74,.5); background: rgba(245,184,74,.06); display: grid; gap: 3px; }
 .ea b { font-family: var(--f-display); font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--signal); }
 .ea span { font-size: 13px; color: var(--muted); line-height: 1.45; }
@@ -396,6 +411,7 @@ canvas.fig { width: 52px; height: 26px; flex: none; margin-left: auto; }
     </nav>
   </div>
 
+  <div class="coach glass" id="coach" hidden role="dialog" aria-label="Tutorial"></div>
   <div class="mode-banner" id="modeBanner" hidden><span id="modeText"></span><button id="modeExit">Done</button></div>
   <div class="mode-banner" id="pbBanner" hidden><span id="pbText">Resolving turn…</span><span class="pbbar"><i id="pbBar"></i></span><button id="pbNext" aria-label="Next event">Next</button><button id="pbRate" aria-label="Playback speed">1×</button><button id="pbSkip">Skip</button></div>
   <div class="ticker" id="ticker" hidden role="button" aria-label="Open the turn report"><span class="tag">PRN LIVE</span><div class="track"><div class="run" id="tickerRun"></div></div></div>
@@ -2258,7 +2274,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.1 beta"; // early access playtest build
+const VERSION = "1.0.2 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -2283,7 +2299,7 @@ function reviveSave(s) {
 }
 function saveJson() { G.savedAt = Date.now(); return JSON.stringify({ ...G, owner: Array.from(G.owner) }); }
 function save() {
-  if (!G) return;
+  if (!G || G.tutorial) return;
   let json; try { json = saveJson(); } catch (e) { return; }
   try { localStorage.setItem(saveKeyFor(USER), json); } catch (e) { if (!UI.saveWarned) { UI.saveWarned = true; toast("This browser's storage is full, so the game couldn't be saved here. Clear some site data to keep saving."); } }
   if (USER) { PROF.meta[slugOf(USER)] = { n: C[G.player].code, turn: G.turn, at: G.savedAt }; profStore(); recordScore(); }
@@ -4071,8 +4087,10 @@ body.addEventListener("click", e => {
   if (b.dataset.z) { const z = +b.dataset.z; showZone(z); flyTo({ x: Z[z].x, y: Z[z].y - 40 / Math.max(cam.s, 22), s: Math.max(cam.s, isLand(z) ? 22 : 14) }); return; }
   if (b.dataset.newgame) { G = null; showTitle(); return; }
   if (b.dataset.bug) { showBugReport(); return; }
+  if (b.dataset.notes) { showPatchNotes(); return; }
+  if (b.dataset.online) { showOnline(); return; }
   if (b.dataset.dlsave) { downloadSave().then(ok => toast(ok ? "Save file ready." : "The save file wasn't downloaded.")); return; }
-  if (b.dataset.mainmenu) { save(); cloudFlush(); G = null; PB = null; showTitle(); return; }
+  if (b.dataset.mainmenu) { save(); cloudFlush(); if (TUT.on) endTutorial(false); G = null; PB = null; showTitle(); return; }
 });
 
 // ---------- confirmations ----------
@@ -4188,7 +4206,7 @@ function showGov(_, refresh) {
     <dl class="stats"><div><dt>Stability</dt><dd>${Math.round(N.stab)}%<small> →${Math.round(gm.stab)}</small></dd></div><div><dt>War support</dt><dd>${Math.round(N.ws)}%</dd></div><div><dt>Provinces</dt><dd>${econ(P).prov}</dd></div></dl>
     <div class="actions"><button class="btn" data-res-open="econ" id="econBtn">Economy & market</button>${N.cap >= 0 ? `<button class="btn" data-goto="${N.cap}">Go to capital</button>` : ""}</div>
     ${(() => { const s = scoreParts(); return `<div class="fx" style="margin-top:8px">Score <b>${s.total.toLocaleString()}</b> · territory ${s.held} · ground taken ${s.taken} · enemies destroyed ${s.kills} · losses ${s.losses}</div>`; })()}
-    <div class="actions"><button class="btn" data-mainmenu="1">Save and exit to menu</button><button class="btn" data-bug="1">Report a bug</button><button class="btn" data-dlsave="1">Download save</button></div>
+    <div class="actions"><button class="btn" data-mainmenu="1">${G.tutorial ? "Leave practice game" : "Save and exit to menu"}</button><button class="btn" data-bug="1">Report a bug</button><button class="btn" data-dlsave="1">Download save</button><button class="btn" data-notes="1">Patch notes</button>${API != null ? `<button class="btn" data-online="1">Players online</button>` : ""}</div>
     <div class="section-title">Government <small>change: −15 stability, 6-turn cooldown</small></div><div class="seg">${Object.entries(GOV).map(([k, g]) => `<button data-gov="${k}" aria-pressed="${N.gov.type === k}" class="${UI.pend && UI.pend.type === "gov" && UI.pend.v === k ? "pending" : ""}">${g.name}</button>`).join("")}</div>
     ${UI.pend && UI.pend.type === "gov" ? (() => { const g = GOV[UI.pend.v], cd = 6 - (G.turn - N.govChanged); return confirmCard(`Switch to ${g.name}?`, `${g.blurb} Funds ×${fmt(g.funds, 2)} · manpower ×${fmt(g.man, 2)} · unit cost ×${fmt(g.cost, 2)} · base stability ${g.stab} · base war support ${g.ws}. Stability −15 now.`, false, cd > 0 ? `Your government changed recently. Available in ${cd} turn${cd > 1 ? "s" : ""}.` : null); })() : `<p class="note" style="margin-top:8px">${gv.blurb}</p>
     <div class="fx">Funds ×${fmt(gv.funds, 2)} · Manpower ×${fmt(gv.man, 2)} · Unit cost ×${fmt(gv.cost, 2)} · Base stability ${gv.stab} · Base war support ${gv.ws}</div>`}
@@ -4585,21 +4603,22 @@ function scoreParts(g = G) {
 const SCORE_KEY = "prww3-scores";
 // When the game moves to its own website, point this at the leaderboard server:
 // POST <endpoint> with a score entry (JSON) to submit; GET <endpoint>?top=N returns the top N entries as a JSON array.
-const HISCORE_ENDPOINT = "";
+const hiscoreURL = () => (typeof API !== "undefined" && API != null ? API + "/api/scores" : ""); // the API constant is defined further down
+const POSTED = {}; // gid -> last turn sent
 const SCORES = {
   local() { try { const l = JSON.parse(localStorage.getItem(SCORE_KEY) || "[]"); return Array.isArray(l) ? l : []; } catch (e) { return []; } },
   record(e) {
     const l = this.local().filter(x => x.gid !== e.gid); l.push(e); l.sort((a, b) => b.score - a.score);
     try { localStorage.setItem(SCORE_KEY, JSON.stringify(l.slice(0, 100))); } catch (er) {}
-    if (HISCORE_ENDPOINT && e.final) fetch(HISCORE_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(e) }).catch(() => {});
+    if (hiscoreURL() && (e.final || POSTED[e.gid] !== e.turn)) { POSTED[e.gid] = e.turn; fetch(hiscoreURL(), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(e), keepalive: true }).catch(() => {}); }
   },
   async top(n = 20) {
-    if (HISCORE_ENDPOINT) { try { const r = await fetch(HISCORE_ENDPOINT + "?top=" + n); if (r.ok) { const j = await r.json(); if (Array.isArray(j)) return { list: j, online: true }; } } catch (e) {} }
+    if (hiscoreURL()) { try { const r = await fetch(hiscoreURL() + "?top=" + n, { cache: "no-store" }); if (r.ok) { const j = await r.json(); if (Array.isArray(j)) return { list: j, online: true }; } } catch (e) {} }
     return { list: this.local().slice(0, n), online: false };
   },
 };
 function recordScore() {
-  if (!G || !USER) return;
+  if (!G || !USER || G.tutorial) return;
   G.gid = G.gid || Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const p = scoreParts();
   SCORES.record({ gid: G.gid, name: USER, nation: C[G.player].code, score: p.total, turn: G.turn, result: G.over ? (G.over.win ? "Victory" : "Defeat") : "In progress", vp: Math.round(vp(G.player) / TOTAL_VP * 100), at: Date.now(), v: VERSION, final: !!G.over });
@@ -4672,6 +4691,147 @@ function importSave(file, name) {
   };
   rd.readAsText(file);
 }
+// ---------- online services (web build only): leaderboard, players online, activity log ----------
+// The web build is served next to its own API (/api/...). Inside Claude there is no server, so everything stays on the device.
+const API = !window.claude && /^https?:$/.test(location.protocol) ? "" : null;
+const DEVICE_ID = (() => { try { let d = localStorage.getItem("prww3-did"); if (!d || !/^[a-z0-9]{12,32}$/.test(d)) { d = (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 20); localStorage.setItem("prww3-did", d); } return d; } catch (e) { return "anon" + Math.random().toString(36).slice(2, 12); } })();
+const ONLINE = { list: null, feed: [], at: 0, ok: false };
+async function apiCall(path, body) {
+  if (API == null) return null;
+  try {
+    const r = await fetch(API + path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true } : { cache: "no-store" });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
+}
+function heartbeat() {
+  if (API == null || document.hidden) return;
+  apiCall("/api/presence", { did: DEVICE_ID, name: USER || PROF.last || "", nation: G && !G.tutorial ? C[G.player].code : null, turn: G && !G.tutorial ? G.turn : null, view: G ? "game" : "menu" });
+}
+async function refreshOnline() {
+  const d = await apiCall("/api/presence");
+  if (d && Array.isArray(d.online)) { ONLINE.list = d.online; ONLINE.feed = d.feed || []; ONLINE.at = Date.now(); ONLINE.ok = true; }
+  const chip = document.getElementById("onlineChip"); if (chip) chip.innerHTML = onlineChipHtml();
+  return ONLINE.ok;
+}
+const onlineChipHtml = () => ONLINE.ok ? `<i class="dot"></i>${ONLINE.list.length} commander${ONLINE.list.length === 1 ? "" : "s"} online` : `<i class="dot off"></i>Players online`;
+if (API != null) {
+  setTimeout(() => { heartbeat(); refreshOnline(); }, 1500);
+  setInterval(() => { heartbeat(); if (!G && !$("start").hidden) refreshOnline(); }, 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) heartbeat(); });
+}
+const agoText = at => { const s = Math.max(0, Math.round((Date.now() - at) / 1000)); return s < 60 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
+async function showOnline() {
+  const m = document.createElement("div"); m.className = "cardmodal";
+  const body = () => {
+    if (API == null) return `<p class="note">Players online and the activity log are part of the web version of the game. Here, scores and saves stay on this device.</p>`;
+    if (!ONLINE.ok) return `<p class="note">Couldn't reach the game server. Check your connection and try again.</p>`;
+    const L = ONLINE.list;
+    return `<div class="section-title">Online now <small>${L.length}</small></div>` +
+      (L.length ? `<div class="rows">${L.map(p => { const ci = p.nation ? CODE[p.nation] : null; return `<div class="row"><div class="t"><span>${esc(p.name)}</span></div><div class="s">${ci != null ? `${swatch(ci)}${esc(shortName(ci))}${p.turn ? `, turn ${p.turn}` : ""}` : p.view === "game" ? "in a game" : "in the menus"} · ${agoText(p.at)}</div></div>`; }).join("")}</div>` : `<p class="note">Nobody else right now.</p>`) +
+      `<div class="section-title" style="margin-top:14px">Activity</div>` +
+      (ONLINE.feed.length ? `<div class="feed">${ONLINE.feed.map(f => `<p><span>${agoText(f.at)}</span>${esc(f.text)}</p>`).join("")}</div>` : `<p class="note">No activity yet.</p>`);
+  };
+  const render = () => { m.innerHTML = `<div class="bugbox"><h2>Players online</h2><div id="olBody">${body()}</div><div class="actions"><button class="btn" id="olRefresh">Refresh</button><button class="btn primary" id="olClose">Close</button></div></div>`; $("olClose").onclick = () => m.remove(); $("olRefresh").onclick = async () => { $("olBody").innerHTML = `<p class="note">Refreshing…</p>`; await refreshOnline(); render(); }; };
+  document.body.appendChild(m); m.onclick = e => { if (e.target === m) m.remove(); };
+  render(); if (API != null) { await refreshOnline(); if (m.isConnected) render(); }
+}
+
+// ---------- patch notes: newest first; the button opens the latest ----------
+const PATCH_NOTES = [
+  { v: "1.0.2 beta", date: "31 Oct 2026", items: [
+    "Online leaderboard: every campaign posts its score to a global board on the web version, updated each turn and locked in on victory or defeat.",
+    "Players online: see who's playing right now, what nation and turn they're on, plus a live activity log of new campaigns, victories and defeats.",
+    "Tutorial: a very basic guided first turn (Tutorial on the title screen). It runs as a practice game and never touches your saved campaign.",
+    "Patch notes: this button. A badge appears when there's something new.",
+  ] },
+  { v: "1.0.1 beta", date: "31 Oct 2026", items: [
+    "Bombardments now land even when another nation drives the target out first: units pulling out of a cell under fire take the hit as they leave.",
+    "Tap an enemy while giving orders to hunt it straight away, with the odds shown. Ships and artillery move into range and fire on arrival.",
+    "End-of-turn battles: the map dims and the fighting units show on a panel in front.",
+    "Manpower grows about 15% slower.",
+    "Starting cash now $70 to $96 for every nation (was $29 to $136); every nation gets $5 base income a turn.",
+  ] },
+  { v: "1.0 beta", date: "31 Oct 2026", items: [
+    "Official early access playtest begins.",
+    "Report a bug button with automatic game details; download a save file or open one from the Load screen.",
+    "Commander names, saves per commander, hi-scores, animated menu battles, follow-cam replays, pursuit orders.",
+  ] },
+];
+const notesSeen = () => { try { return localStorage.getItem("prww3-notes-seen"); } catch (e) { return null; } };
+const notesNew = () => notesSeen() !== PATCH_NOTES[0].v;
+function showPatchNotes() {
+  try { localStorage.setItem("prww3-notes-seen", PATCH_NOTES[0].v); } catch (e) {}
+  const [cur, ...old] = PATCH_NOTES, m = document.createElement("div"); m.className = "cardmodal";
+  const list = n => `<ul class="notes">${n.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>`;
+  m.innerHTML = `<div class="bugbox"><div class="eyebrow"><span class="pill cap">Patch notes</span><span class="pill">v${esc(cur.v)}</span></div><h2>What's new in ${esc(cur.v)}</h2><p class="note">${esc(cur.date)}</p>${list(cur)}
+    ${old.length ? `<details><summary>Earlier versions</summary>${old.map(n => `<h3 class="nv">${esc(n.v)} <small>${esc(n.date)}</small></h3>${list(n)}`).join("")}</details>` : ""}
+    <div class="actions"><button class="btn primary" id="pnClose">Close</button></div></div>`;
+  document.body.appendChild(m); m.onclick = e => { if (e.target === m) m.remove(); }; $("pnClose").onclick = () => m.remove();
+  const b = document.getElementById("mNotes"); if (b) b.classList.remove("has-new");
+}
+
+// ---------- tutorial: a very basic guided first turn ----------
+// Edit TUTORIAL_STEPS to grow it each patch. A step with done() advances by itself when the player does the thing;
+// a step without one shows a Next button. ping() returns a cell to highlight.
+const TUTORIAL_UPDATED = "1.0.2 beta";
+const TUT_NATION = "AU";
+const TUTORIAL_STEPS = [
+  { title: "Welcome, Commander", text: "You lead Australia in a war for the Pacific. Win by holding 30% of the region's victory points: capitals, cities and provinces. This practice game walks you through the basics." },
+  { title: "Your resources", text: "The bar at the top shows your money, the soldiers serving in your units, your manpower reserve and materials. Units, buildings and fuel all cost something." },
+  { title: "Find your forces", text: "Tap Canberra, your capital, at the pulsing ring to see the units stationed there.", ping: () => G.nations[G.player].cap, done: () => sheetView && sheetView.type === "zone" && unitsAt(sheetView.arg).some(u => u.o === G.player) },
+  { title: "Give an order", text: "Tap Order, then tap a nearby province. Highlighted cells are reached this turn.", done: () => G.units.some(u => u.o === G.player && (u.ord || u.chase != null)) },
+  { title: "End the turn", text: "Tap End turn. Your orders play out first, then every other nation moves.", done: () => G.turn >= 2 && !PB },
+  { title: "The replay", text: "The camera followed each move and fight. During a replay, Next jumps ahead, 2× speeds it up and Skip ends it. Reports (bottom left) list everything that happened." },
+  { title: "Build something", text: "Tap one of your provinces and, under Construction, add Roads or a Factory. Buildings go up over a few turns and level up to 5.", done: () => G.queue.some(q => q.n === G.player && q.kind !== "u") },
+  { title: "Your army", text: "Tap Army in the dock to see every unit you own and recruit more.", done: () => TUT.saw.army },
+  { title: "Diplomacy", text: "Tap Diplomacy. Every nation starts neutral: you can sign pacts, send aid, form alliances, or declare war.", done: () => TUT.saw.dip },
+  { title: "Going to war", text: "Once at war, tap your units, tap Order, then tap an enemy. Your units hunt it down: ships and artillery stop in range and fire." },
+  { title: "You're ready", text: "That's the basics. The Units tab has a card for every unit, and Patch notes show what's new. Keep practising here, or head back and start a real campaign.", end: true },
+];
+const TUT = { on: false, i: 0, saw: {}, timer: 0 };
+addEventListener("resize", () => TUT.on && placeCoach());
+function startTutorial() {
+  const ci = CODE[TUT_NATION];
+  newGame(ci, undefined, { gov: START_GOV[TUT_NATION].slice(), army: RECOMMENDED_ARMY.filter((t, i, arr) => armySpent(arr.slice(0, i + 1)) <= BUDGET) });
+  G.tutorial = true; SETUP = null; $("start").hidden = true; MENU_FX.stop(); afterStart();
+  Object.assign(TUT, { on: true, i: 0, saw: {} });
+  setTimeout(() => { closeSheet(); renderCoach(); }, 700);
+  clearInterval(TUT.timer); TUT.timer = setInterval(tutTick, 250);
+}
+function endTutorial(toMenu) {
+  TUT.on = false; clearInterval(TUT.timer); const c = $("coach"); if (c) c.hidden = true;
+  if (toMenu) { G = null; PB = null; showTitle(); }
+}
+function tutTick() {
+  if (!TUT.on || !G || !G.tutorial) { endTutorial(false); return; }
+  const s = TUTORIAL_STEPS[TUT.i], c = $("coach");
+  c.hidden = !!PB; if (PB) return;
+  placeCoach();
+  if (s.ping && !UI.move) { const z = s.ping(); if (z != null && z >= 0 && (!UI.ping || performance.now() - UI.ping.t0 > 2400)) { UI.ping = { z, t0: performance.now() }; animLoop(); } }
+  if (s.done && s.done()) { TUT.i++; renderCoach(); }
+}
+function placeCoach() {
+  const c = $("coach"); if (!c || c.hidden) return;
+  let y = 0; for (const id of ["resBar", "modeBanner", "pbBanner"]) { const e = $(id); if (e && !e.hidden && e.offsetParent !== null) y = Math.max(y, e.getBoundingClientRect().bottom); }
+  y += 8;
+  const dock = $("dockWrap"), h = c.offsetHeight;
+  if (dock) { const dt = dock.getBoundingClientRect().top; if (y + h > dt - 6) y = Math.max(6, dt - h - 8); } // never cover the dock (it rides above an open panel)
+  c.style.top = Math.round(y) + "px";
+}
+function renderCoach() {
+  const c = $("coach"), s = TUTORIAL_STEPS[TUT.i]; if (!c || !s) return;
+  c.hidden = false;
+  c.innerHTML = `<div class="ch"><span class="pill cap">Tutorial ${TUT.i + 1}/${TUTORIAL_STEPS.length}</span><button class="linkbtn" id="tutSkip">${s.end ? "" : "Skip tutorial"}</button></div><b>${esc(s.title)}</b><p>${esc(s.text)}</p>
+    <div class="actions">${s.end ? `<button class="btn" id="tutKeep">Keep practising</button><button class="btn primary" id="tutMenu">Main menu</button>` : s.done ? `<span class="note">Do it on the map to continue.</span>` : `<button class="btn primary" id="tutNext">Next</button>`}</div>`;
+  const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
+  on("tutNext", () => { TUT.i++; renderCoach(); });
+  on("tutSkip", () => endTutorial(false));
+  on("tutKeep", () => endTutorial(false));
+  on("tutMenu", () => endTutorial(true));
+  placeCoach();
+}
+
 // ---------- menus: title → commander name → nations → setup ----------
 const MENU = { view: "title", mode: "new", err: "" };
 function menuRefresh() { if (!G && !$("start").hidden) ({ title: showTitle, name: () => showName(MENU.mode), nations: showStart, scores: showScores }[MENU.view] || (() => {}))(); }
@@ -4694,12 +4854,14 @@ function showTitle() {
   const el = openMenu("hero"), last = PROF.last && profMeta(PROF.last) ? PROF.last : null;
   el.innerHTML = `<div class="start-in">${heroHead()}
     <p class="lede">Turn-based war and diplomacy across the Pacific. Sixteen nations, all neutral at the start, each led by an AI with its own ambitions.</p>
+    ${API != null ? `<button class="online-chip" id="onlineChip">${onlineChipHtml()}</button>` : ""}
     <div class="menu">
       ${last ? `<button class="btn primary big" id="mQuick"><span>Continue as ${esc(last)}</span><small>${savedLine(last)}</small></button>` : ""}
       <button class="btn ${last ? "" : "primary"} big" id="mNew"><span>New game</span><small>Pick a nation and build its army</small></button>
       <button class="btn big" id="mLoad"><span>Load game</span><small>Pick up a saved campaign</small></button>
+      <button class="btn big" id="mTut"><span>Tutorial</span><small>A very basic guided first turn (practice game, not saved)</small></button>
       <div class="menu-row"><button class="btn" id="mScores">Hi-scores</button><button class="btn" id="mHow" aria-expanded="${!!UI.startHow}">${UI.startHow ? "Hide how to play" : "How to play"}</button></div>
-      <button class="btn" id="mBug">Report a bug</button>
+      <div class="menu-row"><button class="btn${notesNew() ? " has-new" : ""}" id="mNotes">Patch notes</button><button class="btn" id="mBug">Report a bug</button></div>
     </div>
     <div class="ea"><b>Early access playtest</b><span>You're playing a test build. Expect rough edges and balance changes. Found something odd? Tap Report a bug: it attaches the details we need.</span></div>
     ${UI.startHow ? `<div class="pick">${howToHtml()}</div>` : ""}
@@ -4709,6 +4871,9 @@ function showTitle() {
   $("mLoad").onclick = () => showName("load");
   $("mScores").onclick = () => showScores();
   $("mBug").onclick = () => showBugReport();
+  $("mNotes").onclick = () => showPatchNotes();
+  $("mTut").onclick = () => startTutorial();
+  if ($("onlineChip")) $("onlineChip").onclick = () => showOnline();
   $("mHow").onclick = () => { UI.startHow = !UI.startHow; showTitle(); };
   MENU_FX.caption();
 }
@@ -4761,7 +4926,7 @@ async function showScores() {
   if (MENU.view !== "scores") return;
   el.innerHTML = head + (list.length ? `<div class="scores"><table><thead><tr><th>#</th><th>Commander</th><th>Nation</th><th class="n">Score</th><th>Result</th></tr></thead><tbody>${list.map((e, i) => { const ci = CODE[e.nation]; return `<tr class="${USER && e.name === USER ? "me" : ""}"><td>${i + 1}</td><td>${esc(e.name)}</td><td>${ci != null ? `${swatch(ci)}${esc(shortName(ci))}` : esc(e.nation)}</td><td class="n">${Number(e.score).toLocaleString()}</td><td><small>${esc(e.result)}${e.result === "In progress" ? "" : ""}, turn ${e.turn}</small></td></tr>`; }).join("")}</tbody></table></div>`
       : `<p class="note">No scores yet. Every campaign posts its score here as you play, and again when it ends.</p>`) +
-    `<p class="note" style="margin-top:10px">${online ? "Global leaderboard." : "Scores on this device. A global leaderboard comes with the web launch."} Score = territory held (40 a victory-point %) + 25 a province taken + 250 a capital + 15 an enemy unit destroyed − 5 a unit lost; a victory adds 2,000 plus a speed bonus.</p>
+    `<p class="note" style="margin-top:10px">${online ? "Global leaderboard: every commander playing the web version. Campaigns update each turn and lock in on victory or defeat." : API != null ? "Couldn't reach the global leaderboard, so these are the scores on this device." : "Scores on this device. The global leaderboard is on the web version of the game."} Score = territory held (40 a victory-point %) + 25 a province taken + 250 a capital + 15 an enemy unit destroyed − 5 a unit lost; a victory adds 2,000 plus a speed bonus.</p>
     <div class="actions"><button class="btn" id="mBack">← Back</button></div></div>`;
   $("mBack").onclick = () => showTitle();
   MENU_FX.caption();
@@ -4924,8 +5089,8 @@ $("ticker").onclick = () => { $("ticker").hidden = true; showReports("last"); };
 $("pbSkip").onclick = () => { if (PB) endPlayback(); };
 $("pbNext").onclick = () => { if (PB) PB.next = true; };
 $("pbRate").onclick = () => { PB_RATE = PB_RATE === 1 ? 2 : 1; try { localStorage.setItem("prww3-pbrate", PB_RATE); } catch (e) {} $("pbRate").textContent = PB_RATE + "×"; };
-$("dArmy").onclick = () => G && showArmy();
-$("dDip").onclick = () => G && showDiplomacy();
+$("dArmy").onclick = () => { if (!G) return; TUT.saw.army = true; showArmy(); };
+$("dDip").onclick = () => { if (!G) return; TUT.saw.dip = true; showDiplomacy(); };
 $("dNation").onclick = () => G && showGov();
 $("dUnits").onclick = () => G && showCodex();
 $("whoBtn").onclick = () => G && showGov();
@@ -4951,6 +5116,6 @@ const fontsP = document.fonts && document.fonts.load ? Promise.all([document.fon
 fontsP.catch(() => {}).finally(() => { fontsReady = true; draw(); });
 setTimeout(() => { fontsReady = true; draw(); }, 1500);
 // test hook (harmless in play)
-window.__prw = { get G() { return G; }, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, get UI() { return UI; }, get stateVer() { return stateVer; } };
+window.__prw = { get G() { return G; }, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, get UI() { return UI; }, get stateVer() { return stateVer; } };
 })();
 </script>

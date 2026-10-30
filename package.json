@@ -1,0 +1,9 @@
+{
+  "name": "pacific-rim-ww3",
+  "private": true,
+  "type": "module",
+  "description": "Pacific Rim WW3: the game (site/) and its online services (netlify/functions/).",
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0"
+  }
+}
