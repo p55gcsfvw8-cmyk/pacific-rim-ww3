@@ -600,6 +600,8 @@ function archOf(t) {
 
 // static province economics
 const PROV = Z.map(() => null);
+// 1.0.1: every government collects a flat base revenue and provinces yield 15% less, so small nations aren't starved and giants don't run away
+const PROV_K = .85, BASE_FUNDS = 5;
 {
   const nearSite = (sites, lim) => { const out = new Map(); for (const [lo, la] of sites) { const x = lo, y = projY(la); let best = -1, bd = 1e9; for (let i = 0; i < LAND_N; i++) { const d = (Z[i].x - x) ** 2 + (Z[i].y - y) ** 2; if (d < bd) { bd = d; best = i; } } if (bd < lim * lim) out.set(best, true); } return out; };
   const oil = nearSite(OIL_SITES, 2.2), ore = nearSite(ORE_SITES, 2.2);
@@ -610,7 +612,7 @@ const PROV = Z.map(() => null);
     const tot = ids.reduce((s, i) => s + Z[i].p, 0);
     ids.forEach(i => {
       const share = Z[i].p / tot;
-      PROV[i] = { inc: income * (0.82 * share + 0.18 / ids.length), man: man * (0.85 * share + 0.15 / ids.length), dep: oil.has(i) ? "oil" : ore.has(i) ? "ore" : null };
+      PROV[i] = { inc: PROV_K * income * (0.82 * share + 0.18 / ids.length), man: man * (0.85 * share + 0.15 / ids.length), dep: oil.has(i) ? "oil" : ore.has(i) ? "ore" : null };
     });
   }
 }
@@ -662,7 +664,7 @@ function newGame(player, seed = (Date.now() % 1e9) | 0, setup = null) {
     const inc = estIncome(ci);
     const traitBias = { ind: C[ci].pop > 50 ? .1 : 0, dip: C[ci].pop < 10 ? .1 : 0 };
     G.nations[ci] = {
-      funds: Math.round(inc.funds * 4 + 10), man: Math.round(inc.man * MAN_RATE * 12), mat: Math.round(10 + inc.mat * 4), fuel: 30,
+      funds: Math.round(40 + 20 * Math.sqrt(Math.max(1, inc.funds) / 4)) /* about $60 for the smallest economies to $95 for the largest */, man: Math.round(inc.man * MAN_RATE * 12), mat: Math.round(10 + inc.mat * 4), fuel: 30,
       stab: GOV[g[0]].stab, ws: GOV[g[0]].ws, gov: { type: g[0], civil: g[1], press: g[2], consc: g[3], econ: g[4] }, govChanged: -99, polChanged: -99,
       t: { agg: clamp(.25 + rng() * .5, .1, .9), dip: clamp(.25 + rng() * .5 + traitBias.dip, .1, .9), cau: clamp(.25 + rng() * .5, .1, .9), ind: clamp(.25 + rng() * .5 + traitBias.ind, .1, .9) },
       cap: countryInfo[ci].cap, alive: true, lost: 0, gained: 0,
@@ -782,13 +784,13 @@ function govMods(ci) {
 function estIncome(ci) {
   // used before G exists (start screen): original territory, base government
   const code = C[ci].code, g = START_GOV[code], gv = GOV[g[0]];
-  let funds = BONUS_FUNDS[code] || 0, man = 0, mat = 0;
+  let funds = (BONUS_FUNDS[code] || 0) + BASE_FUNDS, man = 0, mat = 0;
   for (const i of zonesByCountry[ci]) { funds += PROV[i].inc; man += PROV[i].man; mat += .06 + (PROV[i].dep === "ore" ? 1.5 : 0); }
   return { funds: funds * gv.funds, man: man * gv.man * POLICY.consc.opts[g[3]].man, mat };
 }
 function econ(ci) {
   const N = G.nations[ci], gm = govMods(ci);
-  let funds = BONUS_FUNDS[C[ci].code] || 0, man = 0, mat = 0, fuel = 1, hosp = 0, prov = 0;
+  let funds = (BONUS_FUNDS[C[ci].code] || 0) + BASE_FUNDS, man = 0, mat = 0, fuel = 1, hosp = 0, prov = 0;
   for (let i = 0; i < LAND_N; i++) {
     if (G.owner[i] !== ci) continue;
     prov++;
@@ -857,7 +859,7 @@ function queueBuilding(ci, z, k) {
   G.queue.push({ n: ci, kind: "b", t: k, z, left: o.d.turns });
   return null;
 }
-const MAN_RATE = .35; // share of the population's draft pool that becomes available each turn
+const MAN_RATE = .30; // share of the population's draft pool that becomes available each turn
 const deployedOf = ci => G.units.reduce((s, u) => s + (u.o === ci ? UT[u.t].crew * u.hp / 100 : 0), 0);
 const MARKET = { fuel: { qty: 10, price: 12 }, mat: { qty: 10, price: 14 } };
 function buy(ci, what) { const m = MARKET[what], N = G.nations[ci]; if (N.funds < m.price) return "Not enough funds."; N.funds -= m.price; N[what] += m.qty; return null; }
@@ -1120,8 +1122,22 @@ function strikePreview(u, z, foes, blds) {
   if (UT[u.t].dom === "air") for (const e of foes) if (UT[e.t].a > 0 && e.hp > 0) out.aa += UT[e.t].a * K_DMG * .35 * hpF(e) * ammoF(e) * (12 / (12 + UT[u.t].d));
   return out;
 }
-function doStrike(u, tAt, rep) {
-  if (u.chase != null) { // a hunter re-aims at wherever its quarry is now; out of reach, it holds fire and closes in next turn
+let STRIKE_REP = null; // strikes fired during movement report with the turn's combat
+// A fire mission on a cell catches enemies pulling out of it: the guns were already laid on them.
+function fireOnDeparture(u) {
+  if (u.in || u.hp <= 0) return;
+  for (const v of G.units) {
+    if (v.hp <= 0 || v.strike !== u.z || v.fired === G.turn || !atWar(v.o, u.o) || strikeBlock(v, u.z)) continue;
+    if (!hitValue(v, u)) continue;
+    STRIKE_REP = STRIKE_REP || { z: {}, strikes: {}, hitBy: {}, killedP: [], killsP: 0 };
+    doStrike(v, REC ? REC.now || REC.base || 0 : 0, STRIKE_REP, u);
+    if (u.hp <= 0) return;
+  }
+}
+function doStrike(u, tAt, rep, forced) {
+  if (u.fired === G.turn) return; // already fired this turn (at a target pulling out)
+  if (forced) u.strike = forced.z;
+  else if (u.chase != null) { // a hunter re-aims at wherever its quarry is now; out of reach, it holds fire and closes in next turn
     const q = chaseTgt(u);
     if (q && !strikeBlock(u, q.z)) u.strike = q.z; else if (q) { u.strike = null; return; }
   }
@@ -1133,8 +1149,9 @@ function doStrike(u, tAt, rep) {
   }
   const { foes, blds } = strikeTargets(u.o, z);
   if (!foes.length && !blds) { if (u.o === G.player) news("home", 1, `${UT[u.t].name} ceased fire: nothing left to hit at ${Z[z].n}.`, { z }); u.strike = null; return; }
-  const tg = pickTarget(u, foes, unitsAt(z), new Map(), blds);
+  const tg = forced || pickTarget(u, foes, unitsAt(z), new Map(), blds);
   if (!tg) { if (u.o === G.player) news("home", 1, `${UT[u.t].name} has nothing it can hit at ${Z[z].n}.`, { z }); u.strike = null; return; }
+  u.fired = G.turn;
   const T = UT[u.t], hops = strikeZones(u).get(z), r = .85 + .3 * rng();
   let d, what;
   let wrecked = false;
@@ -1218,7 +1235,8 @@ function resolveZone(z, tAt) {
 }
 function combatPhase(tAt) {
   const P = G.player;
-  const rep = { z: {}, strikes: {}, hitBy: {}, killedP: [], killsP: 0 };
+  const rep = STRIKE_REP || { z: {}, strikes: {}, hitBy: {}, killedP: [], killsP: 0 };
+  STRIKE_REP = null;
   G.fronts = G.fronts || {}; G.bhp = G.bhp || {};
   // 1) ranged strikes: artillery, naval gunfire and air strikes
   for (const u of G.units.slice()) if (u.strike != null && u.hp > 0) doStrike(u, tAt, rep);
@@ -1326,7 +1344,7 @@ function moveGroup(units, dest) {
   for (const u of units) { const r = reach(u); if (r.dist.has(dest)) legs.push({ u, cost: r.dist.get(dest), from: u.z, path: pathOf(r.prev, dest) }); }
   if (!legs.length) return { ok: false, msg: "None of the selected units can reach that zone this turn." };
   for (const l of legs) if (UT[l.u.t].dom === "air" && atAirbase(l.u)) l.u.base = l.u.z;
-  for (const l of legs) if (isEngaged(l.u)) partingShot(l.u); // pulling out of a fight costs a heavy parting volley
+  for (const l of legs) { fireOnDeparture(l.u); if (l.u.hp > 0 && isEngaged(l.u)) partingShot(l.u); } // under fire as they go, and pulling out of a fight costs a heavy parting volley
   for (let k = legs.length - 1; k >= 0; k--) if (legs[k].u.hp <= 0) legs.splice(k, 1);
   if (!legs.length) return { ok: false, msg: "" };
   const enemies = hostilesAt(n, dest);
@@ -1528,11 +1546,29 @@ function planChase(u, said) {
   if (!chaseSeen(u.o, t)) { endChase(u, "contact lost in the fog of war", said); return null; }
   if (t.z === u.z) { u.ord = null; return "here"; }
   if (UT[u.t].rng && !strikeBlock(u, t.z)) { u.ord = null; u.strike = t.z; return "fire"; }
-  const p = fullPath(u, t.z);
+  const fp = UT[u.t].rng ? firingPosition(u, t.z) : null;  // ranged units close to gun range rather than ramming in
+  const p = fp ? fp.p : fullPath(u, t.z);
   if (!p) { endChase(u, `the ${UT[u.t].name} has no route to it`, said); return null; }
-  u.ord = { d: t.z, p, dis: false, chase: true };
+  u.ord = { d: p[p.length - 1], p, dis: false, chase: true };
   if (u.strike != null && u.strike !== t.z) u.strike = null; // closing in, so the old fire mission ends
   return "move";
+}
+// the nearest cell a ranged unit can reach and fire on tz from (no enemies waiting there)
+function firingPosition(u, tz) {
+  const r = UT[u.t].rng; if (!r) return null;
+  const ring = new Map([[tz, 0]]); let fr = [tz];
+  for (let k = 1; k <= r; k++) { const nx = []; for (const i of fr) for (const [j] of ADJ[i]) if (!ring.has(j)) { ring.set(j, k); nx.push(j); } fr = nx; }
+  ring.delete(tz);
+  const z0 = u.z; let best = null;
+  for (const c of ring.keys()) {
+    if (hostilesAt(u.o, c).length) continue;
+    u.z = c; const ok = strikeZones(u).has(tz); u.z = z0;
+    if (!ok) continue;
+    const p = c === z0 ? [] : fullPath(u, c); if (!p) continue;
+    const e = p.length ? eta(u, p).turns : 0, score = e * 100 + p.length;
+    if (!best || score < best.score) best = { c, p, score };
+  }
+  return best && best.p.length ? best : null;
 }
 function updateChases(n) {
   const said = new Set();
@@ -1561,7 +1597,7 @@ function executeOrders(n) {
       if (need > (u.fu ?? 100) + 1e-9) { u.mp = 0; if (!dry.has(u.id)) { dry.add(u.id); if (n === G.player) news("home", 2, `${UT[u.t].name} is out of fuel at ${Z[u.z].n}. Send a supply unit or pull it back to a depot.`, { z: u.z }); } continue; }
       steps.push({ u, nx, c, from: u.z, need, eng: isEngaged(u) });
     }
-    for (const s of steps) if (s.eng) partingShot(s.u);
+    for (const s of steps) { fireOnDeparture(s.u); if (s.u.hp > 0 && s.eng) partingShot(s.u); }
     for (let k = steps.length - 1; k >= 0; k--) if (steps[k].u.hp <= 0) { steps[k].u.ord = null; steps.splice(k, 1); }
     let escorted = false;
     const byZ = new Map();
@@ -1624,6 +1660,8 @@ function executeOrders(n) {
     if (!steps.length && !escorted) break;
   }
   syncCargo();
+  // ranged hunters that reached their firing position open fire the same turn
+  for (const u of G.units) if (u.o === n && u.chase != null && UT[u.t].rng && !u.ord && u.strike == null && !u.in && u.hp > 0) { const q = chaseTgt(u); if (q && !strikeBlock(u, q.z)) u.strike = q.z; }
   if (n === G.player) for (const [z, k] of arrived) { ts().arrived += k; news("home", 1, `${k} unit${k > 1 ? "s" : ""} arrived at ${Z[z].n}.`, { z }); }
   return tick;
 }
@@ -2220,7 +2258,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0 beta"; // early access playtest build
+const VERSION = "1.0.1 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -3265,8 +3303,22 @@ function drawPlayback() {
     place(sideA, -1); place(sideB, 1);
   }
   const stack = new Map();
+  // featured units (the fight or strike being shown) draw last, over a dimmed map
+  let focus = form;
+  if (sh && sh.kind === "strike") { const srcs = new Set(sh.list.map(s => s.uid)); focus = new Set(tokens.filter(t => t.at === sh.z || srcs.has(t.id)).map(t => t.id)); }
+  if (focus) tokens.sort((a, b) => focus.has(a.id) - focus.has(b.id));
+  let dimmed = false;
   for (const tk of tokens) {
     const aff = affOf(tk.o);
+    if (focus && !dimmed && focus.has(tk.id)) {
+      dimmed = true; const a = clamp(L / 400, 0, 1);
+      ctx.fillStyle = `rgba(4,10,20,${.62 * a})`; ctx.fillRect(0, 0, W, H);
+      if (form && form.size) { // a backing panel so the two lines read clearly against the map
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        for (const id of form) { const q = pos.get(id); if (!q) continue; x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
+        if (x0 < 1e9) { ctx.fillStyle = `rgba(8,18,32,${.92 * a})`; ctx.strokeStyle = `rgba(150,180,210,${.25 * a})`; ctx.lineWidth = 1; ctx.beginPath(); const bx = x0 - TAG_W / 2 - 14, by = y0 - TAG_H / 2 - 14, bw = x1 - x0 + TAG_W + 28, bh = y1 - y0 + TAG_H + 34; ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 12) : ctx.rect(bx, by, bw, bh); ctx.fill(); ctx.stroke(); }
+      }
+    }
     if (form && form.has(tk.id)) {
       const [x, y, dir] = pos.get(tk.id);
       ctx.save(); ctx.globalAlpha = 1 - Math.min(1, tk.dying);
@@ -3281,7 +3333,7 @@ function drawPlayback() {
     let [x, y] = toScreen(tk.wx, tk.wy);
     if (x < -40 || y < -40 || x > W + 40 || y > H + 40) continue;
     const key = Math.round(x / 8) + ":" + Math.round(y / 8), n = stack.get(key) || 0; stack.set(key, n + 1);
-    if (n > 3 && !tk.moving) continue;
+    if (n > 3 && !tk.moving && !(focus && focus.has(tk.id))) continue;
     x += n * 5; y += 4 - n * 3;
     pos.set(tk.id, [x, y, 1]);
     ctx.save(); ctx.globalAlpha = 1 - Math.min(1, tk.dying);
@@ -3890,7 +3942,9 @@ function orderChase(units, tgt, z) {
   }
   if (!n) { toast("None of these units can reach or hit that target."); return false; }
   const nm = UT[tgt.t].name;
-  toast(`${n} unit${n > 1 ? "s" : ""} hunting the ${shortName(tgt.o)} ${nm}.${fire ? ` ${fire} in range, firing this turn.` : ""}${maxEta ? ` ${maxEta === 1 ? "Contact this turn" : `Contact in about ${maxEta} turns`}.` : ""} They follow it until it's destroyed or lost in the fog.`);
+  const melee = hunters.filter(u => u.chase === tgt.id && !UT[u.t].rng), foesHere = unitsAt(z).filter(u => atWar(G.player, u.o) && unitVisible(u));
+  const odds = melee.length && foesHere.length ? outlookText(forecast(z, melee.concat(unitsAt(z).filter(u => friendly(G.player, u.o))), foesHere)).txt : "";
+  toast(`${n} unit${n > 1 ? "s" : ""} hunting the ${shortName(tgt.o)} ${nm}.${fire ? ` ${fire} in range, firing this turn.` : ""}${maxEta ? ` ${maxEta === 1 ? "Contact this turn" : `Contact in about ${maxEta} turns`}.` : ""}${odds ? " " + odds : ""} They chase it until it's destroyed or lost in the fog.`);
   endMove(); draw(); save(); return true;
 }
 function orderMove(i, units) {
@@ -4807,7 +4861,7 @@ function onTap(sx, sy) {
     if (i === UI.move.zone) { units.forEach(u => { u.ord = null; u.drop = null; u.chase = null; }); toast("Orders cleared. These units will hold."); endMove(); save(); return; }
     const P = G.player;
     if (isLand(i)) { const o = G.owner[i]; if (o !== P && !friendly(P, o) && !atWar(P, o)) { toast(`${shortName(o)} is neutral. Declare war or sign an alliance to enter.`); return; } }
-    if (units.some(u => isCombatT(u.t)) && unitsAt(i).some(u => atWar(P, u.o) && unitVisible(u))) { showAttackPreview(i, UI.move.ids); return; }
+    if (units.some(u => isCombatT(u.t)) && unitsAt(i).some(u => atWar(P, u.o) && unitVisible(u))) { const q = chaseQuarry(i); if (q) { orderChase(units, q, i); return; } showAttackPreview(i, UI.move.ids); return; }
     orderMove(i, units); return;
   }
   if (hit.kind === "unaligned") {
@@ -4897,6 +4951,6 @@ const fontsP = document.fonts && document.fonts.load ? Promise.all([document.fon
 fontsP.catch(() => {}).finally(() => { fontsReady = true; draw(); });
 setTimeout(() => { fontsReady = true; draw(); }, 1500);
 // test hook (harmless in play)
-window.__prw = { get G() { return G; }, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, get stateVer() { return stateVer; } };
+window.__prw = { get G() { return G; }, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, get UI() { return UI; }, get stateVer() { return stateVer; } };
 })();
 </script>
