@@ -1,0 +1,10 @@
+# Netlify serves the finished game straight from site/. No build step: build.py is run before each push.
+[build]
+  publish = "site"
+  command = ""
+
+# Always check for a fresh copy so playtesters get each patch on their next reload.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

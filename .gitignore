@@ -1,0 +1,3 @@
+.netlify
+dist/
+__pycache__/
