@@ -199,6 +199,19 @@ button.row { cursor: pointer; }
 .menu-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .coach { position: fixed; left: 50%; transform: translateX(-50%); width: min(92vw, 460px); top: 200px; z-index: 46; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(245,184,74,.55); background: rgba(10,22,38,.96); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
 .coach[hidden] { display: none; }
+.coach.tip { border-color: rgba(127,194,255,.55); z-index: 45; }
+.coach.tip b { color: #9fd8ff; }
+.coach .linkbtn { margin-left: 4px; }
+.cmdbar { position: sticky; top: 0; z-index: 3; margin: 10px -14px 4px; padding: 10px 14px; background: linear-gradient(180deg, var(--panel) 85%, rgba(0,0,0,0)); border-bottom: 1px solid var(--line); }
+.cmdhint { font-size: 12.5px; color: var(--muted); margin-bottom: 7px; } .cmdhint b { color: var(--signal); }
+.cmdbtns { display: flex; flex-wrap: wrap; gap: 8px; } .cmdbtns .btn { min-height: 40px; }
+.uchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; }
+.uchip { position: relative; display: grid; place-items: center; width: 48px; height: 40px; border-radius: 9px; border: 1px solid var(--line); background: rgba(12,26,42,.85); cursor: pointer; padding: 0; overflow: hidden; }
+.uchip canvas { width: 34px !important; height: 26px !important; }
+.uchip i { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--good); }
+.uchips .more { align-self: center; font-size: 12px; color: var(--muted); }
+.btn.has-start { position: relative; }
+.btn.has-start::after { content: "START HERE"; position: absolute; top: -8px; right: 10px; padding: 2px 7px; border-radius: 6px; background: var(--signal); color: #1f1505; font: 700 10px var(--f-display); letter-spacing: .06em; }
 .coach .ch { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .coach b { display: block; margin-top: 8px; font-family: var(--f-display); font-size: 15px; letter-spacing: .04em; color: var(--signal); text-transform: uppercase; }
 .coach p { margin: 4px 0 0; font-size: 14px; line-height: 1.45; color: var(--ink); }
@@ -412,6 +425,7 @@ canvas.fig { width: 52px; height: 26px; flex: none; margin-left: auto; }
   </div>
 
   <div class="coach glass" id="coach" hidden role="dialog" aria-label="Tutorial"></div>
+  <div class="coach tip glass" id="tip" hidden role="status" aria-label="Tip"></div>
   <div class="mode-banner" id="modeBanner" hidden><span id="modeText"></span><button id="modeExit">Done</button></div>
   <div class="mode-banner" id="pbBanner" hidden><span id="pbText">Resolving turn…</span><span class="pbbar"><i id="pbBar"></i></span><button id="pbNext" aria-label="Next event">Next</button><button id="pbRate" aria-label="Playback speed">1×</button><button id="pbSkip">Skip</button></div>
   <div class="ticker" id="ticker" hidden role="button" aria-label="Open the turn report"><span class="tag">PRN LIVE</span><div class="track"><div class="run" id="tickerRun"></div></div></div>
@@ -1300,11 +1314,35 @@ function combatPhase(tAt) {
   for (const [z, h] of Object.entries(rep.hitBy)) news("front", Object.values(h).some(e => e.kills.length) ? 2 : 1, `Incoming fire at ${Z[z].n}: ${Object.entries(h).map(([k, e]) => `${k}${e.n > 1 ? ` ×${e.n}` : ""}, ${Math.round(e.d)} damage to your ${[...e.hit].join(" and ")}${e.kills.length ? ` (lost: ${e.kills.join(", ")})` : ""}`).join("; ")}.`, { z: +z });
   for (const z of Object.keys(G.fronts)) if (!now.has(+z)) delete G.fronts[z];
 }
+// after a peace treaty, each side's units leave the other's land
+function peaceWithdraw(a, b) {
+  for (const u of G.units.slice()) { if (u.in || !isLand(u.z)) continue; const o = G.owner[u.z]; if ((u.o === a && o === b) || (u.o === b && o === a)) evacuate(u, u.z, REC ? REC.now : 0); }
+  syncCargo(); invalidate();
+}
+// A nation that isn't at war with (or allied to) a cell's new owner can't stay in it: its units withdraw to the nearest cell they may stand in.
+function evacuate(u, z, tAt) {
+  const ok = j => j !== z && canEnter(u.o, u.t, j) && !hostilesAt(u.o, j).length && (!isShipT(u.t) || !isLand(j) || Z[j].port) && (!isLand(j) || friendly(u.o, G.owner[j]) || atWar(u.o, G.owner[j]));
+  const seen = new Set([z]); let fr = [z], to = null;
+  for (let k = 0; k < 6 && to == null && fr.length; k++) {
+    const nx = []; const ring = [];
+    for (const i of fr) for (const [j] of ADJ[i]) if (!seen.has(j)) { seen.add(j); nx.push(j); if (ok(j)) ring.push(j); }
+    if (ring.length) to = ring.sort((a, b) => ((isLand(b) && G.owner[b] === u.o) - (isLand(a) && G.owner[a] === u.o)))[0];
+    fr = nx;
+  }
+  if (to == null) return false;
+  rec("move", { id: u.id, from: z, to, t: tAt + .2 });
+  u.z = to; u.ord = null; u.strike = null; u.lock = null; return true;
+}
 function capture(n, z, tAt = REC ? REC.now + .5 : 0) {
   const prev = G.owner[z];
   if (prev === n) return;
   G.owner[z] = n; G.ov = (G.ov || 0) + 1;
   rec("cap", { z, o: n, prev, t: tAt });
+  { const out = new Map();
+    for (const u of unitsAt(z).slice()) if (!u.in && u.o !== n && !friendly(n, u.o) && !atWar(n, u.o) && evacuate(u, z, tAt)) out.set(u.o, (out.get(u.o) || 0) + 1);
+    syncCargo(); invalidate();
+    const k = out.get(G.player); if (k) news("front", 2, `${k} of your unit${k > 1 ? "s" : ""} withdrew from ${Z[z].n}: ${shortName(n)} took it and you aren't at war with them.`, { z });
+  }
   const b = B(z); if (b.fort) b.fort--;
   G.queue = G.queue.filter(q => !(q.z === z && q.n === prev));
   G.nations[n].gained++; G.nations[prev].lost++;
@@ -1813,7 +1851,7 @@ function declareWar(a, b, quiet) {
   invalidate();
 }
 function declareWarRaw(a, b) { setStance(a, b, "W"); addRel(a, b, -30); }
-function makePeace(a, b) { setStance(a, b, "N"); addRel(a, b, 10); news("world", 3, `${shortName(a)} and ${shortName(b)} signed a peace treaty.`, { key: true, n: [a, b] }); }
+function makePeace(a, b) { setStance(a, b, "N"); addRel(a, b, 10); peaceWithdraw(a, b); news("world", 3, `${shortName(a)} and ${shortName(b)} signed a peace treaty.`, { key: true, n: [a, b] }); }
 
 // AI answers to player proposals
 function aiAnswer(ai, kind) {
@@ -1840,7 +1878,7 @@ function playerDiplo(ai, kind) {
     P.funds -= 2; G.actedDip[ai] = G.turn; addRel(p, ai, 4 + N.t.dip * 6); return `Your envoys were received in ${shortName(ai)}. Relations improved.`;
   }
   if (kind === "aid") { if (P.funds < 10) return "Not enough funds."; P.funds -= 10; N.funds += 10; addRel(p, ai, 8 + N.t.dip * 10); return `${shortName(ai)} welcomed $10B in aid.`; }
-  if (kind === "breakAlly") { setStance(p, ai, "N"); addRel(p, ai, -25); news("world", 2, `${shortName(p)} ended its alliance with ${shortName(ai)}.`, { key: true, n: [p, ai] }); return "Alliance dissolved."; }
+  if (kind === "breakAlly") { setStance(p, ai, "N"); addRel(p, ai, -25); peaceWithdraw(p, ai); news("world", 2, `${shortName(p)} ended its alliance with ${shortName(ai)}.`, { key: true, n: [p, ai] }); return "Alliance dissolved."; }
   if (kind === "breakPact") { setStance(p, ai, "N"); addRel(p, ai, -15); return "Pact cancelled."; }
   if (G.actedDip["p" + ai] === G.turn) return `${shortName(ai)} has already answered a proposal this turn.`;
   G.actedDip["p" + ai] = G.turn;
@@ -2274,7 +2312,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.2 beta"; // early access playtest build
+const VERSION = "1.0.3 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -3105,11 +3143,13 @@ function startPlayback(r) {
     else if (e.o === P || mineO(e.o) || seesZ(e.z) || e.prev === P) cand.push({ kind: "cap", z: e.z, e, score: (e.o === P || e.prev === P ? 8 : 2) + (Z[e.z].t !== "prov" ? 3 : 0), order: 2, dur: 1900 });
   }
   const strikesBy = new Map();
-  for (const e of ev.filter(e => e.type === "strike")) (strikesBy.get(e.to) || strikesBy.set(e.to, []).get(e.to)).push(e);
-  for (const [to, list] of strikesBy) {
-    const mine = list.some(e => mineO(e.o) || mineO(e.vo));
+  for (const e of ev.filter(e => e.type === "strike")) { const k = e.to + (e.air ? ":a" : ":g"); (strikesBy.get(k) || strikesBy.set(k, []).get(k)).push(e); }
+  for (const [k, list] of strikesBy) {
+    const to = list[0].to, mine = list.some(e => mineO(e.o) || mineO(e.vo));
     if (!mine && !seesZ(to)) continue;
-    cand.push({ kind: "strike", z: to, list: list.slice(0, 5), score: (mine ? 6 : 1) + list.filter(e => e.kill).length * 2 + (list.some(e => mineO(e.vo)) ? 3 : 0), order: 0, dur: 1900 + Math.min(5, list.length) * 450 });
+    const shown = list.slice(0, 10), gap = shown.length > 5 ? 300 : 450;
+    // guns before aircraft at the same target: the bombardment, then the strike run
+    cand.push({ kind: "strike", z: to, list: shown, gap, score: (mine ? 6 : 1) + list.filter(e => e.kill).length * 2 + (list.some(e => mineO(e.vo)) ? 3 : 0), order: list[0].air ? .5 : 0, dur: 1900 + shown.length * gap });
   }
   for (const e of ev.filter(e => e.type === "volley")) {
     const mine = e.shots.some(s => mineO(s.fo) || mineO(s.vo));
@@ -3121,7 +3161,7 @@ function startPlayback(r) {
     if (!(e.o === P || mineO(e.o) || seesZ(e.z) || e.prev === P)) continue;
     cand.push({ kind: "cap", z: e.z, e, score: (e.o === P || e.prev === P ? 8 : 2) + (Z[e.z].t !== "prov" ? 3 : 0), order: 2, dur: 1900 });
   }
-  const evShots = cand.sort((a, b) => b.score - a.score).slice(0, SHOT_MAX).sort((a, b) => a.order - b.order || b.score - a.score);
+  const evShots = cand.sort((a, b) => b.score - a.score).slice(0, SHOT_MAX).sort((a, b) => a.order - b.order || (a.kind === "strike" && b.kind === "strike" && a.z === b.z ? 0 : b.score - a.score) || (a.order - b.order));
   // anything visible that moved but didn't earn a shot of its own glides along in the background
   const bgMoves = [...tracks.keys()].some(id => !unitShot.has(id) && r.pre.get(id) && (mineO(r.pre.get(id).o) || tracks.get(id).some(m => seesZ(m.from) || seesZ(m.to))));
   if (!shots.length && bgMoves) shots.push({ kind: "overview", z: null, ta: 0, tb: T1, caps: early.filter(e => e.type === "cap") });
@@ -3140,7 +3180,7 @@ function startPlayback(r) {
   all.forEach((sh, k) => {
     if (sh.kind === "battle") { const n = Math.min(14, sh.v.shots.length); sh.v.shots.slice(0, 14).forEach((s, i) => { if (s.kill && death.has(s.v)) death.set(s.v, { stage: 2, k, at: 650 + i * (1500 / Math.max(1, n)) + 230 }); }); }
     if (sh.kind === "strike") sh.list.forEach((s, i) => {
-      const at = 600 + i * 450 + (s.air ? 880 : 760);
+      const at = 600 + i * (sh.gap || 450) + (s.air ? 880 : 760);
       if (s.kill && death.has(s.vid)) death.set(s.vid, { stage: 2, k, at });
       if (s.lost && death.has(s.uid)) death.set(s.uid, { stage: 2, k, at: at + 120 });
     });
@@ -3310,6 +3350,21 @@ function drawPlayback() {
     if (!sideA.length) { const a = here[0] && here[0].o; sideA.push(...sideB.filter(t => t.o === a)); for (const t of sideA) sideB.splice(sideB.indexOf(t), 1); }
     const e = ease(clamp(L / 450, 0, 1));
     form = new Set();
+    // three or more nations: each takes its own place on a ring around the fight, facing in
+    const groups = []; for (const t of here) { let g = groups.find(g => friendly(g.o, t.o) && (friendly(G.player, t.o) === friendly(G.player, g.o))); if (!g) groups.push(g = { o: t.o, list: [] }); g.list.push(t); }
+    groups.sort((a, b) => friendly(G.player, b.o) - friendly(G.player, a.o));
+    if (groups.length >= 3) {
+      groups.forEach((g, gi) => {
+        const ang = Math.PI + gi * 2 * Math.PI / groups.length, ax = cx + Math.cos(ang) * 92, ay = cy + Math.sin(ang) * 70, dir = Math.cos(ang) < -.1 ? -1 : Math.cos(ang) > .1 ? 1 : (gi % 2 ? 1 : -1);
+        g.list.slice(0, 6).forEach((t, i) => {
+          const col = i % 2, row = Math.floor(i / 2), n = Math.min(3, Math.ceil(Math.min(6, g.list.length) / 2));
+          const tx = ax + (col - .5) * 54, ty = ay - (n - 1) * 14 + row * 28;
+          const [sx, sy] = toScreen(t.wx, t.wy);
+          pos.set(t.id, [sx + (tx - sx) * e, sy + (ty - sy) * e, dir]); form.add(t.id);
+        });
+      });
+      sideA.length = 0; sideB.length = 0;
+    }
     const place = (list, dir) => list.slice(0, 10).forEach((t, i) => {
       const col = Math.floor(i / 5), row = i % 5, n = Math.min(5, list.length - col * 5);
       const tx = cx + dir * (44 + col * 52), ty = cy - (n - 1) * 15 + row * 30;
@@ -3387,7 +3442,7 @@ function drawPlayback() {
     const [tx, ty] = toScreen(Z[sh.z].x, Z[sh.z].y);
     const water = !isLand(sh.z);
     sh.list.forEach((s, i) => {
-      const li = L - 600 - i * 450; if (li < 0) return;
+      const li = L - 600 - i * (sh.gap || 450); if (li < 0) return;
       const [sx, sy] = toScreen(Z[s.from].x, Z[s.from].y);
       const own = friendly(G.player, s.o), col = own ? COL.friendly : COL.hostile;
       const ox = (i % 3 - 1) * 10, oy = ((i * 7) % 3 - 1) * 8, gx = tx + ox, gy = ty + oy;
@@ -3715,7 +3770,7 @@ function showZone(i, refresh) {
     if (owner !== z.c) pills.push(`<span class="pill">Occupied</span>`);
   } else { pills.push(`<span class="pill">${SHALLOW[i] ? "Shallow water" : "Deep ocean"}</span>`); const wo = waters()[i]; if (wo >= 0) pills.push(`<span class="pill${wo === P ? " cap" : ""}">${wo === P ? "Your waters" : esc(shortName(wo)) + " waters"}</span>`); }
   if (!vis) pills.push('<span class="pill fog">No intel</span>');
-  let html = `<div class="eyebrow">${pills.join("")}</div><h2>${esc(z.n)}</h2>`;
+  let html = `<div class="eyebrow">${pills.join("")}</div><h2>${esc(z.n)}</h2><!--CMDBAR-->`;
   if (land) {
     const st = M.states[z.s];
     html += `<div class="where"><span>${esc(st.name)}</span><span>·</span>${swatch(owner)}<button class="linkbtn" data-nation="${owner}">${esc(shortName(owner))}</button>${owner !== z.c ? `<span>(from ${esc(shortName(z.c))})</span>` : ""}</div>`;
@@ -3862,7 +3917,16 @@ function showZone(i, refresh) {
   let l = 0, sN = 0, a = 0; for (const { f } of nb) { if (f & 1) l++; if (f & 2) sN++; if (f & 4) a++; }
   html += `<div class="section-title">Connections</div><div class="lanes"><span><i style="background:var(--land-lane)"></i>${l} land</span><span><i style="background:var(--sea-lane)"></i>${sN} sea</span><span><i style="background:repeating-linear-gradient(90deg,var(--air-lane) 0 4px,transparent 4px 7px)"></i>${a} air</span></div>`;
   html += `<div class="nbrs" style="margin-top:8px">${nb.map(({ j, f }) => `<button class="nbr" data-z="${j}"><i style="background:${isLand(j) ? C[G.owner[j]].color : "#2a5a85"}"></i><span>${esc(Z[j].n)}</span>${f & 8 ? '<small style="color:var(--signal)">⇄</small>' : ""}</button>`).join("")}</div>`;
+  // the command bar: always at the top of the panel (sticky), so Order never needs a scroll
+  if (mine.length && !(G.over)) {
+    const combat = mine.filter(u => isCombatT(u.t)), sup = mine.filter(u => isPassiveT(u.t)), pk = UI.pick && UI.pick.size ? mine.filter(u => UI.pick.has(u.id)) : [];
+    const pc = pk.filter(u => isCombatT(u.t)), pool = pc.length ? pc : combat;
+    const n = pk.length, ranged = pool.some(u => UT[u.t].rng && !isEngaged(u));
+    const bar = `<div class="cmdbar"><div class="cmdhint">${n ? `<b>${n} selected</b> · tap units to add or remove` : `Tap units to pick some, or order them all`}</div><div class="cmdbtns">${combat.length ? `<button class="btn primary" data-act="move" data-grp="combat">Order ${pc.length || "all " + combat.length}</button>` : ""}${!combat.length && sup.length ? `<button class="btn primary" data-act="move" data-grp="support">Order ${pk.length || "all"} support</button>` : ""}${ranged ? `<button class="btn" data-act="strike">Attack in range</button>` : ""}${n ? `<button class="btn" data-act="clearpick">Clear</button>` : mine.length > 1 ? `<button class="btn" data-act="selall">Select all</button>` : ""}${combat.length ? `<button class="btn" data-act="targets">Targets</button>` : ""}</div></div>`;
+    html = html.replace("<!--CMDBAR-->", bar);
+  }
   openSheet(html, { type: "zone", arg: i });
+  if (mine.length) showTip("cell");
   if (!refresh) draw();
 }
 
@@ -3960,6 +4024,7 @@ function orderChase(units, tgt, z) {
   const nm = UT[tgt.t].name;
   const melee = hunters.filter(u => u.chase === tgt.id && !UT[u.t].rng), foesHere = unitsAt(z).filter(u => atWar(G.player, u.o) && unitVisible(u));
   const odds = melee.length && foesHere.length ? outlookText(forecast(z, melee.concat(unitsAt(z).filter(u => friendly(G.player, u.o))), foesHere)).txt : "";
+  setTimeout(() => showTip("endturn"), 3400);
   toast(`${n} unit${n > 1 ? "s" : ""} hunting the ${shortName(tgt.o)} ${nm}.${fire ? ` ${fire} in range, firing this turn.` : ""}${maxEta ? ` ${maxEta === 1 ? "Contact this turn" : `Contact in about ${maxEta} turns`}.` : ""}${odds ? " " + odds : ""} They chase it until it's destroyed or lost in the fog.`);
   endMove(); draw(); save(); return true;
 }
@@ -3970,6 +4035,7 @@ function orderMove(i, units) {
   const loaded = units.find(u => UT[u.t].role === "transport" && cargoOf(u).length && UT[u.t].dom !== "land");
   let extra = "";
   if (loaded && isLand(i)) extra = UT[loaded.t].dom === "sea" ? (Z[i].port && friendly(G.player, G.owner[i]) ? " Press Disembark when it's in port." : " It will wait offshore: troops go ashore at a friendly port, or press Assault to storm an enemy coast.") : " Press Disembark at an airbase, or order an airborne assault.";
+  setTimeout(() => showTip("endturn"), 3400);
   toast(`${res.n} unit${res.n > 1 ? "s" : ""} ordered to ${Z[i].n}. ${res.maxEta === 1 ? "Arrives at the end of this turn" : `Arrives in ${res.maxEta} turns`}.${res.skipped ? ` ${res.skipped} can't go there and will hold.` : ""}${extra}`);
   endMove(); draw(); save(); return true;
 }
@@ -3995,6 +4061,7 @@ function startMove(zone, grp = "combat") {
   $("modeBanner").hidden = false;
   const loaded = mine.some(u => UT[u.t].role === "transport" && cargoOf(u).length);
   $("modeText").textContent = grp === "all" ? `Retreat ${mine.length} unit${mine.length > 1 ? "s" : ""} from ${Z[zone].n}: tap a cell to pull back to. Units leaving a fight take a parting volley.` : `${mine.length} ${grp === "support" ? "support" : ""} unit${mine.length > 1 ? "s" : ""} from ${Z[zone].n}. Highlighted zones are reached this turn; tap further for a longer route.${loaded ? " Tap a coast or airfield to put the cargo ashore." : ""}`;
+  if (grp !== "all") setTimeout(() => showTip("move"), 400);
   draw();
 }
 function endMove() { UI.move = null; UI.strike = null; UI.pick = null; $("modeBanner").hidden = true; draw(); }
@@ -4063,7 +4130,9 @@ body.addEventListener("click", e => {
     toast(`${atWar(P, G.owner[z]) ? "Assault" : "Landing"} at ${Z[z].n} will go in at the end of the turn. Call it off from the transport before then if you change your mind.`); draw(); refreshSheet(); save(); return;
   }
   if (b.dataset.landcancel) { const tr = G.units.find(u => u.id === +b.dataset.landcancel); if (tr) tr.drop = null; toast("Landing called off. The troops stay aboard."); draw(); refreshSheet(); save(); return; }
+  if (b.dataset.pickunit) { const u = G.units.find(v => v.id === +b.dataset.pickunit); if (u) { UI.pick = new Set([u.id]); const zz = Z[u.z]; flyTo({ x: zz.x, y: zz.y, s: Math.max(cam.s, 22) }); showZone(u.z); } return; }
   if (b.dataset.act === "clearpick") { UI.pick = null; refreshSheet(); return; }
+  if (b.dataset.act === "selall") { UI.pick = new Set(unitsAt(sheetView.arg).filter(u => u.o === P && !u.in).map(u => u.id)); refreshSheet(); return; }
   if (b.dataset.act === "cancelord") { const sel = UI.pick && UI.pick.size, grp = b.dataset.grp; unitsAt(sheetView.arg).forEach(u => { if (u.o === P && (grp === "support" ? isPassiveT(u.t) : isCombatT(u.t)) && (!sel || UI.pick.has(u.id))) { u.ord = null; u.drop = null; u.chase = null; } }); toast("Orders cancelled."); draw(); refreshSheet(); save(); return; }
   if (b.dataset.infra) { UI.infra = !UI.infra; draw(); showLayers(null, true); return; }
   if (b.dataset.supl) { UI.supplyLayer = !UI.supplyLayer; draw(); showLayers(null, true); return; }
@@ -4244,12 +4313,15 @@ function showArmy() {
   for (const u of G.units) if (u.o === P) (byZ.get(u.z) || byZ.set(u.z, []).get(u.z)).push(u);
   const zs = [...byZ.keys()].sort((a, b) => byZ.get(b).length - byZ.get(a).length);
   const total = G.units.filter(u => u.o === P).length;
-  let html = `<div class="eyebrow"><span class="pill">Order of battle</span></div><h2>${total} units</h2><p class="note" style="margin-top:4px">Tap a group to jump there and give orders.</p><div class="actions"><button class="btn" data-codex="">Unit cards</button></div><div class="rows" style="margin-top:12px">`;
+  let html = `<div class="eyebrow"><span class="pill">Order of battle</span></div><h2>${total} units</h2><p class="note" style="margin-top:4px">Tap a unit icon to jump to it with that unit selected, ready to order. Tap a place to see everything there.</p><div class="actions"><button class="btn" data-codex="">Unit cards</button></div><div class="rows" style="margin-top:12px">`;
   for (const z of zs) {
     const us = byZ.get(z), counts = {};
     us.forEach(u => counts[u.t] = (counts[u.t] || 0) + 1);
     const ordered = us.filter(u => u.ord).length;
+    const chips = us.filter(u => !u.in).sort((a, b) => sig(b.t) - sig(a.t)).slice(0, 14).map(u => `<button class="uchip" data-pickunit="${u.id}" aria-label="Select ${UT[u.t].name} at ${esc(Z[z].n)}">${symCanvas(u.t)}<i style="width:${Math.round(u.hp)}%"></i></button>`).join("");
+    const chipRow = `<div class="uchips">${chips}${us.filter(u => !u.in).length > 14 ? `<span class="more">+${us.filter(u => !u.in).length - 14}</span>` : ""}</div>`;
     html += `<button class="row unit" data-goto="${z}">${symCanvas(us.slice().sort((a, b) => UT[b.t].f - UT[a.t].f)[0].t)}<div class="t"><span>${esc(Z[z].n)}</span></div><div class="s">${Object.entries(counts).filter(([t]) => isCombatT(t)).map(([t, n]) => `${n}× ${UT[t].name}`).join(", ") || "No combat units"}${Object.entries(counts).some(([t]) => isPassiveT(t)) ? `<br>Support: ${Object.entries(counts).filter(([t]) => isPassiveT(t)).map(([t, n]) => `${n}× ${UT[t].name}`).join(", ")}` : ""}</div><div class="r"><span class="cost">${ordered ? ordered + " under orders" : "holding"}</span></div></button>`;
+    html += chipRow;
   }
   html += `</div>`;
   openSheet(html, { type: "army" });
@@ -4739,6 +4811,13 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.3 beta", date: "31 Oct 2026", items: [
+    "Command bar: Order, Attack in range, Select all and Targets now sit at the top of every cell panel and stay there while you scroll. No more hunting for the move button.",
+    "Quick select: in the Army panel, tap any unit's icon to jump to it with that unit selected, ready to order. Select all and Clear on the command bar.",
+    "Tips for new commanders: short pop-up tips the first time you open a cell, give an order and finish your orders. Hide them any time. The Tutorial is marked START HERE until you've tried it.",
+    "Ships and aircraft striking the same target: the replay now shows the bombardment and then the full air strike run, every aircraft included (before, jets could be cut from the replay even though their hits landed).",
+    "Three-way fights: when a cell changes hands, units of a nation that isn't at war with the new owner pull back instead of getting stuck inside it; the same happens after a peace treaty or a broken alliance. Battles with three or more nations show each side in its own position.",
+  ] },
   { v: "1.0.2 beta", date: "31 Oct 2026", items: [
     "Online leaderboard: every campaign posts its score to a global board on the web version, updated each turn and locked in on victory or defeat.",
     "Players online: see who's playing right now, what nation and turn they're on, plus a live activity log of new campaigns, victories and defeats.",
@@ -4771,27 +4850,51 @@ function showPatchNotes() {
   const b = document.getElementById("mNotes"); if (b) b.classList.remove("has-new");
 }
 
+// ---------- first-time tips: each shows once, at the moment it's useful ----------
+const TIPS = {
+  start: { title: "Where to begin", text: "Tap a cell with your units (your capital is a good start) to see them and give orders. New here? The Tutorial on the main menu walks you through a first turn." },
+  cell: { title: "Selecting units", text: "Tap units in the list to pick them (they light up), or just tap Order to send them all. The command bar stays at the top of this panel." },
+  move: { title: "Giving the order", text: "Highlighted cells are reached this turn; tap further for a longer route. Tap an enemy to hunt it down. Tap your own cell again to cancel." },
+  endturn: { title: "Ending the turn", text: "Orders are set. When you're ready, tap End turn: everything moves and fights at once, then the replay shows what happened." },
+};
+const tipsSeen = (() => { try { return JSON.parse(localStorage.getItem("prww3-tips") || "{}"); } catch (e) { return {}; } })();
+function showTip(k, tries = 0) {
+  if (!G || G.tutorial || TUT.on || tipsSeen[k] || tipsSeen._off) return;
+  if (k === "start" && (PB || sheet.classList.contains("open"))) { if (tries < 90) setTimeout(() => showTip(k, tries + 1), 1000); return; } // wait until the opening report is closed
+  if (PB) return;
+  const T = TIPS[k]; if (!T) return;
+  tipsSeen[k] = 1; try { localStorage.setItem("prww3-tips", JSON.stringify(tipsSeen)); } catch (e) {}
+  const c = $("tip"); c.hidden = false;
+  c.innerHTML = `<b>${esc(T.title)}</b><p>${esc(T.text)}</p><div class="actions"><button class="btn primary" id="tipOk">Got it</button><button class="linkbtn" id="tipOff">Hide tips</button>${k === "start" ? `<button class="linkbtn" id="tipTut">Open the tutorial</button>` : ""}</div>`;
+  $("tipOk").onclick = () => { c.hidden = true; };
+  $("tipOff").onclick = () => { tipsSeen._off = 1; try { localStorage.setItem("prww3-tips", JSON.stringify(tipsSeen)); } catch (e) {} c.hidden = true; };
+  if ($("tipTut")) $("tipTut").onclick = () => { c.hidden = true; save(); G = null; startTutorial(); };
+  placeFloat(c);
+}
 // ---------- tutorial: a very basic guided first turn ----------
 // Edit TUTORIAL_STEPS to grow it each patch. A step with done() advances by itself when the player does the thing;
 // a step without one shows a Next button. ping() returns a cell to highlight.
-const TUTORIAL_UPDATED = "1.0.2 beta";
+const TUTORIAL_UPDATED = "1.0.3 beta";
 const TUT_NATION = "AU";
 const TUTORIAL_STEPS = [
   { title: "Welcome, Commander", text: "You lead Australia in a war for the Pacific. Win by holding 30% of the region's victory points: capitals, cities and provinces. This practice game walks you through the basics." },
   { title: "Your resources", text: "The bar at the top shows your money, the soldiers serving in your units, your manpower reserve and materials. Units, buildings and fuel all cost something." },
   { title: "Find your forces", text: "Tap Canberra, your capital, at the pulsing ring to see the units stationed there.", ping: () => G.nations[G.player].cap, done: () => sheetView && sheetView.type === "zone" && unitsAt(sheetView.arg).some(u => u.o === G.player) },
-  { title: "Give an order", text: "Tap Order, then tap a nearby province. Highlighted cells are reached this turn.", done: () => G.units.some(u => u.o === G.player && (u.ord || u.chase != null)) },
+  { title: "Give an order", text: "Tap Order in the command bar at the top of the panel, then tap a nearby province. Highlighted cells are reached this turn.", done: () => G.units.some(u => u.o === G.player && (u.ord || u.chase != null)) },
   { title: "End the turn", text: "Tap End turn. Your orders play out first, then every other nation moves.", done: () => G.turn >= 2 && !PB },
   { title: "The replay", text: "The camera followed each move and fight. During a replay, Next jumps ahead, 2× speeds it up and Skip ends it. Reports (bottom left) list everything that happened." },
   { title: "Build something", text: "Tap one of your provinces and, under Construction, add Roads or a Factory. Buildings go up over a few turns and level up to 5.", done: () => G.queue.some(q => q.n === G.player && q.kind !== "u") },
-  { title: "Your army", text: "Tap Army in the dock to see every unit you own and recruit more.", done: () => TUT.saw.army },
+  { title: "Your army", text: "Tap Army in the dock to see every unit you own. Tap any unit's icon to jump straight to it, selected and ready to order.", done: () => TUT.saw.army },
   { title: "Diplomacy", text: "Tap Diplomacy. Every nation starts neutral: you can sign pacts, send aid, form alliances, or declare war.", done: () => TUT.saw.dip },
   { title: "Going to war", text: "Once at war, tap your units, tap Order, then tap an enemy. Your units hunt it down: ships and artillery stop in range and fire." },
   { title: "You're ready", text: "That's the basics. The Units tab has a card for every unit, and Patch notes show what's new. Keep practising here, or head back and start a real campaign.", end: true },
 ];
 const TUT = { on: false, i: 0, saw: {}, timer: 0 };
-addEventListener("resize", () => TUT.on && placeCoach());
+addEventListener("resize", () => placeCoach());
+setInterval(() => { const t = $("tip"); if (t && !t.hidden) { if (PB || !G) t.hidden = true; else placeFloat(t); } }, 300);
+document.addEventListener("pointerdown", e => { const t = $("tip"); if (t && !t.hidden && !t.contains(e.target)) t.hidden = true; }, true); // a tip never blocks play: tap anywhere else and it goes
 function startTutorial() {
+  try { localStorage.setItem("prww3-tut", "1"); } catch (e) {}
   const ci = CODE[TUT_NATION];
   newGame(ci, undefined, { gov: START_GOV[TUT_NATION].slice(), army: RECOMMENDED_ARMY.filter((t, i, arr) => armySpent(arr.slice(0, i + 1)) <= BUDGET) });
   G.tutorial = true; SETUP = null; $("start").hidden = true; MENU_FX.stop(); afterStart();
@@ -4811,9 +4914,10 @@ function tutTick() {
   if (s.ping && !UI.move) { const z = s.ping(); if (z != null && z >= 0 && (!UI.ping || performance.now() - UI.ping.t0 > 2400)) { UI.ping = { z, t0: performance.now() }; animLoop(); } }
   if (s.done && s.done()) { TUT.i++; renderCoach(); }
 }
-function placeCoach() {
-  const c = $("coach"); if (!c || c.hidden) return;
-  let y = 0; for (const id of ["resBar", "modeBanner", "pbBanner"]) { const e = $(id); if (e && !e.hidden && e.offsetParent !== null) y = Math.max(y, e.getBoundingClientRect().bottom); }
+function placeCoach() { placeFloat($("coach")); const t = $("tip"); if (t && !t.hidden) placeFloat(t); }
+function placeFloat(c) {
+  if (!c || c.hidden) return;
+  let y = 0; for (const id of ["resBar", "modeBanner", "pbBanner"]) { const e = $(id); if (e && !e.hidden && e.getClientRects().length) y = Math.max(y, e.getBoundingClientRect().bottom); } // fixed elements have no offsetParent, so test their boxes
   y += 8;
   const dock = $("dockWrap"), h = c.offsetHeight;
   if (dock) { const dt = dock.getBoundingClientRect().top; if (y + h > dt - 6) y = Math.max(6, dt - h - 8); } // never cover the dock (it rides above an open panel)
@@ -4859,7 +4963,7 @@ function showTitle() {
       ${last ? `<button class="btn primary big" id="mQuick"><span>Continue as ${esc(last)}</span><small>${savedLine(last)}</small></button>` : ""}
       <button class="btn ${last ? "" : "primary"} big" id="mNew"><span>New game</span><small>Pick a nation and build its army</small></button>
       <button class="btn big" id="mLoad"><span>Load game</span><small>Pick up a saved campaign</small></button>
-      <button class="btn big" id="mTut"><span>Tutorial</span><small>A very basic guided first turn (practice game, not saved)</small></button>
+      <button class="btn big${(() => { try { return localStorage.getItem("prww3-tut") ? "" : " has-start"; } catch (e) { return ""; } })()}" id="mTut"><span>Tutorial</span><small>A very basic guided first turn (practice game, not saved)</small></button>
       <div class="menu-row"><button class="btn" id="mScores">Hi-scores</button><button class="btn" id="mHow" aria-expanded="${!!UI.startHow}">${UI.startHow ? "Hide how to play" : "How to play"}</button></div>
       <div class="menu-row"><button class="btn${notesNew() ? " has-new" : ""}" id="mNotes">Patch notes</button><button class="btn" id="mBug">Report a bug</button></div>
     </div>
@@ -5007,7 +5111,7 @@ function showSetup(ci) {
   };
   el.scrollTop = 0; render();
 }
-function afterStart() { homeView(true); updateHud(); draw(); setTimeout(() => showReports("last"), 300); }
+function afterStart() { homeView(true); updateHud(); draw(); setTimeout(() => showReports("last"), 300); setTimeout(() => { if (G && G.turn <= 2) showTip("start"); }, 1600); }
 
 // ---------- taps ----------
 function onTap(sx, sy) {
