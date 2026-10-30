@@ -23,6 +23,8 @@ HEAD = """<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pacific Rim WW3">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>html,body{margin:0;height:100%;background:#061120;overscroll-behavior:none}</style>
 """
 os.makedirs(os.path.join(ROOT, "site"), exist_ok=True)
