@@ -217,6 +217,13 @@ button.row { cursor: pointer; }
 .coach.tip b { color: #9fd8ff; }
 .coach .linkbtn { margin-left: 4px; }
 .cmdbar { position: sticky; top: 0; z-index: 3; margin: 10px -14px 4px; padding: 10px 14px; background: linear-gradient(180deg, var(--panel) 85%, rgba(0,0,0,0)); border-bottom: 1px solid var(--line); }
+.cmdbar.tabsonly { padding-top: 6px; padding-bottom: 8px; }
+.ztabs { display: flex; gap: 4px; margin-top: 9px; }
+.cmdbar.tabsonly .ztabs { margin-top: 0; }
+.ztab { flex: 1 1 0; min-width: 0; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 4px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); font: 700 11.5px var(--f-display); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.ztab small { font: 600 10.5px var(--f-body); color: inherit; opacity: .8; }
+.ztab.on { border-color: var(--signal); background: rgba(245,184,74,.12); color: var(--signal); }
+.ztabpane { padding-top: 4px; }
 .cmdhint { font-size: 12.5px; color: var(--muted); margin-bottom: 7px; } .cmdhint b { color: var(--signal); }
 .cmdbtns { display: flex; flex-wrap: wrap; gap: 8px; } .cmdbtns .btn { min-height: 40px; }
 .cmdbats { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; padding-bottom: 2px; }
@@ -2601,7 +2608,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.9 beta"; // early access playtest build
+const VERSION = "1.0.10 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -4204,25 +4211,27 @@ function showZone(i, refresh) {
   } else { pills.push(`<span class="pill">${SHALLOW[i] ? "Shallow water" : "Deep ocean"}</span>`); const wo = waters()[i]; if (wo >= 0) pills.push(`<span class="pill${wo === P ? " cap" : ""}">${wo === P ? "Your waters" : esc(shortName(wo)) + " waters"}</span>`); }
   if (!vis) pills.push('<span class="pill fog">No intel</span>');
   let html = `<div class="eyebrow">${pills.join("")}</div><h2>${esc(z.n)}</h2><!--CMDBAR-->`;
+  // 1.0.10: the panel is split into tabs; each part of it goes to exactly one
+  const T = { units: "", orders: "", recruit: "", build: "", info: "" };
   if (land) {
     const st = M.states[z.s];
-    html += `<div class="where"><span>${esc(st.name)}</span><span>·</span>${swatch(owner)}<button class="linkbtn" data-nation="${owner}">${esc(shortName(owner))}</button>${owner !== z.c ? `<span>(from ${esc(shortName(z.c))})</span>` : ""}</div>`;
+    T.info += `<div class="where"><span>${esc(st.name)}</span><span>·</span>${swatch(owner)}<button class="linkbtn" data-nation="${owner}">${esc(shortName(owner))}</button>${owner !== z.c ? `<span>(from ${esc(shortName(z.c))})</span>` : ""}</div>`;
     const Pv = PROV[i], b = B(i);
-    html += `<dl class="stats"><div><dt>Population</dt><dd>${fmtPop(z.p)}</dd></div><div><dt>Income</dt><dd>$${fmt(Pv.inc * (b.road ? 1.1 : 1) + (b.fac || 0) * 1.5, 1)}<small>/t</small></dd></div><div><dt>Deposit</dt><dd>${Pv.dep === "oil" ? `Oil<small>${b.well ? " · tapped" : " · untapped"}</small>` : Pv.dep === "ore" ? `Ore<small>${b.mine ? " · mined" : " · untapped"}</small>` : "—"}</dd></div></dl>`;
+    T.info += `<dl class="stats"><div><dt>Population</dt><dd>${fmtPop(z.p)}</dd></div><div><dt>Income</dt><dd>$${fmt(Pv.inc * (b.road ? 1.1 : 1) + (b.fac || 0) * 1.5, 1)}<small>/t</small></dd></div><div><dt>Deposit</dt><dd>${Pv.dep === "oil" ? `Oil<small>${b.well ? " · tapped" : " · untapped"}</small>` : Pv.dep === "ore" ? `Ore<small>${b.mine ? " · mined" : " · untapped"}</small>` : "—"}</dd></div></dl>`;
     if (vis || owner === P) {
       const blist = Object.entries(b).filter(([, v]) => v > 0).map(([k, v]) => `${BLD[k].name} L${v}`);
-      html += `<p class="note" style="margin-top:8px">${blist.length ? "Built: " + blist.join(" · ") : "No infrastructure."} · Worth ${vpOf(i)} VP</p>`;
+      T.info += `<p class="note" style="margin-top:8px">${blist.length ? "Built: " + blist.join(" · ") : "No infrastructure."} · Worth ${vpOf(i)} VP</p>`;
     }
   } else {
     const wo = waters()[i];
-    html += `<div class="where">${wo >= 0 ? `${swatch(wo)}<button class="linkbtn" data-nation="${wo}">${esc(shortName(wo))}</button><span>territorial waters and airspace</span>` : "<span>International waters</span>"}</div>`;
-    html += `<p class="note" style="margin-top:6px">${SHALLOW[i] ? "Shallow coastal water: big ships move a little slower, submarines are slow, easy to spot and vulnerable, and guns ashore can reach it." : "Deep ocean: submarines hide here and strike harder; only sonar finds them. Troops swimming across tire fast."}${wo >= 0 && wo !== P && !friendly(P, wo) && !atWar(P, wo) ? " Your aircraft can't fly through a neutral nation's airspace." : ""}${OFFSHORE_OIL[i] ? ` Offshore oil field${B(i).rig ? `: rig level ${B(i).rig}` : ", untapped"}.` : ""}</p>`;
+    T.info += `<div class="where">${wo >= 0 ? `${swatch(wo)}<button class="linkbtn" data-nation="${wo}">${esc(shortName(wo))}</button><span>territorial waters and airspace</span>` : "<span>International waters</span>"}</div>`;
+    T.info += `<p class="note" style="margin-top:6px">${SHALLOW[i] ? "Shallow coastal water: big ships move a little slower, submarines are slow, easy to spot and vulnerable, and guns ashore can reach it." : "Deep ocean: submarines hide here and strike harder; only sonar finds them. Troops swimming across tire fast."}${wo >= 0 && wo !== P && !friendly(P, wo) && !atWar(P, wo) ? " Your aircraft can't fly through a neutral nation's airspace." : ""}${OFFSHORE_OIL[i] ? ` Offshore oil field${B(i).rig ? `: rig level ${B(i).rig}` : ", untapped"}.` : ""}</p>`;
     if (wo === P) {
       const q = G.queue.filter(x => x.z === i && x.n === P);
-      if (q.length) html += `<div class="section-title">In progress</div><div class="rows">${q.map(x => `<div class="row"><div class="t"><span>${BLD[x.t].name}</span></div><div class="s">${x.left} turn${x.left > 1 ? "s" : ""} left</div></div>`).join("")}</div>`;
-      html += `<div class="section-title">Construction</div><div class="rows">`;
-      for (const o of buildingOptions(P, i)) { const afford = canAfford(P, o.f, o.m); html += `<div class="row"><div class="t"><span>${o.d.name}${o.lvl ? ` <span style="color:var(--muted);font-weight:500">L${o.lvl}/${o.d.max}</span>` : ""}</span></div><div class="s">${o.why ? esc(o.why) : esc(o.d.desc)}</div><div class="r"><button class="btn" data-build="${o.k}" ${o.why || !afford ? "disabled" : ""}>${o.lvl ? "Upgrade" : "Build"}</button><span class="cost">$${o.f} · ${o.m} mat · ${o.d.turns}t</span></div></div>`; }
-      html += `</div>`;
+      if (q.length) T.build += `<div class="section-title">In progress</div><div class="rows">${q.map(x => `<div class="row"><div class="t"><span>${BLD[x.t].name}</span></div><div class="s">${x.left} turn${x.left > 1 ? "s" : ""} left</div></div>`).join("")}</div>`;
+      T.build += `<div class="section-title">Construction</div><div class="rows">`;
+      for (const o of buildingOptions(P, i)) { const afford = canAfford(P, o.f, o.m); T.build += `<div class="row"><div class="t"><span>${o.d.name}${o.lvl ? ` <span style="color:var(--muted);font-weight:500">L${o.lvl}/${o.d.max}</span>` : ""}</span></div><div class="s">${o.why ? esc(o.why) : esc(o.d.desc)}</div><div class="r"><button class="btn" data-build="${o.k}" ${o.why || !afford ? "disabled" : ""}>${o.lvl ? "Upgrade" : "Build"}</button><span class="cost">$${o.f} · ${o.m} mat · ${o.d.turns}t</span></div></div>`; }
+      T.build += `</div>`;
     }
   }
   // an ongoing fight: forecast of the next exchange and what to do about it
@@ -4231,7 +4240,7 @@ function showZone(i, refresh) {
   if (fc && fc.winner !== "none") {
     const o = outlookText(fc), since = (G.fronts || {})[i] ? G.turn - G.fronts[i].since : 0;
     const strikers = strikersFor(i);
-    html += `<div class="engage"><div class="eh"><span class="pill st-W">Engaged</span><span>${since > 0 ? `Fighting for ${since} turn${since > 1 ? "s" : ""}` : "Fighting starts at the end of this turn"} · ${BIOMES[biomeOf(i)].n}${land && B(i).fort ? ` · defences L${B(i).fort}` : ""}</span></div>
+    T.units += `<div class="engage"><div class="eh"><span class="pill st-W">Engaged</span><span>${since > 0 ? `Fighting for ${since} turn${since > 1 ? "s" : ""}` : "Fighting starts at the end of this turn"} · ${BIOMES[biomeOf(i)].n}${land && B(i).fort ? ` · defences L${B(i).fort}` : ""}</span></div>
       <p>Next exchange (estimate): you deal <b>~${Math.round(fc.r1.dealt)}</b> and take <b>~${Math.round(fc.r1.taken)}</b>${fc.r1.kills ? `, destroying ${fc.r1.kills}` : ""}${fc.r1.losses ? `, losing ${fc.r1.losses}` : ""}.</p>
       <p class="${o.cls}">${o.txt}</p>
       <p style="color:var(--muted);font-size:12.5px">${myHere.some(isLocked) ? "Your units are locked in combat this turn and can't pull out yet." : "Pulling out is possible but every enemy here gets a heavy free volley at the retreating units."}</p>
@@ -4272,11 +4281,11 @@ function showZone(i, refresh) {
   const batIds = [...new Set(mine.filter(inBat).map(u => u.bat))];
   const miniBars = us => { const hp = us.reduce((a, u) => a + u.hp, 0) / us.length, am = us.filter(u => UT[u.t].apb), fu = us.filter(u => UT[u.t].fpm); const b = (v, c) => `<i><b style="width:${Math.round(clamp(v, 0, 100))}%;background:${c}"></b></i>`; return `<div class="minibars">${b(hp, hp > 50 ? "var(--good)" : hp > 25 ? "var(--signal)" : "var(--bad)")}${am.length ? b(Math.min(...am.map(u => u.am)), "#f2c46b") : ""}${fu.length ? b(Math.min(...fu.map(u => u.fu)), "#4cc3ff") : ""}</div>`; };
   if (batIds.length) {
-    html += `<div class="section-title">Battalions <small>each moves as one, at its slowest unit's pace</small></div>`;
+    T.units += `<div class="section-title">Battalions <small>each moves as one, at its slowest unit's pace</small></div>`;
     for (const id of batIds) {
       const e = batIndex().get(id), here = mine.filter(u => u.bat === id), types = [...new Set(here.map(u => u.t))].sort((a, b) => sig(b) - sig(a)).slice(0, 3);
       const allSel = pick && here.every(u => pick.has(u.id));
-      html += `<div class="batcard${allSel ? " sel" : ""}"><canvas width="128" height="64" data-batfig="${types.join(",")}" data-aff="friendly"></canvas><div class="bt"><div class="bn"><span class="ech">${e.type.ech}</span>${esc(batName(id, e))}</div><div class="bs">${here.length} unit${here.length > 1 ? "s" : ""} here${e.members.length > here.length ? ` of ${e.members.length}` : ""} · ${esc(e.type.fx)}</div>${miniBars(here)}</div>
+      T.units += `<div class="batcard${allSel ? " sel" : ""}"><canvas width="128" height="64" data-batfig="${types.join(",")}" data-aff="friendly"></canvas><div class="bt"><div class="bn"><span class="ech">${e.type.ech}</span>${esc(batName(id, e))}</div><div class="bs">${here.length} unit${here.length > 1 ? "s" : ""} here${e.members.length > here.length ? ` of ${e.members.length}` : ""} · ${esc(e.type.fx)}</div>${miniBars(here)}</div>
         <div class="ba"><button class="btn${allSel ? " primary" : ""}" data-batsel="${id}">${allSel ? "Selected" : "Select"}</button><button class="btn" data-codex="${e.type.k === "tg" ? "" : e.type.k}">Battalion card</button><button class="btn danger" data-batdis="${id}">Disband</button></div></div>
         <div class="batrows">${here.filter(u => !(u.att && here.some(l => l.id === u.att))).map(u => tree(u, 1)).join("")}</div>`;
     }
@@ -4290,10 +4299,10 @@ function showZone(i, refresh) {
   if (myCombat.length) {
     const sel = myCombat.filter(u => pick && pick.has(u.id)), pool = sel.length ? sel : myCombat;
     const ordered = pool.filter(u => u.ord || u.chase != null).length;
-    html += `${myCombatFree.length ? `<div class="section-title">${batIds.length ? "Other units" : "Your forces"} <small>commanders with their support</small></div><div class="rows">${myCombatFree.map(u => tree(u, 0)).join("")}</div>` : ""}
-      <div class="actions"><button class="btn primary" data-act="move" data-grp="combat">Order ${sel.length || "all"}</button>${pool.some(u => UT[u.t].rng && !isEngaged(u)) ? `<button class="btn" data-act="strike">Attack in range</button>` : ""}${pool.some(u => u.strike != null || u.tz != null) ? `<button class="btn" data-act="ceasefire">Cease fire</button>` : ""}<button class="btn" data-act="targets">Targets</button>${sel.length === 1 ? `<button class="btn" data-codex="${sel[0].t}">Unit card</button>` : ""}${ordered ? `<button class="btn" data-act="cancelord" data-grp="combat">Cancel ${ordered} order${ordered > 1 ? "s" : ""}</button>` : ""}${loadBtns("combat", pool)}${pick ? '<button class="btn" data-act="clearpick">Clear selection</button>' : ""}</div>`;
+    T.units += `${myCombatFree.length ? `<div class="section-title">${batIds.length ? "Other units" : "Your forces"} <small>commanders with their support</small></div><div class="rows">${myCombatFree.map(u => tree(u, 0)).join("")}</div>` : ""}`;
+    T.orders += `<div class="section-title">Combat units <small>${sel.length ? `${sel.length} selected` : `all ${myCombat.length}`}</small></div><div class="actions"><button class="btn primary" data-act="move" data-grp="combat">Order ${sel.length || "all"}</button>${pool.some(u => UT[u.t].rng && !isEngaged(u)) ? `<button class="btn" data-act="strike">Attack in range</button>` : ""}${pool.some(u => u.strike != null || u.tz != null) ? `<button class="btn" data-act="ceasefire">Cease fire</button>` : ""}<button class="btn" data-act="targets">Targets</button>${sel.length === 1 ? `<button class="btn" data-codex="${sel[0].t}">Unit card</button>` : ""}${ordered ? `<button class="btn" data-act="cancelord" data-grp="combat">Cancel ${ordered} order${ordered > 1 ? "s" : ""}</button>` : ""}${loadBtns("combat", pool)}${pick ? '<button class="btn" data-act="clearpick">Clear selection</button>' : ""}</div>`;
   }
-  if (formBtn) html += `<div class="actions">${formBtn}</div>`;
+  if (formBtn) T.orders += `<div class="actions">${formBtn}</div>`;
   const loose = mySup.filter(s => { const l = leaderOf(s); return (!l || l.z !== s.z) && !inBat(s); });
   if (mySup.length) {
     const sel = mySup.filter(u => pick && pick.has(u.id)), pool = sel.length ? sel : mySup;
@@ -4313,52 +4322,66 @@ function showZone(i, refresh) {
       if (TT.dom === "sea" && !isLand(i)) for (const [j] of ADJ[i]) if (isLand(j) && atWar(P, G.owner[j])) unload += `<button class="btn danger" data-land="${tr.id}:${j}">Assault ${esc(Z[j].n)}</button>`;
       if (TT.dom === "air") for (const [j] of ADJ[i]) if (isLand(j) && atWar(P, G.owner[j])) unload += `<button class="btn danger" data-land="${tr.id}:${j}">Airborne assault on ${esc(Z[j].n)}</button>`;
     }
-    if (loose.length) html += `<div class="section-title">Unattached support <small>exposed if attacked</small></div><div class="rows">${loose.map(s => ownRow(s, 0) + cargoRows(s, 1)).join("")}</div>`;
-    html += `<div class="actions">${loose.length ? `<button class="btn primary" data-act="move" data-grp="support">Order ${sel.length || "all"} support</button>` : ""}${ordered ? `<button class="btn" data-act="cancelord" data-grp="support">Cancel ${ordered} order${ordered > 1 ? "s" : ""}</button>` : ""}${attached ? `<button class="btn" data-act="detach">Detach ${attached}</button>` : ""}${loadBtns("support", pool.filter(u => !UT[u.t].cap))}${unload}</div>`;
-    if (attachable.length && leaders.length) html += `<div class="attach"><label for="attSel">Attach ${attachable.length} support unit${attachable.length > 1 ? "s" : ""} to</label><div class="attach-row"><select id="attSel">${leaders.map(l => `<option value="${l.id}">${UT[l.t].name} · ${Math.round(l.hp)}% · #${l.id}</option>`).join("")}</select><button class="btn" data-act="attach">Attach</button></div></div>`;
+    if (loose.length) T.units += `<div class="section-title">Unattached support <small>exposed if attacked</small></div><div class="rows">${loose.map(s => ownRow(s, 0) + cargoRows(s, 1)).join("")}</div>`;
+    T.orders += `<div class="section-title">Support units <small>${sel.length ? `${sel.length} selected` : `all ${mySup.length}`}</small></div><div class="actions">${loose.length ? `<button class="btn primary" data-act="move" data-grp="support">Order ${sel.length || "all"} support</button>` : ""}${ordered ? `<button class="btn" data-act="cancelord" data-grp="support">Cancel ${ordered} order${ordered > 1 ? "s" : ""}</button>` : ""}${attached ? `<button class="btn" data-act="detach">Detach ${attached}</button>` : ""}${loadBtns("support", pool.filter(u => !UT[u.t].cap))}${unload}</div>`;
+    if (attachable.length && leaders.length) T.orders += `<div class="attach"><label for="attSel">Attach ${attachable.length} support unit${attachable.length > 1 ? "s" : ""} to</label><div class="attach-row"><select id="attSel">${leaders.map(l => `<option value="${l.id}">${UT[l.t].name} · ${Math.round(l.hp)}% · #${l.id}</option>`).join("")}</select><button class="btn" data-act="attach">Attach</button></div></div>`;
   }
-  if (mine.length) html += `<p class="note" style="margin-top:8px">Order a commander and its attached support follows. While the commander stands, enemies must go through it to reach them. Support units on their own can be destroyed, and a transport takes its cargo down with it.</p>`;
+  if (mine.length) T.units += `<p class="note" style="margin-top:8px">Order a commander and its attached support follows. While the commander stands, enemies must go through it to reach them. Support units on their own can be destroyed, and a transport takes its cargo down with it.</p>`;
   if (others.length) {
-    html += `<div class="section-title">Other forces</div><div class="rows">`;
-    for (const u of others) { const T = UT[u.t], aff = affOf(u.o), q = fc && fc.per.get(u); html += `<div class="row unit">${symCanvas(u.t, aff)}<div class="t"><span>${T.name}</span><canvas class="fig" width="104" height="52" data-fig="${u.t}" data-aff="${aff}"></canvas></div><div class="s">${esc(shortName(u.o))} · ${STN[stance(P, u.o)]}${inBat(u) ? ` · ${esc(batName(u.bat))}` : ""}${isPassiveT(u.t) ? " · support" : ""}${cargoIntel(u)}${q && q.taken ? ` · <span class="fcast">takes ~${Math.round(q.taken)}</span>` : ""}</div>${hpBar(u)}</div>`; }
-    html += `</div>`;
+    T.units += `<div class="section-title">Other forces</div><div class="rows">`;
+    for (const u of others) { const UTT = UT[u.t], aff = affOf(u.o), q = fc && fc.per.get(u); T.units += `<div class="row unit">${symCanvas(u.t, aff)}<div class="t"><span>${UTT.name}</span><canvas class="fig" width="104" height="52" data-fig="${u.t}" data-aff="${aff}"></canvas></div><div class="s">${esc(shortName(u.o))} · ${STN[stance(P, u.o)]}${inBat(u) ? ` · ${esc(batName(u.bat))}` : ""}${isPassiveT(u.t) ? " · support" : ""}${cargoIntel(u)}${q && q.taken ? ` · <span class="fcast">takes ~${Math.round(q.taken)}</span>` : ""}</div>${hpBar(u)}</div>`; }
+    T.units += `</div>`;
     const strikers = fc ? [] : strikersFor(i);
-    if (strikers.length) html += `<div class="actions"><button class="btn" data-strikein="${i}">Strike with ${strikers.length} unit${strikers.length > 1 ? "s" : ""} in range</button></div>`;
+    if (strikers.length) T.orders += `<div class="section-title">Strike this cell</div><div class="actions"><button class="btn" data-strikein="${i}">Strike with ${strikers.length} unit${strikers.length > 1 ? "s" : ""} in range</button></div>`;
   }
-  if (!units.length && !vis) html += `<p class="note">No current intelligence. Move scouts, radar or aircraft closer to see units here.</p>`;
+  if (!units.length && !vis) T.info += `<p class="note">No current intelligence. Move scouts, radar or aircraft closer to see units here.</p>`;
   // own province: build & recruit
   if (land && owner === P) {
     const q = G.queue.filter(x => x.z === i && x.n === P);
-    if (q.length) html += `<div class="section-title">In progress</div><div class="rows">${q.map(x => `<div class="row"><div class="t"><span>${x.kind === "u" ? UT[x.t].name : BLD[x.t].name}</span></div><div class="s">${x.left} turn${x.left > 1 ? "s" : ""} left</div></div>`).join("")}</div>`;
-    html += `<div class="section-title">Construction</div><div class="rows">`;
+    const qrow = x => `<div class="row"><div class="t"><span>${x.kind === "u" ? UT[x.t].name : BLD[x.t].name}</span></div><div class="s">${x.left} turn${x.left > 1 ? "s" : ""} left</div></div>`;
+    const qu = q.filter(x => x.kind === "u"), qb = q.filter(x => x.kind !== "u");
+    if (qu.length) T.recruit += `<div class="section-title">In training</div><div class="rows">${qu.map(qrow).join("")}</div>`;
+    if (qb.length) T.build += `<div class="section-title">In progress</div><div class="rows">${qb.map(qrow).join("")}</div>`;
+    T.build += `<div class="section-title">Construction</div><div class="rows">`;
     for (const o of buildingOptions(P, i)) {
       const afford = canAfford(P, o.f, o.m);
-      html += `<div class="row"><div class="t"><span>${o.d.name}${o.d.max > 1 ? ` <span style="color:var(--muted);font-weight:500">L${o.lvl}/${o.d.max}</span>` : o.lvl ? ' <span style="color:var(--good);font-weight:500">built</span>' : ""}</span></div><div class="s">${o.why ? esc(o.why) : esc(o.d.desc)}</div><div class="r"><button class="btn" data-build="${o.k}" ${o.why || !afford ? "disabled" : ""}>${o.lvl ? "Upgrade" : "Build"}</button><span class="cost">$${o.f} · ${o.m} mat · ${o.d.turns}t</span></div></div>`;
+      T.build += `<div class="row"><div class="t"><span>${o.d.name}${o.d.max > 1 ? ` <span style="color:var(--muted);font-weight:500">L${o.lvl}/${o.d.max}</span>` : o.lvl ? ' <span style="color:var(--good);font-weight:500">built</span>' : ""}</span></div><div class="s">${o.why ? esc(o.why) : esc(o.d.desc)}</div><div class="r"><button class="btn" data-build="${o.k}" ${o.why || !afford ? "disabled" : ""}>${o.lvl ? "Upgrade" : "Build"}</button><span class="cost">$${o.f} · ${o.m} mat · ${o.d.turns}t</span></div></div>`;
     }
-    html += `</div>`;
+    T.build += `</div>`;
     const recruitable = UT_KEYS.filter(t => recruitSites(P, t).includes(i));
     if (recruitable.length) {
-      html += `<div class="section-title">Recruit <small>${fmtMan(G.nations[P].man)} manpower in reserve</small></div><div class="rows">`;
+      T.recruit += `<div class="section-title">Recruit <small>${fmtMan(G.nations[P].man)} manpower in reserve</small></div><div class="rows">`;
       for (const t of recruitable) {
-        const T = UT[t], f = costF(P, t), ok = canAfford(P, f, T.m, manOf(t));
-        html += `<div class="row unit">${symCanvas(t)}<div class="t"><span>${T.name}</span></div><div class="s">${T.size} · ${T.mp} MP · ${T.turns}t</div><div class="r"><button class="btn" data-recruit="${t}" ${ok ? "" : "disabled"}>Build</button><span class="cost">$${f} · ${T.m} mat · ${fmtMan(manOf(t))} men</span></div></div>`;
+        const T2 = UT[t], f = costF(P, t), ok = canAfford(P, f, T2.m, manOf(t));
+        T.recruit += `<div class="row unit">${symCanvas(t)}<div class="t"><span>${T2.name}</span></div><div class="s">${T2.size} · ${T2.mp} MP · ${T2.turns}t</div><div class="r"><button class="btn" data-recruit="${t}" ${ok ? "" : "disabled"}>Build</button><span class="cost">$${f} · ${T2.m} mat · ${fmtMan(manOf(t))} men</span></div></div>`;
       }
-      html += `</div>`;
-    } else if (Z[i].t === "prov") html += `<p class="note">Units are recruited in cities. Aircraft need an airbase, ships need a port.</p>`;
+      T.recruit += `</div>`;
+    } else if (Z[i].t === "prov") T.build += `<p class="note">Units are recruited in cities. Aircraft need an airbase, ships need a port.</p>`;
   }
   // connections
   const nb = ADJ[i].map(([j, f]) => ({ j, f })).sort((a, b) => (Z[a.j].k > Z[b.j].k ? 1 : -1) || Z[a.j].n.localeCompare(Z[b.j].n));
   let l = 0, sN = 0, a = 0; for (const { f } of nb) { if (f & 1) l++; if (f & 2) sN++; if (f & 4) a++; }
-  html += `<div class="section-title">Connections</div><div class="lanes"><span><i style="background:var(--land-lane)"></i>${l} land</span><span><i style="background:var(--sea-lane)"></i>${sN} sea</span><span><i style="background:repeating-linear-gradient(90deg,var(--air-lane) 0 4px,transparent 4px 7px)"></i>${a} air</span></div>`;
-  html += `<div class="nbrs" style="margin-top:8px">${nb.map(({ j, f }) => `<button class="nbr" data-z="${j}"><i style="background:${isLand(j) ? C[G.owner[j]].color : "#2a5a85"}"></i><span>${esc(Z[j].n)}</span>${f & 8 ? '<small style="color:var(--signal)">⇄</small>' : ""}</button>`).join("")}</div>`;
+  T.info += `<div class="section-title">Connections</div><div class="lanes"><span><i style="background:var(--land-lane)"></i>${l} land</span><span><i style="background:var(--sea-lane)"></i>${sN} sea</span><span><i style="background:repeating-linear-gradient(90deg,var(--air-lane) 0 4px,transparent 4px 7px)"></i>${a} air</span></div>`;
+  T.info += `<div class="nbrs" style="margin-top:8px">${nb.map(({ j, f }) => `<button class="nbr" data-z="${j}"><i style="background:${isLand(j) ? C[G.owner[j]].color : "#2a5a85"}"></i><span>${esc(Z[j].n)}</span>${f & 8 ? '<small style="color:var(--signal)">⇄</small>' : ""}</button>`).join("")}</div>`;
+  // tabs that apply here; the panel opens on Units when there are units, else Info, or on the tab last used for this kind of cell
+  const TABS = [["units", "Units", units.length], ["orders", "Orders", 0], ["recruit", "Recruit", 0], ["build", "Build", 0], ["info", "Info", 0]].filter(([k]) => T[k]);
+  const kind = land ? (owner === P ? "own-" : "other-") + (z.t === "prov" ? "prov" : "city") : "sea";
+  UI.ztabMem = UI.ztabMem || {};
+  let tab = UI.ztab && UI.ztab.z === i ? UI.ztab.k : UI.ztabMem[kind + (mine.length ? "+u" : "")];
+  if (!T[tab]) tab = T.units ? "units" : "info";
+  UI.ztab = { z: i, k: tab, kind: kind + (mine.length ? "+u" : "") };
+  const tabBar = `<div class="ztabs" role="tablist">${TABS.map(([k, n, c]) => `<button class="ztab${k === tab ? " on" : ""}" role="tab" aria-selected="${k === tab}" data-ztab="${k}">${n}${c ? `<small>${c}</small>` : ""}</button>`).join("")}</div>`;
+  html += `<div class="ztabpane" data-pane="${tab}">${T[tab]}</div>`;
+  html = html.replace("<!--CMDBAR-->", "<!--CMDBAR--><!--TABS-->");
   // the command bar: always at the top of the panel (sticky), so Order never needs a scroll
   if (mine.length && !(G.over)) {
     const combat = mine.filter(u => isCombatT(u.t)), sup = mine.filter(u => isPassiveT(u.t)), pk = UI.pick && UI.pick.size ? mine.filter(u => UI.pick.has(u.id)) : [];
     const pc = pk.filter(u => isCombatT(u.t)), pool = pc.length ? pc : combat;
     const n = pk.length, ranged = pool.some(u => UT[u.t].rng && !isEngaged(u));
     const bar = `<div class="cmdbar"><div class="cmdhint">${n ? `<b>${n} selected</b> · tap units to add or remove` : `Tap units to pick some, or order them all`}</div><div class="cmdbtns">${combat.length ? `<button class="btn primary" data-act="move" data-grp="combat">Order ${pc.length || "all " + combat.length}</button>` : ""}${!combat.length && sup.length ? `<button class="btn primary" data-act="move" data-grp="support">Order ${pk.length || "all"} support</button>` : ""}${ranged ? `<button class="btn" data-act="strike">Attack in range</button>` : ""}${n ? `<button class="btn" data-act="clearpick">Clear</button>` : mine.length > 1 ? `<button class="btn" data-act="selall">Select all</button>` : ""}${combat.length ? `<button class="btn" data-act="targets">Targets</button>` : ""}${formBtn || ""}</div>${batIds.length ? `<div class="cmdbats">${batIds.map(id => { const sel = UI.pick && mine.filter(u => u.bat === id).every(u => UI.pick.has(u.id)); return `<button class="bchip${sel ? " on" : ""}" data-batsel="${id}"><span class="ech">${batIndex().get(id).type.ech}</span>${esc(batName(id))}</button>`; }).join("")}</div>` : ""}</div>`;
-    html = html.replace("<!--CMDBAR-->", bar);
+    html = html.replace("<!--CMDBAR--><!--TABS-->", bar.slice(0, -6) + tabBar + "</div>");
   }
+  html = html.replace("<!--CMDBAR--><!--TABS-->", `<div class="cmdbar tabsonly">${tabBar}</div>`);
   openSheet(html, { type: "zone", arg: i });
   if (mine.length) showTip("cell");
   if (!refresh) draw();
@@ -4545,6 +4568,7 @@ body.addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   const P = G ? G.player : -1;
   if (b.dataset.unit) { UI.pick = UI.pick || new Set(); const id = +b.dataset.unit; UI.pick.has(id) ? UI.pick.delete(id) : UI.pick.add(id); refreshSheet(); return; }
+  if (b.dataset.ztab) { UI.ztab = { z: sheetView.arg, k: b.dataset.ztab }; UI.ztabMem = UI.ztabMem || {}; refreshSheet(); if (UI.ztab.kind) UI.ztabMem[UI.ztab.kind] = b.dataset.ztab; body.scrollTop = 0; return; }
   if (b.dataset.act === "move") { startMove(sheetView.arg, b.dataset.grp || "combat"); return; }
   if (b.dataset.codex != null) { showCodex(b.dataset.codex || null); return; }
   if (b.dataset.batsel) { const id = +b.dataset.batsel, ids = unitsAt(sheetView.arg).filter(u => u.o === P && u.bat === id).map(u => u.id); const all = UI.pick && ids.every(i => UI.pick.has(i)); UI.pick = all ? null : new Set(ids); refreshSheet(); return; }
@@ -5291,6 +5315,12 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.10 beta", date: "31 Oct 2026", title: "Cell panel tabs", items: [
+    "The cell panel has tabs: Units, Orders, Recruit, Build and Info. The cell name, the command bar and the tabs stay pinned at the top, so a busy capital is no longer ten screens of scrolling (Bangkok: from about 4,900 pixels in one column to 600 to 2,400 per tab).",
+    "Units lists everything in the cell: your battalions, your other units and support, the enemy, and the fight forecast. Orders holds every order button, embarking, landings, attaching support and strikes. Recruit has unit training and the units in training. Build has construction and buildings in progress. Info has the cell's owner, population, income, deposits, buildings and connections.",
+    "Only the tabs that apply are shown. The panel opens on Units when anything is there, otherwise on Info, and it remembers the tab you last used for each kind of cell (your capital or city, your province, a sea cell, a foreign cell).",
+    "Nothing was removed: every button from before is in exactly one tab. The tutorial and tips point to the new tabs.",
+  ] },
   { v: "1.0.9 beta", date: "31 Oct 2026", title: "Battalions", items: [
     "Battalions move as one. Ordering any unit in a battalion orders every member standing with it; they take one route, march at the pace of the slowest unit and arrive together. If a member is out of fuel or locked in a fight, the battalion waits for it.",
     "The only way to split a battalion is to disband it. If its members can't all travel a route (a ship lane one of them can't use, say), the order is refused and the message tells you so.",
@@ -5387,7 +5417,7 @@ function showPatchNotes() {
 // ---------- first-time tips: each shows once, at the moment it's useful ----------
 const TIPS = {
   start: { title: "Where to begin", text: "Tap a cell with your units (your capital is a good start) to see them and give orders. New here? The Tutorial on the main menu walks you through a first turn." },
-  cell: { title: "Selecting units", text: "Tap units in the list to pick them (they light up), or just tap Order to send them all. The command bar stays at the top of this panel." },
+  cell: { title: "Selecting units", text: "Tap units in the list to pick them (they light up), or just tap Order to send them all. The command bar and the tabs stay at the top: Units, Orders, Recruit, Build and Info." },
   move: { title: "Giving the order", text: "Highlighted cells are reached this turn; tap further for a longer route. Tap an enemy to hunt it down. Tap your own cell again to cancel." },
   endturn: { title: "Ending the turn", text: "Orders are set. When you're ready, tap End turn: everything moves and fights at once, then the replay shows what happened." },
 };
@@ -5409,7 +5439,7 @@ function showTip(k, tries = 0) {
 // ---------- tutorial: a very basic guided first turn ----------
 // Edit TUTORIAL_STEPS to grow it each patch. A step with done() advances by itself when the player does the thing;
 // a step without one shows a Next button. ping() returns a cell to highlight.
-const TUTORIAL_UPDATED = "1.0.5 beta";
+const TUTORIAL_UPDATED = "1.0.10 beta";
 const TUT_NATION = "AU";
 const TUTORIAL_STEPS = [
   { title: "Welcome, Commander", text: "You lead Australia in a war for the Pacific. Win by holding 30% of the region's victory points: capitals, cities and provinces. This practice game walks you through the basics." },
@@ -5418,7 +5448,7 @@ const TUTORIAL_STEPS = [
   { title: "Give an order", text: "Tap Order in the command bar at the top of the panel, then tap a nearby province. Highlighted cells are reached this turn.", done: () => G.units.some(u => u.o === G.player && (u.ord || u.chase != null)) },
   { title: "End the turn", text: "Tap End turn. Your orders play out first, then every other nation moves.", done: () => G.turn >= 2 && !PB },
   { title: "The replay", text: "The camera followed each move and fight. During a replay, Next jumps ahead, 2× speeds it up and Skip ends it. Reports (bottom left) list everything that happened." },
-  { title: "Build something", text: "Tap one of your provinces and, under Construction, add Roads or a Factory. Buildings go up over a few turns and level up to 5.", done: () => G.queue.some(q => q.n === G.player && q.kind !== "u") },
+  { title: "Build something", text: "Tap one of your provinces, open its Build tab and add Roads or a Factory. Buildings go up over a few turns and level up to 5.", done: () => G.queue.some(q => q.n === G.player && q.kind !== "u") },
   { title: "Your army", text: "Tap Army in the dock to see every unit you own. Tap any unit's icon to jump straight to it, selected and ready to order.", done: () => TUT.saw.army },
   { title: "Diplomacy", text: "Tap Diplomacy. Every nation starts neutral: you can sign pacts, send aid, form alliances, or declare war. The small minor nations at the bottom of the list defend themselves, but you can invade and hold their land.", done: () => TUT.saw.dip },
   { title: "Going to war", text: "Once at war, tap your units, tap Order, then tap an enemy or its tag: your units hunt it down. For aircraft, ships and artillery, Attack in range shows red cells they can hit now and orange ones they'll fly or sail out to strike." },
