@@ -152,6 +152,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--signal
 /* rows */
 .rows { display: flex; flex-direction: column; gap: 6px; }
 .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); text-align: left; width: 100%; }
+.tpick .row { cursor: pointer; color: inherit; font: inherit; } .tpick .row.on { border-color: var(--signal); box-shadow: inset 0 0 0 1px var(--signal); }
 button.row { cursor: pointer; }
 .row .t { font-weight: 600; font-size: 14.5px; min-width: 0; display: flex; align-items: center; gap: 8px; }
 .row .t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1183,14 +1184,33 @@ function contestedZones() {
 }
 // A unit pulling out of a fight takes a parting volley.
 // Turning your back on an enemy in contact is costly: every enemy that can hit the unit gets a heavy free volley.
+let PARTING = []; // parting volleys fired this turn: replayed with the battle in the cell the unit left
 function partingShot(u) {
   const hs = hostilesAt(u.o, u.z).filter(v => isCombatT(v.t) && hitValue(v, u) > 0);
   if (!hs.length) return 0;
-  let d = 0; for (const v of hs) d += rawDamage(v, u, u.z) * .6;
-  d = Math.min(75, d) * (.85 + .3 * rng());
+  const parts = hs.map(v => [v, rawDamage(v, u, u.z) * .6]), raw = parts.reduce((t, p) => t + p[1], 0);
+  const d = Math.min(75, raw) * (.85 + .3 * rng());
   u.hp -= d;
-  if (u.hp <= 0) { u.hp = 0; if (u.o === G.player) news("front", 2, `${UT[u.t].name} was cut down trying to pull out of ${Z[u.z].n}.`, { z: u.z }); }
+  const kill = u.hp <= 0;
+  if (kill) { u.hp = 0; if (u.o === G.player) news("front", 2, `${UT[u.t].name} was cut down trying to pull out of ${Z[u.z].n}.`, { z: u.z }); }
+  const k = raw > 0 ? d / raw : 0, top = parts.reduce((a, b) => b[1] > a[1] ? b : a)[0];
+  PARTING.push({ z: u.z, shots: parts.map(([v, x]) => ({ f: v.id, ft: v.t, fo: v.o, v: u.id, vt: u.t, vo: u.o, d: Math.round(x * k), kill: kill && v === top, pt: 1 })) });
   return d;
+}
+// parting volleys join that cell's battle in the replay (or make one of their own)
+function flushParting(t) {
+  if (!PARTING.length) return;
+  const byZ = new Map();
+  for (const p of PARTING) (byZ.get(p.z) || byZ.set(p.z, []).get(p.z)).push(...p.shots);
+  PARTING = [];
+  if (!REC) return;
+  for (const [z, shots] of byZ) {
+    const v = REC.ev.find(e => e.type === "volley" && e.z === z && e.t >= t - .01);
+    if (v) { v.shots = shots.concat(v.shots); continue; }
+    const owners = [...new Set(shots.flatMap(x => [x.fo, x.vo]))], a = owners.includes(G.player) ? G.player : shots[0].fo;
+    rec("battle", { z, t, a, d: owners.filter(o => o !== a) });
+    rec("volley", { z, t, shots });
+  }
 }
 const isLocked = u => (u.lock ?? -1) >= G.turn && isEngaged(u); // first turn of a fight: no one can leave
 // ---------- ranged attacks ----------
@@ -1220,12 +1240,21 @@ function strikeTargets(n, z) {
   return { foes, blds };
 }
 // Expected result of one unit's strike on z (preview and AI).
-function strikePreview(u, z, foes, blds) {
-  const tg = pickTarget(u, foes, unitsAt(z), new Map(), blds, strikePri(u));
+function strikePreview(u, z, foes, blds, pick) {
+  const want = pick != null ? foes.find(v => v.id === pick && hitValue(u, v) > 0 && !screened(v, unitsAt(z))) : null;
+  const tg = want || pickTarget(u, foes, unitsAt(z), new Map(), blds, strikePri(u));
   if (!tg) return null;
   const out = { tgt: tg.bld ? BLD[tg.bld.k].name : UT[tg.t].name, dmg: tg.bld ? structDmg(u, z, true) : rawDamage(u, tg, z, true), aa: 0, kill: !tg.bld && rawDamage(u, tg, z, true) >= tg.hp };
   if (UT[u.t].dom === "air") for (const e of foes) if (UT[e.t].a > 0 && e.hp > 0) out.aa += UT[e.t].a * K_DMG * .35 * hpF(e) * ammoF(e) * (12 / (12 + UT[u.t].d));
   return out;
+}
+// A target the player picked by hand: used while it's still in that cell and can be hit, otherwise the Hit first order takes over.
+function chosenTarget(u, z, foes) {
+  if (u.stgt == null) return null;
+  const v = foes.find(x => x.id === u.stgt);
+  if (v && v.hp > 0 && hitValue(u, v) > 0 && !screened(v, unitsAt(z))) return v;
+  if (!v || v.hp <= 0) u.stgt = null; // gone or destroyed: back to the category order
+  return null;
 }
 const AA_SAT = { t: -1, g: null, n: {} };
 let STRIKE_REP = null; // strikes fired during movement report with the turn's combat
@@ -1235,6 +1264,7 @@ function fireOnDeparture(u) {
   for (const v of G.units) {
     if (v.hp <= 0 || v.strike !== u.z || v.fired === G.turn || !atWar(v.o, u.o) || strikeBlock(v, u.z)) continue;
     if (!hitValue(v, u)) continue;
+    if (v.stgt != null && v.stgt !== u.id && G.units.some(x => x.id === v.stgt && x.z === u.z && x.hp > 0)) continue; // keeps its fire on the unit you picked
     STRIKE_REP = STRIKE_REP || { z: {}, strikes: {}, hitBy: {}, killedP: [], killsP: 0 };
     doStrike(v, REC ? REC.now || REC.base || 0 : 0, STRIKE_REP, u);
     if (u.hp <= 0) return;
@@ -1255,7 +1285,7 @@ function doStrike(u, tAt, rep, forced) {
   }
   const { foes, blds } = strikeTargets(u.o, z);
   if (!foes.length && !blds) { if (u.o === G.player) news("home", 1, `${UT[u.t].name} ceased fire: nothing left to hit at ${Z[z].n}.`, { z }); u.strike = null; return; }
-  const tg = forced || pickTarget(u, foes, unitsAt(z), new Map(), blds, strikePri(u));
+  const tg = forced || chosenTarget(u, z, foes) || pickTarget(u, foes, unitsAt(z), new Map(), blds, strikePri(u));
   if (!tg) { if (u.o === G.player) news("home", 1, `${UT[u.t].name} has nothing it can hit at ${Z[z].n}.`, { z }); u.strike = null; return; }
   u.fired = G.turn;
   const T = UT[u.t], hops = strikeZones(u).get(z), r = .85 + .3 * rng();
@@ -1317,7 +1347,7 @@ function zoneFight(z, tAt, rep) {
   const a = owners.includes(P) ? P : owners[0];
   const tb = tAt + rng() * .25;
   rec("battle", { z, t: tb, a, d: owners.filter(o => o !== a) });
-  rec("volley", { z, t: tb, shots: film.map((x, i) => [x, i]).sort((x, y) => (y[0].kill - x[0].kill) || (y[0].d - x[0].d)).slice(0, 14).sort((x, y) => x[1] - y[1]).map(x => x[0]) });
+  rec("volley", { z, t: tb, shots: film }); // every shot is kept: the replay groups them into volleys
 }
 function reap(tAt) {
   for (const c of G.units) { if (!c.in) continue; const carrier = G.units.find(x => x.id === c.in); if (carrier && carrier.hp <= 0) { if (UT[carrier.t].dom === "land") { c.in = null; c.hp -= 30; } else c.hp = 0; } }
@@ -1358,6 +1388,7 @@ function combatPhase(tAt) {
     zoneFight(z, tAt + .5, rep);
     for (const u of unitsAt(z)) { const tag = z + ":" + f.since; if (u.lockTag !== tag) { u.lockTag = tag; u.lock = G.turn + 1; } }
   }
+  flushParting(tAt + .5);
   const dead = reap(tAt + .9);
   // 3) cells left without defenders change hands
   for (const z of zs) resolveZone(z, tAt + 1.1);
@@ -1455,7 +1486,9 @@ function checkElimination(ci) {
 }
 // Units that run into enemies stop and become engaged; the shooting happens in the combat phase.
 function engage(z, att, def, tAt, info = {}) {
-  for (const u of att) u.mp = 0;
+  // contact locks both sides for this turn: an attacked unit stands and fights at least one exchange before it can pull out
+  for (const u of att) { u.mp = 0; u.lock = Math.max(u.lock ?? -1, G.turn); }
+  for (const u of def) if (!u.in && isCombatT(u.t) && UT[u.t].dom !== "air") u.lock = Math.max(u.lock ?? -1, G.turn);
   G.fronts = G.fronts || {};
   if (!G.fronts[z]) G.fronts[z] = { since: G.turn };
   return { pending: true, win: false, aLost: 0, dLost: 0, dealtA: 0, dealtD: 0 };
@@ -1564,7 +1597,7 @@ function eta(u, path) {
 function issueOrders(units, dest) {
   let n = 0, maxEta = 0;
   for (const u of units) {
-    u.chase = null; u.tz = null;
+    u.chase = null; u.tz = null; u.stgt = null;
     if (u.z === dest) { u.ord = null; continue; }
     if (UT[u.t].dom === "air" && atAirbase(u)) u.base = u.z; // remember where it took off from
     u.drop = null;
@@ -2429,7 +2462,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.5 beta"; // early access playtest build
+const VERSION = "1.0.6 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -3269,6 +3302,18 @@ const SHOT_MAX = 24, MOVE_MAX = 20, SLOW = 1.8; // every shot plays 1.8x slower 
 let PB_RATE = (() => { try { return +localStorage.getItem("prww3-pbrate") === 2 ? 2 : 1; } catch (e) { return 1; } })();
 // Every significant move gets its own camera shot (yours, enemies you can see, landings, big allied or neutral columns),
 // in the order they happened; then every strike, battle and capture worth seeing.
+// A battle replays as volleys: each side's units of one type fire together, one volley after another,
+// so every unit that fired is seen firing however big the fight.
+function volleyPlan(shots) {
+  const groups = [], byK = new Map();
+  for (const s of shots) { const k = (s.pt ? "p" : "") + s.fo + ":" + s.ft; let g = byK.get(k); if (!g) { g = []; byK.set(k, g); groups.push(g); } g.push(s); }
+  groups.sort((a, b) => (b[0].pt ? 1 : 0) - (a[0].pt ? 1 : 0)); // parting fire first: it happened as units pulled out
+  const n = groups.length, gap = clamp(1500 / Math.max(1, n), 260, 520), list = [];
+  groups.forEach((g, gi) => { // one damage number per target per volley: the total, shown with the last hit
+    const last = new Map(); g.forEach((s, i) => { const e = { s, at: 650 + gi * gap + (i % 6) * 55, dy: 0, tot: null }; list.push(e); const p = last.get(s.v); last.set(s.v, { e, sum: (p ? p.sum : 0) + s.d, b: s.b }); });
+    for (const { e, sum } of last.values()) e.tot = sum; });
+  return { list, dur: 650 + n * gap + 1300 };
+}
 function startPlayback(r) {
   const ev = r.ev || [];
   if (!ev.length || REDUCED) { finishTurnUI(); return; }
@@ -3336,21 +3381,28 @@ function startPlayback(r) {
   for (const [k, list] of strikesBy) {
     const to = list[0].to, mine = list.some(e => mineO(e.o) || mineO(e.vo));
     if (!mine && !seesZ(to)) continue;
-    const shown = list.slice(0, 10), gap = shown.length > 5 ? 300 : 450;
-    // guns before aircraft at the same target: the bombardment, then the strike run
-    cand.push({ kind: "strike", z: to, list: shown, gap, score: (mine ? 6 : 1) + list.filter(e => e.kill).length * 2 + (list.some(e => mineO(e.vo)) ? 3 : 0), order: list[0].air ? .5 : 0, dur: 1900 + shown.length * gap });
+    // your own strikes are all shown (in scenes of up to 10); other nations' are summed up in one scene
+    const ord = list.slice().sort((a, b) => (b.o === P) - (a.o === P));
+    for (let i = 0; i < ord.length; i += 10) {
+      const shown = ord.slice(i, i + 10), gap = shown.length > 5 ? 300 : 450;
+      if (i && !shown.some(e => e.o === P)) break;
+      // guns before aircraft at the same target: the bombardment, then the strike run
+      cand.push({ kind: "strike", z: to, list: shown, gap, mine: shown.some(e => e.o === P), score: (mine ? 6 : 1) + list.filter(e => e.kill).length * 2 + (list.some(e => mineO(e.vo)) ? 3 : 0) - i * .01, order: list[0].air ? .5 : 0, dur: 1900 + shown.length * gap });
+    }
   }
   for (const e of ev.filter(e => e.type === "volley")) {
     const mine = e.shots.some(s => mineO(s.fo) || mineO(s.vo));
     if (!mine && !seesZ(e.z)) continue;
-    const n = Math.min(14, e.shots.length);
-    cand.push({ kind: "battle", z: e.z, v: e, score: (mine ? 7 : 1) + e.shots.filter(s => s.kill).length * 2 + (e.shots.some(s => s.kill && mineO(s.vo)) ? 4 : 0), order: 1, dur: 2300 + n * 140 });
+    const vp = volleyPlan(e.shots);
+    cand.push({ kind: "battle", z: e.z, v: e, vp, mine: e.shots.some(s => s.fo === P), score: (mine ? 7 : 1) + e.shots.filter(s => s.kill).length * 2 + (e.shots.some(s => s.kill && mineO(s.vo)) ? 4 : 0), order: 1, dur: vp.dur });
   }
   for (const e of ev.filter(e => e.type === "cap" && e.t >= cStart)) {
     if (!(e.o === P || mineO(e.o) || seesZ(e.z) || e.prev === P)) continue;
-    cand.push({ kind: "cap", z: e.z, e, score: (e.o === P || e.prev === P ? 8 : 2) + (Z[e.z].t !== "prov" ? 3 : 0), order: 2, dur: 1900 });
+    cand.push({ kind: "cap", z: e.z, e, mine: e.o === P, score: (e.o === P || e.prev === P ? 8 : 2) + (Z[e.z].t !== "prov" ? 3 : 0), order: 2, dur: 1900 });
   }
-  const evShots = cand.sort((a, b) => b.score - a.score).slice(0, SHOT_MAX).sort((a, b) => a.order - b.order || (a.kind === "strike" && b.kind === "strike" && a.z === b.z ? 0 : b.score - a.score) || (a.order - b.order));
+  // everything you did always plays; the rest of the world fills the remaining slots
+  const byScore = cand.sort((a, b) => b.score - a.score), must = byScore.filter(c => c.mine), rest = byScore.filter(c => !c.mine).slice(0, Math.max(0, SHOT_MAX - must.length));
+  const evShots = must.concat(rest).sort((a, b) => a.order - b.order || (a.kind === "strike" && b.kind === "strike" && a.z === b.z ? 0 : b.score - a.score) || (a.order - b.order));
   // anything visible that moved but didn't earn a shot of its own glides along in the background
   const bgMoves = [...tracks.keys()].some(id => !unitShot.has(id) && r.pre.get(id) && (mineO(r.pre.get(id).o) || tracks.get(id).some(m => seesZ(m.from) || seesZ(m.to))));
   if (!shots.length && bgMoves) shots.push({ kind: "overview", z: null, ta: 0, tb: T1, caps: early.filter(e => e.type === "cap") });
@@ -3367,7 +3419,7 @@ function startPlayback(r) {
   const death = new Map();
   for (const e of ev.filter(e => e.type === "die")) death.set(e.id, e.t < cStart ? { stage: 1, t: e.t } : { stage: 2, k: null });
   all.forEach((sh, k) => {
-    if (sh.kind === "battle") { const n = Math.min(14, sh.v.shots.length); sh.v.shots.slice(0, 14).forEach((s, i) => { if (s.kill && death.has(s.v)) death.set(s.v, { stage: 2, k, at: 650 + i * (1500 / Math.max(1, n)) + 230 }); }); }
+    if (sh.kind === "battle") sh.vp.list.forEach(({ s, at }) => { if (s.kill && death.has(s.v)) death.set(s.v, { stage: 2, k, at: at + 230 }); });
     if (sh.kind === "strike") sh.list.forEach((s, i) => {
       const at = 600 + i * (sh.gap || 450) + (s.air ? 880 : 760);
       if (s.kill && death.has(s.vid)) death.set(s.vid, { stage: 2, k, at });
@@ -3534,7 +3586,9 @@ function drawPlayback() {
   let form = null;
   if (sh && sh.kind === "battle") {
     const [cx, cy] = toScreen(Z[sh.z].x, Z[sh.z].y);
-    const here = tokens.filter(t => t.at === sh.z);
+    const ref = new Set(sh.v.shots.flatMap(s => [s.f, s.v])), fired = new Set(sh.v.shots.map(s => s.f));
+    const prio = t => (fired.has(t.id) ? 0 : ref.has(t.id) ? 1 : 2) - (fired.has(t.id) && t.o === G.player ? 1 : 0);
+    const here = tokens.filter(t => t.at === sh.z || ref.has(t.id)).sort((a, b) => prio(a) - prio(b)); // includes units shot at as they pulled out
     const sideA = here.filter(t => friendly(G.player, t.o)), sideB = here.filter(t => !friendly(G.player, t.o));
     if (!sideA.length) { const a = here[0] && here[0].o; sideA.push(...sideB.filter(t => t.o === a)); for (const t of sideA) sideB.splice(sideB.indexOf(t), 1); }
     const e = ease(clamp(L / 450, 0, 1));
@@ -3545,21 +3599,25 @@ function drawPlayback() {
     if (groups.length >= 3) {
       groups.forEach((g, gi) => {
         const ang = Math.PI + gi * 2 * Math.PI / groups.length, ax = cx + Math.cos(ang) * 92, ay = cy + Math.sin(ang) * 70, dir = Math.cos(ang) < -.1 ? -1 : Math.cos(ang) > .1 ? 1 : (gi % 2 ? 1 : -1);
-        g.list.slice(0, 6).forEach((t, i) => {
-          const col = i % 2, row = Math.floor(i / 2), n = Math.min(3, Math.ceil(Math.min(6, g.list.length) / 2));
-          const tx = ax + (col - .5) * 54, ty = ay - (n - 1) * 14 + row * 28;
+        const cnt = Math.min(8, g.list.length), sc = cnt > 6 ? .8 : 1;
+        g.list.slice(0, 8).forEach((t, i) => {
+          const col = i % 2, row = Math.floor(i / 2), n = Math.ceil(cnt / 2);
+          const tx = ax + (col - .5) * 54 * sc, ty = ay - (n - 1) * 14 * sc + row * 28 * sc;
           const [sx, sy] = toScreen(t.wx, t.wy);
-          pos.set(t.id, [sx + (tx - sx) * e, sy + (ty - sy) * e, dir]); form.add(t.id);
+          pos.set(t.id, [sx + (tx - sx) * e, sy + (ty - sy) * e, dir, sc]); form.add(t.id);
         });
       });
       sideA.length = 0; sideB.length = 0;
     }
-    const place = (list, dir) => list.slice(0, 10).forEach((t, i) => {
-      const col = Math.floor(i / 5), row = i % 5, n = Math.min(5, list.length - col * 5);
-      const tx = cx + dir * (44 + col * 52), ty = cy - (n - 1) * 15 + row * 30;
-      const [sx, sy] = toScreen(t.wx, t.wy);
-      pos.set(t.id, [sx + (tx - sx) * e, sy + (ty - sy) * e, dir]); form.add(t.id);
-    });
+    const place = (list, dir) => { // up to 24 a side: 2 columns of 5 at full size, then packed and scaled down
+      const nn = Math.min(24, list.length), rows = nn > 20 ? 6 : 5, sc = nn > 10 ? (nn > 15 ? .66 : .78) : 1;
+      list.slice(0, 24).forEach((t, i) => {
+        const col = Math.floor(i / rows), row = i % rows, n = Math.min(rows, nn - col * rows);
+        const tx = cx + dir * (44 * sc + 8 + col * 52 * sc), ty = cy - (n - 1) * 15 * sc + row * 30 * sc;
+        const [sx, sy] = toScreen(t.wx, t.wy);
+        pos.set(t.id, [sx + (tx - sx) * e, sy + (ty - sy) * e, dir, sc]); form.add(t.id);
+      });
+    };
     place(sideA, -1); place(sideB, 1);
   }
   const stack = new Map();
@@ -3580,13 +3638,13 @@ function drawPlayback() {
       }
     }
     if (form && form.has(tk.id)) {
-      const [x, y, dir] = pos.get(tk.id);
+      const [x, y, dir, sc0] = pos.get(tk.id), sc = sc0 || 1, tw = TAG_W * sc, th = TAG_H * sc;
       ctx.save(); ctx.globalAlpha = 1 - Math.min(1, tk.dying);
       if (tk.dying) { ctx.translate(x, y); ctx.rotate(dir * tk.dying * .5); ctx.translate(-x, -y); }
-      ctx.drawImage(unitSprite(tk.t, aff, dir > 0), x - TAG_W / 2, y - TAG_H / 2, TAG_W, TAG_H);
-      drawSymbol(ctx, tk.t, x + dir * (TAG_W / 2 - 2), y - TAG_H / 2 - 2, 8, aff);
+      ctx.drawImage(unitSprite(tk.t, aff, dir > 0), x - tw / 2, y - th / 2, tw, th);
+      drawSymbol(ctx, tk.t, x + dir * (tw / 2 - 2), y - th / 2 - 2, 8 * sc, aff);
       const u = G.units.find(v => v.id === tk.id); const hp = u ? u.hp : 0;
-      ctx.fillStyle = "rgba(11,22,34,.9)"; ctx.fillRect(x - TAG_W / 2, y + TAG_H / 2 + 2, TAG_W, 4); ctx.fillStyle = hp > 50 ? "#7ddc8b" : hp > 25 ? "#f5b84a" : "#ff7b6b"; ctx.fillRect(x - TAG_W / 2 + .5, y + TAG_H / 2 + 2.5, (TAG_W - 1) * hp / 100, 3);
+      ctx.fillStyle = "rgba(11,22,34,.9)"; ctx.fillRect(x - tw / 2, y + th / 2 + 2, tw, 4); ctx.fillStyle = hp > 50 ? "#7ddc8b" : hp > 25 ? "#f5b84a" : "#ff7b6b"; ctx.fillRect(x - tw / 2 + .5, y + th / 2 + 2.5, (tw - 1) * hp / 100, 3);
       ctx.restore();
       continue;
     }
@@ -3607,12 +3665,12 @@ function drawPlayback() {
   if (!sh) return;
   // ---- the current shot ----
   if (sh.kind === "battle") {
-    const list = sh.v.shots.slice(0, 14), n = Math.max(1, list.length), [cx, cy] = toScreen(Z[sh.z].x, Z[sh.z].y);
-    list.forEach((s, i) => {
-      const fireAt = 650 + i * (1500 / n), li = L - fireAt;
+    const [cx, cy] = toScreen(Z[sh.z].x, Z[sh.z].y);
+    sh.vp.list.forEach(({ s, at, dy, tot }) => {
+      const li = L - at;
       if (li < 0) return;
       const a = pos.get(s.f), b = s.v >= 0 ? pos.get(s.v) : null;
-      const ax = a ? a[0] + (a[2] < 0 ? TAG_W / 2 : -TAG_W / 2) * (form && form.has(s.f) ? 1 : 0) : cx, ay = a ? a[1] : cy;
+      const ax = a ? a[0] + (a[2] < 0 ? TAG_W / 2 : -TAG_W / 2) * (a[3] || 1) * (form && form.has(s.f) ? 1 : 0) : cx, ay = a ? a[1] : cy;
       const bx = b ? b[0] : cx + (Math.random() < 0 ? 0 : 0), by = b ? b[1] : cy - 18;
       const air = UT[s.ft] && UT[s.ft].dom === "air", heavy = s.ft === "mbt" || s.ft === "art" || s.ft === "ff";
       const col = friendly(G.player, s.fo) ? "rgba(159,216,255,1)" : "rgba(255,150,120,1)";
@@ -3624,7 +3682,7 @@ function drawPlayback() {
       } else {
         const k = (li - 230) / 420;
         if (k <= 1) fxBoom(bx, by, k, s.kill, false);
-        fxNumber(bx, by, s.b ? `−${s.d} ${BLD[s.b] ? BLD[s.b].name : ""}` : `−${s.d}`, (li - 230) / 950, friendly(G.player, s.vo) ? "#ff8b7e" : "#ffd27a");
+        if (tot != null) fxNumber(bx, by - dy, s.b ? `−${tot} ${BLD[s.b] ? BLD[s.b].name : ""}` : `−${tot}`, (li - 230) / 950, friendly(G.player, s.vo) ? "#ff8b7e" : "#ffd27a");
       }
     });
   } else if (sh.kind === "strike") {
@@ -4156,17 +4214,22 @@ function startStrike(zone) {
   draw();
 }
 const SPRI_OPTS = [["auto", "Auto"], ["armor", "Armour"], ["inf", "Infantry"], ["ship", "Ships"], ["air", "Aircraft"], ["support", "Supply"], ["struct", "Buildings"]];
-function showStrikePreview(z, ids, spri) {
+function showStrikePreview(z, ids, spri, pick) {
   const P = G.player, all = ids.map(id => G.units.find(u => u.id === id)).filter(Boolean);
-  spri = spri || (sheetView && sheetView.type === "strikeprev" && sheetView.arg.z === z ? sheetView.arg.spri : null) || all.find(u => u.spri) && all.find(u => u.spri).spri || "auto";
+  const same = sheetView && sheetView.type === "strikeprev" && sheetView.arg.z === z;
+  spri = spri || (same ? sheetView.arg.spri : null) || all.find(u => u.spri) && all.find(u => u.spri).spri || "auto";
   const { foes, blds } = strikeTargets(P, z), vf = foes.filter(unitVisible), seen = playerVis().vis[z];
+  // the units you can single out: seen, hittable by at least one attacker, not screened by their commander
+  const cands = seen ? vf.filter(v => !screened(v, unitsAt(z)) && all.some(u => hitValue(u, v) > 0)) : [];
+  if (pick === undefined) pick = same ? sheetView.arg.pick : (all.length && all.every(u => u.stgt === all[0].stgt) ? all[0].stgt : null);
+  if (pick != null && !cands.some(v => v.id === pick)) pick = null;
   let tot = 0, aa = 0, kills = 0, now = 0, later = 0;
   const rows = all.map(u => {
     const why = strikeBlock(u, z), keep = u.spri; u.spri = spri;
     let row;
     if (!why) {
       now++;
-      const pv = seen ? strikePreview(u, z, vf, blds) : null;
+      const pv = seen ? strikePreview(u, z, vf, blds, pick) : null;
       if (seen && !pv) row = `<div class="s">nothing here it can hurt</div>`;
       else if (!seen) row = `<div class="s">attack run into a cell you can't see: it hits whatever it finds</div>`;
       else { tot += pv.dmg; aa += pv.aa; if (pv.kill) kills++; row = `<div class="s"><span class="fcast">→ ~${Math.round(pv.dmg)} to ${esc(pv.tgt)}${pv.kill ? " (likely destroyed)" : ""}</span>${pv.aa ? ` · takes ~${Math.round(pv.aa)} from air defence` : ""}</div>`; }
@@ -4180,11 +4243,16 @@ function showStrikePreview(z, ids, spri) {
     return `<div class="row unit">${symCanvas(u.t)}<div class="t"><span>${UT[u.t].name}</span></div>${row}</div>`;
   }).join("");
   openSheet(`<div class="eyebrow"><span class="pill st-W">${now ? "Ranged attack" : "Strike mission"}</span><span class="pill">${all.length} unit${all.length > 1 ? "s" : ""}</span></div><h2>Strike ${esc(Z[z].n)}</h2>
-    <div class="section-title">Hit first</div><div class="seg">${SPRI_OPTS.map(([k, n]) => `<button data-spri="${k}" aria-pressed="${spri === k}">${n}</button>`).join("")}</div>
+    ${cands.length > 1 ? `<div class="section-title">Target <small>tap one, or leave it to Hit first</small></div><div class="rows tpick">
+      <button class="row${pick == null ? " on" : ""}" data-stgt="auto"><div class="t"><span>Auto</span></div><div class="s">each attacker follows the Hit first order below</div></button>
+      ${cands.map(v => { const dmg = all.reduce((t, u) => t + (strikeBlock(u, z) ? 0 : rawDamage(u, v, z, true)), 0), bn = v.bat != null && batIndex().has(v.bat) ? batName(v.bat) : "";
+        return `<button class="row unit${pick === v.id ? " on" : ""}" data-stgt="${v.id}">${symCanvas(v.t)}<div class="t">${swatch(v.o)}<span>${UT[v.t].name}</span></div><div class="s">${esc(shortName(v.o))}${bn ? ` · ${esc(bn)}` : ""} · health ${Math.round(v.hp)}%${dmg ? ` · <span class="fcast">~${Math.round(dmg)} from your strike${dmg >= v.hp ? " (likely destroyed)" : ""}</span>` : ""}</div></button>`; }).join("")}
+    </div>` : ""}
+    <div class="section-title">${cands.length > 1 ? "Then hit first" : "Hit first"}</div><div class="seg">${SPRI_OPTS.map(([k, n]) => `<button data-spri="${k}" aria-pressed="${spri === k}">${n}</button>`).join("")}</div>
     <p class="note" style="margin-top:6px">${spri === "auto" ? "Auto: jets go for tanks, ships, troops and supply before enemy aircraft; guns follow each unit's target priorities." : `Each attacker goes for ${SPRI_OPTS.find(o => o[0] === spri)[1].toLowerCase()} first, then its usual targets.`} Strikes land at the end of the turn and repeat every turn until there's nothing left to hit or you cease fire.</p>
     <div class="rows" style="margin-top:10px">${rows}</div>
     <div class="fcbox"><p>${now ? `This turn: <b>~${Math.round(tot)}</b> damage${kills ? `, ${kills} likely kill${kills > 1 ? "s" : ""}` : ""}.` : "Nothing in range yet."}${later ? ` ${later} more on the way.` : ""}</p>${aa ? `<p class="bad">Your aircraft would take about ${Math.round(aa)} damage from air defences.</p>` : ""}</div>
-    <div class="actions"><button class="btn primary" data-strikego="1" ${now + later ? "" : "disabled"}>${now && !later ? "Fire" : "Launch strike"}</button><button class="btn" data-strikeno="1">Cancel</button></div>`, { type: "strikeprev", arg: { z, ids, spri } });
+    <div class="actions"><button class="btn primary" data-strikego="1" ${now + later ? "" : "disabled"}>${now && !later ? "Fire" : "Launch strike"}</button><button class="btn" data-strikeno="1">Cancel</button></div>`, { type: "strikeprev", arg: { z, ids, spri, pick } });
 }
 function showAttackPreview(z, ids) {
   const P = G.player, movers = ids.map(id => G.units.find(u => u.id === id)).filter(Boolean);
@@ -4303,8 +4371,9 @@ body.addEventListener("click", e => {
   if (b.dataset.tgtreset) { sheetView.arg.ids.forEach(id => { const u = G.units.find(x => x.id === id); if (u) delete u.pri; }); refreshSheet(); save(); return; }
   if (b.dataset.tgtdone) { const z = sheetView.arg.z; UI.pick = null; showZone(z); return; }
   if (b.dataset.strikein != null) { const z = +b.dataset.strikein; showStrikePreview(z, strikersFor(z).map(u => u.id)); return; }
-  if (b.dataset.spri) { const { z, ids } = sheetView.arg; showStrikePreview(z, ids, b.dataset.spri); return; }
-  if (b.dataset.strikego) { const { z, ids, spri } = sheetView.arg; let k = 0, f = 0; ids.forEach(id => { const u = G.units.find(x => x.id === id); if (!u) return; u.spri = spri; u.chase = null; u.tz = z; const r = planMission(u); if (r) { k++; if (r === "fire") f++; } else u.tz = null; }); endMove(); closeSheet(); toast(k ? `${k} unit${k > 1 ? "s" : ""} on a strike mission against ${Z[z].n}.${f ? ` ${f} firing this turn.` : ""}${k > f ? ` ${k - f} closing to range.` : ""} They keep striking until it's clear or you cease fire.` : "None of these units can reach that target."); draw(); save(); return; }
+  if (b.dataset.spri) { const { z, ids, pick } = sheetView.arg; showStrikePreview(z, ids, b.dataset.spri, pick); return; }
+  if (b.dataset.stgt) { const { z, ids, spri } = sheetView.arg; showStrikePreview(z, ids, spri, b.dataset.stgt === "auto" ? null : +b.dataset.stgt); return; }
+  if (b.dataset.strikego) { const { z, ids, spri, pick } = sheetView.arg; let k = 0, f = 0; ids.forEach(id => { const u = G.units.find(x => x.id === id); if (!u) return; u.spri = spri; u.chase = null; u.tz = z; const tv = pick != null ? G.units.find(x => x.id === pick) : null; u.stgt = tv && hitValue(u, tv) > 0 ? pick : null; const r = planMission(u); if (r) { k++; if (r === "fire") f++; } else u.tz = null; }); endMove(); closeSheet(); toast(k ? `${k} unit${k > 1 ? "s" : ""} on a strike mission against ${Z[z].n}.${f ? ` ${f} firing this turn.` : ""}${k > f ? ` ${k - f} closing to range.` : ""} They keep striking until it's clear or you cease fire.` : "None of these units can reach that target."); draw(); save(); return; }
   if (b.dataset.strikeno) { closeSheet(); return; }
   if (b.dataset.atkgo) { const { z, ids } = sheetView.arg; closeSheet(); const us = ids.map(id => G.units.find(u => u.id === id)).filter(Boolean), q = chaseQuarry(z); if (q) orderChase(us, q, z); else orderMove(z, us); return; }
   if (b.dataset.atkno) { closeSheet(); return; }
@@ -5025,6 +5094,13 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.6 beta", date: "31 Oct 2026", title: "Combat integrity", items: [
+    "Every attack you make now shows in the end-of-turn replay. Battles play as volleys: each side's units of one type fire together, so even a 25-unit fight shows every unit firing, with one damage number per target. Before, big battles silently dropped up to a third of the shots (usually infantry).",
+    "Retreating under fire is shown: when units pull out of a fight, the enemy's parting volley plays in the replay, including any unit cut down as it leaves. Before, that damage happened off-screen.",
+    "Units attacked during a turn now stand and fight: contact locks both sides for that turn, so an attacked unit takes at least one exchange of fire before it can withdraw. Before, an AI unit could walk out of the cell (even round behind your attackers) before a single shot.",
+    "Pick your target: when Attack in range points at a cell with several enemies you can see, a target list shows each one with its owner, battalion, health and the damage your strike would do. Tap one and every attacker that can hit it goes for it; artillery and ships too. If it's destroyed or leaves, they fall back to the Hit first order.",
+    "Your replay always includes all of your strikes, battles and captures, however busy the turn; other nations' events fill the remaining slots.",
+  ] },
   { v: "1.0.5 beta", date: "31 Oct 2026", title: "Saturday morning update (1.0.3 to 1.0.5)", items: [
     "## The map grows: minor nations",
     "The grey unaligned land is now 15 minor nations across 76 new cells, each in its own colour: Myanmar, Laos, Cambodia, Mongolia, Russia (Far East and southern Sakhalin), Northeast India, Bangladesh, Brunei, Timor-Leste, Solomon Islands, Vanuatu, New Caledonia, Samoa, Tonga and Palau.",
@@ -5346,7 +5422,7 @@ function showSetup(ci) {
   };
   el.scrollTop = 0; render();
 }
-function afterStart() { homeView(true); updateHud(); draw(); setTimeout(() => showReports("last"), 300); setTimeout(() => { if (G && G.turn <= 2) showTip("start"); }, 1600); }
+function afterStart() { PARTING = []; homeView(true); updateHud(); draw(); setTimeout(() => showReports("last"), 300); setTimeout(() => { if (G && G.turn <= 2) showTip("start"); }, 1600); }
 
 // ---------- taps ----------
 function plateAt(sx, sy) { const L = UI.plates || []; for (let k = L.length - 1; k >= 0; k--) { const p = L[k]; if (sx >= p.x0 && sx <= p.x1 && sy >= p.y0 && sy <= p.y1) return p; } return null; }
