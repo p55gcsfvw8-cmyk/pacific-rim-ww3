@@ -755,7 +755,7 @@ function newGame(player, seed = (Date.now() % 1e9) | 0, setup = null) {
     const pair = (sup, lead) => { const s = mine.find(u => u.t === sup), l = mine.find(u => u.t === lead && s && u.z === s.z); if (s && l) s.att = l.id; };
     pair("lland", "mbt"); pair("lsea", "ff"); pair("lair", "jet");
   }
-  G.minors = 1;
+  G.minors = 1; G.dip107 = 1; G.truce = {};
   news("world", 3, `Sixteen powers stand neutral across the Pacific, with ${MINORS.length} minor nations caught between them. Every power means to win.`, { key: true });
   G.lastSeenLog = 0;
   invalidate();
@@ -1958,8 +1958,35 @@ function unitVisible(u) {
 // =====================================================================
 // DIPLOMACY
 // =====================================================================
+// 1.0.7: one alliance per nation; a peace treaty brings a 20-turn ceasefire between the two signatories only.
+const TRUCE_TURNS = 20;
+const allyOf = ci => PLAY.find(c => c !== ci && stance(ci, c) === "A") ?? null;
+const truceLeft = (a, b) => Math.max(0, ((G.truce || {})[key2(a, b)] || 0) - G.turn);
+const sharedEnemy = (a, b) => PLAY.some(c => c !== a && c !== b && G.nations[c].alive && atWar(a, c) && atWar(b, c));
+// a stronger power that both distrust and both border
+function sharedThreat(a, b) {
+  const pa = power(a), pb = power(b);
+  return MAJORS.find(c => c !== a && c !== b && G.nations[c].alive && areNeighbours(a, c) && areNeighbours(b, c) && power(c) > Math.max(pa, pb) * 1.2
+    && (atWar(a, c) || relOf(a, c) < -10) && (atWar(b, c) || relOf(b, c) < -10)) ?? null;
+}
+// why two nations can't (or won't) ally; "" when it makes strategic sense
+function allianceBlock(a, b) {
+  if (isMinor(a) || isMinor(b)) return "minor nations stay out of alliances";
+  const xa = allyOf(a), xb = allyOf(b);
+  if (xa != null && xa !== b) return `${shortName(a)} is already allied with ${shortName(xa)}`;
+  if (xb != null && xb !== a) return `${shortName(b)} is already allied with ${shortName(xb)}`;
+  if (atWar(a, b)) return "they are at war";
+  if (PLAY.some(c => (atWar(a, c) && stance(b, c) === "P") || (atWar(b, c) && stance(a, c) === "P"))) return "one has a pact with the other's enemy";
+  const threat = sharedThreat(a, b), enemy = sharedEnemy(a, b);
+  if (!enemy && !threat) return "no common enemy or threat to justify an alliance";
+  if (!enemy && !areNeighbours(a, b)) return "too far apart to defend each other";
+  return "";
+}
+// worth it when they already fight the same enemy, or together they can stand up to the threat they share
+function allianceWorth(a, b) { if (sharedEnemy(a, b)) return true; const th = sharedThreat(a, b); return th != null && power(a) + power(b) > power(th) * .5; }
 function declareWar(a, b, quiet) {
   if (stance(a, b) === "W" || a === b) return;
+  if (truceLeft(a, b)) return; // bound by a ceasefire
   const wasPact = stance(a, b) === "P";
   setStance(a, b, "W"); addRel(a, b, -40);
   const A = G.nations[a], gt = A.gov.type;
@@ -1970,6 +1997,7 @@ function declareWar(a, b, quiet) {
   // allies of the defender answer the call
   for (const c of PLAY) {
     if (c === a || c === b || !G.nations[c].alive || stance(c, b) !== "A" || stance(c, a) === "W") continue;
+    if (truceLeft(c, a)) { news("world", 2, `${shortName(c)} is bound by its ceasefire with ${shortName(a)} and can't join ${shortName(b)}'s war yet.`, { n: [c, b, a] }); continue; }
     if (c === G.player) { news("world", 3, `${shortName(b)} asks you, as its ally, to join the war against ${shortName(a)}.`, { n: [b, a] }); continue; }
     if (G.nations[c].t.dip > .35 || relOf(c, b) > 50) { news("world", 2, `${shortName(c)} honours its alliance and joins ${shortName(b)} against ${shortName(a)}.`, { key: true, n: [c, b, a] }); declareWarRaw(c, a); }
     else { addRel(c, b, -25); news("world", 2, `${shortName(c)} refuses to fight for its ally ${shortName(b)}.`, { n: [c, b] }); }
@@ -1978,14 +2006,18 @@ function declareWar(a, b, quiet) {
   invalidate();
 }
 function declareWarRaw(a, b) { setStance(a, b, "W"); addRel(a, b, -30); }
-function makePeace(a, b) { setStance(a, b, "N"); addRel(a, b, 10); peaceWithdraw(a, b); news("world", 3, `${shortName(a)} and ${shortName(b)} signed a peace treaty.`, { key: true, n: [a, b] }); }
+function makePeace(a, b) {
+  setStance(a, b, "N"); addRel(a, b, 10); peaceWithdraw(a, b);
+  G.truce = G.truce || {}; G.truce[key2(a, b)] = G.turn + TRUCE_TURNS;
+  news("world", 3, `${shortName(a)} and ${shortName(b)} signed a peace treaty. A ${TRUCE_TURNS}-turn ceasefire stops either declaring war on the other until turn ${G.turn + TRUCE_TURNS}.`, { key: true, n: [a, b] });
+}
 
 // AI answers to player proposals
 function aiAnswer(ai, kind) {
   const N = G.nations[ai], t = N.t, r = relOf(ai, G.player), P = G.nations[G.player];
   const sameGov = P.gov.type === N.gov.type ? 8 : 0;
   if (kind === "nap") { const s = r + t.dip * 40 - t.agg * 30 + sameGov; return s > 8 ? [true, "accepts a non-aggression pact."] : [false, s > -10 ? "isn't ready to commit. Improve relations first." : "rejects your proposal."]; }
-  if (kind === "ally") { if (stance(ai, G.player) !== "P") return [false, "wants a non-aggression pact first."]; const s = r + t.dip * 45 - t.agg * 20 + sameGov; return s > 42 ? [true, "agrees to a full military alliance."] : [false, "declines. Relations aren't strong enough yet."]; }
+  if (kind === "ally") { if (stance(ai, G.player) !== "P") return [false, "wants a non-aggression pact first."]; const why = allianceBlock(ai, G.player); if (why) return [false, `declines: ${why}.`]; const s = r + t.dip * 45 - t.agg * 20 + sameGov; return s > 42 ? [true, "agrees to a full military alliance."] : [false, "declines. Relations aren't strong enough yet."]; }
   if (kind === "peace") {
     const ratio = power(G.player) / Math.max(1, power(ai)), turns = G.turn - (G.since[key2(ai, G.player)] || G.turn);
     const s = ratio * 28 + t.cau * 30 + turns * 2.5 - t.agg * 35 + (N.lost > N.gained ? 10 : 0);
@@ -1997,6 +2029,7 @@ function playerDiplo(ai, kind) {
   const p = G.player, N = G.nations[ai], P = G.nations[p];
   if (kind === "war") {
     if (stance(p, ai) === "A") return "Break the alliance first.";
+    if (truceLeft(p, ai)) return `You're bound by a ceasefire with ${shortName(ai)} for ${truceLeft(p, ai)} more turn${truceLeft(p, ai) > 1 ? "s" : ""}.`;
     declareWar(p, ai); aiPersonalityShock(ai, "attacked"); return `You declared war on ${shortName(ai)}.`;
   }
   if (kind === "mission") {
@@ -2007,6 +2040,7 @@ function playerDiplo(ai, kind) {
   if (kind === "aid") { if (P.funds < 10) return "Not enough funds."; P.funds -= 10; N.funds += 10; addRel(p, ai, 8 + N.t.dip * 10); return `${shortName(ai)} welcomed $10B in aid.`; }
   if (kind === "breakAlly") { setStance(p, ai, "N"); addRel(p, ai, -25); peaceWithdraw(p, ai); news("world", 2, `${shortName(p)} ended its alliance with ${shortName(ai)}.`, { key: true, n: [p, ai] }); return "Alliance dissolved."; }
   if (kind === "breakPact") { setStance(p, ai, "N"); addRel(p, ai, -15); return "Pact cancelled."; }
+  if (kind === "ally") { const xa = allyOf(p); if (xa != null && xa !== ai) return `You're already allied with ${shortName(xa)}. A nation can have only one ally: end that alliance first.`; }
   if (G.actedDip["p" + ai] === G.turn) return `${shortName(ai)} has already answered a proposal this turn.`;
   G.actedDip["p" + ai] = G.turn;
   const [yes, txt] = aiAnswer(ai, kind);
@@ -2117,7 +2151,7 @@ function aiDiplomacy(ci) {
     } else if (ci < o && !isMinor(ci) && !isMinor(o)) { // minors keep out of the great-power blocs
       const T2 = G.nations[o].t;
       if (s === "N" && r > 14 && t.dip + T2.dip > .85 && rng() < .25) { setStance(ci, o, "P"); news("rumour", 1, `Diplomats hint at warmer ties between ${shortName(ci)} and ${shortName(o)}.`, { n: [ci, o] }); }
-      else if (s === "P" && r > 30 && t.dip + T2.dip > .95 && G.turn - (G.since[key2(ci, o)] || 0) > 3 && rng() < .2) { setStance(ci, o, "A"); news("world", 2, `${shortName(ci)} and ${shortName(o)} formed an alliance.`, { key: true, n: [ci, o] }); }
+      else if (s === "P" && r > 15 && t.dip + T2.dip > .8 && G.turn - (G.since[key2(ci, o)] || 0) > 3 && rng() < .2 && !allianceBlock(ci, o) && allianceWorth(ci, o)) { setStance(ci, o, "A"); news("world", 2, `${shortName(ci)} and ${shortName(o)} formed an alliance.`, { key: true, n: [ci, o] }); }
     }
     if (s === "W") {
       const ratio = power(ci) / Math.max(1, power(o)), turns = G.turn - (G.since[key2(ci, o)] || G.turn);
@@ -2130,11 +2164,14 @@ function aiDiplomacy(ci) {
   }
   // war decisions
   if (G.turn < 4 || isMinor(ci)) return; // minors never start wars; they defend and counter-attack
+  // an AI alliance whose reasons are gone (no shared enemy or threat, relations cooled) is wound down
+  const ally = allyOf(ci);
+  if (ally != null && ally !== G.player && ci < ally && relOf(ci, ally) < 10 && !sharedEnemy(ci, ally) && !sharedThreat(ci, ally) && rng() < .25) { setStance(ci, ally, "N"); news("world", 2, `${shortName(ci)} and ${shortName(ally)} let their alliance lapse.`, { n: [ci, ally] }); }
   const offensive = PLAY.filter(o => atWar(ci, o)).length;
   if (offensive >= 1 + (t.agg > .7 ? 1 : 0)) return;
   let best = null, bestS = -9;
   for (const o of PLAY) {
-    if (o === ci || !G.nations[o].alive || !areNeighbours(ci, o)) continue;
+    if (o === ci || !G.nations[o].alive || !areNeighbours(ci, o) || truceLeft(ci, o)) continue;
     const s = stance(ci, o); if (s === "W" || s === "A") continue;
     let allyP = 0; for (const c of PLAY) if (stance(o, c) === "A") allyP += power(c);
     const ratio = power(ci) / Math.max(1, power(o) + allyP * .7);
@@ -2396,16 +2433,19 @@ function endTurn() {
   for (const a of PLAY) for (const b of PLAY) {
     if (a >= b || !G.nations[a].alive || !G.nations[b].alive) continue;
     const A = G.nations[a], Bn = G.nations[b], s = stance(a, b);
-    let d = -relOf(a, b) * .02 + (rng() - .5) * .8;
-    if (areNeighbours(a, b)) d -= .45 * (A.t.agg + Bn.t.agg) / 2 - .05; else d += .3;
-    d += .2 * (A.t.dip + Bn.t.dip);
-    if (A.gov.type === Bn.gov.type) d += .5;
+    // 1.0.7: passive modifiers are capped (+1.2 / -3 a turn) and decay 2% toward zero, so no pair runs away for good
+    let m = 0;
+    if (areNeighbours(a, b)) m -= .45 * (A.t.agg + Bn.t.agg) / 2 - .05; else m += .3;
+    m += .2 * (A.t.dip + Bn.t.dip);
+    if (A.gov.type === Bn.gov.type) m += .5;
     const demA = A.gov.type === "dem" || A.gov.type === "cmon", demB = Bn.gov.type === "dem" || Bn.gov.type === "cmon";
-    if (demA !== demB) d -= .25;
-    if (A.gov.civil === "sup" && demB) d -= .2; if (Bn.gov.civil === "sup" && demA) d -= .2;
-    if (PLAY.some(c => atWar(a, c) && atWar(b, c))) d += 1.5;
-    d += s === "P" ? .3 : s === "A" ? .7 : s === "W" ? -1 : 0;
-    addRel(a, b, d);
+    if (demA !== demB) m -= .25;
+    if (A.gov.civil === "sup" && demB) m -= .2; if (Bn.gov.civil === "sup" && demA) m -= .2;
+    const shared = PLAY.some(c => atWar(a, c) && atWar(b, c));
+    if (shared) m += 1; // fighting the same enemy
+    if (PLAY.some(c => (atWar(a, c) && (stance(b, c) === "A" || stance(b, c) === "P")) || (atWar(b, c) && (stance(a, c) === "A" || stance(a, c) === "P")))) m -= 1; // on opposite sides of a war
+    m += s === "P" ? .3 : s === "A" ? (shared ? .3 : 0) : s === "W" ? -1 : 0;
+    addRel(a, b, -relOf(a, b) * .02 + (rng() - .5) * .8 + clamp(m, -3, 1.2));
   }
   for (const ci of PLAY) if (G.nations[ci].alive) evolve(ci);
   // turn review: what your sensors picked up, and the home front
@@ -2449,7 +2489,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.6 beta"; // early access playtest build
+const VERSION = "1.0.7 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -2479,6 +2519,13 @@ function reviveSave(s) {
   rescueAtSea(s);
   s.fronts ??= {}; s.bhp ??= {};
   if (!s.minors) { const g0 = G; G = s; try { addMinors(); } finally { G = g0; } }
+  // 1.0.7: one alliance per nation; every alliance from before ends (back to neutral), relations kept
+  if (!s.dip107) {
+    s.truce = s.truce || {}; let n = 0;
+    for (const k of Object.keys(s.st)) if (s.st[k] === "A") { s.st[k] = "N"; s.since[k] = s.turn; n++; }
+    s.dip107 = 1;
+    if (n) { const g0 = G; G = s; try { news("world", 3, `Diplomatic reset: ${n} alliance${n > 1 ? "s" : ""} dissolved. Each nation may now hold only one alliance, formed against a common enemy or threat. Relations are unchanged.`, { key: true }); } finally { G = g0; } }
+  }
   return s;
 }
 function saveJson() { G.savedAt = Date.now(); return JSON.stringify({ ...G, owner: Array.from(G.owner) }); }
@@ -4503,14 +4550,17 @@ function showNation(ci, refresh) {
     html += `<div class="section-title">Actions</div><div class="actions" style="margin-top:0">`;
     if (s === "W") html += `<button class="btn primary" data-dip="peace:${ci}" ${acted ? "disabled" : ""}>Offer peace</button>`;
     if (s === "N") html += `<button class="btn" data-dip="nap:${ci}" ${acted ? "disabled" : ""}>Propose pact</button>`;
-    if (s === "P") html += `<button class="btn" data-dip="ally:${ci}" ${acted ? "disabled" : ""}>Propose alliance</button><button class="btn" data-dip="breakPact:${ci}">Cancel pact</button>`;
+    if (s === "P") { const mine = allyOf(P); html += `<button class="btn" data-dip="ally:${ci}" ${acted || (mine != null && mine !== ci) ? "disabled" : ""}>Propose alliance</button><button class="btn" data-dip="breakPact:${ci}">Cancel pact</button>`; }
     if (s === "A") html += `<button class="btn" data-dip="breakAlly:${ci}">End alliance</button>`;
     if (s !== "W") html += `<button class="btn" data-dip="mission:${ci}" ${G.actedDip[ci] === G.turn ? "disabled" : ""}>Envoys · $2B</button><button class="btn" data-dip="aid:${ci}">Send aid · $10B</button>`;
-    if (s === "N" || s === "P") html += `<button class="btn danger" data-dip="war:${ci}">Declare war</button>`;
+    const tl = truceLeft(P, ci);
+    if ((s === "N" || s === "P") && !tl) html += `<button class="btn danger" data-dip="war:${ci}">Declare war</button>`;
     html += `</div>`;
+    if (tl) html += `<p class="note"><b>Ceasefire:</b> ${tl} turn${tl > 1 ? "s" : ""} left (until turn ${G.turn + tl}). Neither side can declare war on the other until then; nations that weren't party to the treaty aren't bound by it.</p>`;
+    if (s === "P" && allyOf(P) != null && allyOf(P) !== ci) html += `<p class="note">You're already allied with ${esc(shortName(allyOf(P)))}. A nation can have only one ally.</p>`;
     if (UI.pend && UI.pend.type === "dip" && UI.pend.ai === ci) html += dipConfirm(UI.pend.kind, ci);
     const gt = G.nations[P].gov.type;
-    if ((s === "N" || s === "P") && (gt === "dem" || gt === "cmon") && G.nations[P].ws < 60) html += `<p class="note">Your war support is ${Math.round(G.nations[P].ws)}%. Starting a war below 60% costs stability${s === "P" ? ", and breaking a pact costs more" : ""}.</p>`;
+    if ((s === "N" || s === "P") && !tl && (gt === "dem" || gt === "cmon") && G.nations[P].ws < 60) html += `<p class="note">Your war support is ${Math.round(G.nations[P].ws)}%. Starting a war below 60% costs stability${s === "P" ? ", and breaking a pact costs more" : ""}.</p>`;
   }
   openSheet(html, { type: "nation", arg: ci });
 }
@@ -5081,6 +5131,13 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.7 beta", date: "31 Oct 2026", title: "Diplomacy", items: [
+    "One ally each: every nation, yours included, can hold only one alliance at a time. Pacts are still unlimited.",
+    "Alliances need a reason: a common enemy, or a stronger hostile neighbour you both border. Good relations alone no longer create one, and the AI tells you why it declines (\"already allied with Japan\", \"no common enemy or threat\"). Alliances whose reason has gone can lapse.",
+    "Diplomatic reset: every existing alliance has ended and those nations are back to neutral. Relations, pacts and wars are unchanged.",
+    "Ceasefires: a peace treaty now brings a 20-turn ceasefire between the two nations that signed it. Neither can declare war on the other until it runs out (the nation panel shows the turns left). Nations that weren't party to the treaty aren't bound, and an ally under its own ceasefire can't be called into a war against that nation.",
+    "Relations change more steadily: fighting the same enemy still brings nations together, being on opposite sides of a war now pushes them apart, and passive drift is capped so no pair stays locked at +100 forever. Before, 20 to 34 alliances formed by turn 60, with some nations holding 7; now it's a handful, one per nation.",
+  ] },
   { v: "1.0.6 beta", date: "31 Oct 2026", title: "Combat integrity", items: [
     "Every attack you make now shows in the end-of-turn replay. Battles play as volleys: each side's units of one type fire together, so even a 25-unit fight shows every unit firing, with one damage number per target. Before, big battles silently dropped up to a third of the shots (usually infantry).",
     "Retreating under fire is shown: when units pull out of a fight, the enemy's parting volley plays in the replay, including any unit cut down as it leaves. Before, that damage happened off-screen.",
@@ -5526,6 +5583,6 @@ const fontsP = document.fonts && document.fonts.load ? Promise.all([document.fon
 fontsP.catch(() => {}).finally(() => { fontsReady = true; draw(); });
 setTimeout(() => { fontsReady = true; draw(); }, 1500);
 // test hook (harmless in play)
-window.__prw = { get G() { return G; }, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; } };
+window.__prw = { get G() { return G; }, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; } };
 })();
 </script>
