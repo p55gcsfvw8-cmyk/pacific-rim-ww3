@@ -204,6 +204,9 @@ button.row { cursor: pointer; }
 .coach.tip b { color: #9fd8ff; }
 .coach .linkbtn { margin-left: 4px; }
 .cmdbar { position: sticky; top: 0; z-index: 3; margin: 10px -14px 4px; padding: 10px 14px; background: linear-gradient(180deg, var(--panel) 85%, rgba(0,0,0,0)); border-bottom: 1px solid var(--line); }
+.vol { display: grid; grid-template-columns: 84px minmax(0, 1fr) 30px; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; color: var(--muted); }
+.vol input { width: 100%; accent-color: var(--signal); }
+.vol b { font: 600 12px var(--f-body); color: var(--ink); text-align: right; }
 .cmdbar.tabsonly { padding-top: 6px; padding-bottom: 8px; }
 .ztabs { display: flex; gap: 4px; margin-top: 9px; }
 .cmdbar.tabsonly .ztabs { margin-top: 0; }
@@ -422,6 +425,7 @@ canvas.fig { width: 52px; height: 26px; flex: none; margin-left: auto; }
   <div class="dock-wrap" id="dockWrap">
     <div class="zoomrow"><div class="scale"><i id="scaleBar" style="width:60px"></i><span id="scaleLbl">500 km</span></div>
     <div class="zoom">
+      <button class="zbtn glass" id="zSound" aria-label="Sound"></button>
       <button class="zbtn glass" id="zLayers" aria-label="Map layers and settings"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 3l7 4-7 4-7-4 7-4z"/><path d="M3 11l7 4 7-4"/></svg></button>
       <button class="zbtn glass" id="zoomIn" aria-label="Zoom in">+</button>
       <button class="zbtn glass" id="zoomOut" aria-label="Zoom out">−</button>
@@ -2077,6 +2081,7 @@ function declareWar(a, b, quiet) {
   if (truceLeft(a, b)) return; // bound by a ceasefire
   const wasPact = stance(a, b) === "P";
   setStance(a, b, "W"); addRel(a, b, -40);
+  if (G.player === a || G.player === b) sfx("strategic.war");
   const A = G.nations[a], gt = A.gov.type;
   if ((gt === "dem" || gt === "cmon") && A.ws < 60) A.stab = Math.max(0, A.stab - 12);
   if (wasPact) { A.stab = Math.max(0, A.stab - 10); for (const c of PLAY) if (c !== a && c !== b) addRel(a, c, -8); }
@@ -2595,7 +2600,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.10 beta"; // early access playtest build
+const VERSION = "1.0.11 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -3845,9 +3850,12 @@ function drawPlayback() {
   // ---- the current shot ----
   if (sh.kind === "battle") {
     const [cx, cy] = toScreen(Z[sh.z].x, Z[sh.z].y);
-    sh.vp.list.forEach(({ s, at, dy, tot }) => {
+    sh.vp.list.forEach(({ s, at, dy, tot }, k) => {
       const li = L - at;
       if (li < 0) return;
+      if (!sh.snd) sh.snd = new Set();
+      if (!sh.snd.has(k)) { sh.snd.add(k); sfx(SHOT_CUE[s.ft] || "combat.infantry", .7); }
+      if (s.kill && li >= 230 && !sh.snd.has("k" + k)) { sh.snd.add("k" + k); sfx("combat.explosion"); }
       const a = pos.get(s.f), b = s.v >= 0 ? pos.get(s.v) : null;
       const ax = a ? a[0] + (a[2] < 0 ? TAG_W / 2 : -TAG_W / 2) * (a[3] || 1) * (form && form.has(s.f) ? 1 : 0) : cx, ay = a ? a[1] : cy;
       const bx = b ? b[0] : cx + (Math.random() < 0 ? 0 : 0), by = b ? b[1] : cy - 18;
@@ -3907,7 +3915,10 @@ function drawPlayback() {
     });
   } else if (sh.kind === "cap") capBanner(sh.e, clamp(L / sh.dur, 0, 1));
 }
+// which sound each shooter makes (silent cues until their sounds exist; infantry and explosions play now)
+const SHOT_CUE = { inf: "combat.infantry", sf: "combat.infantry", scout: "combat.infantry", lt: "combat.tank", mbt: "combat.tank", art: "combat.artillery", heli: "combat.heli", jet: "combat.jet", ff: "combat.ship", rp: "combat.ship", ss: "combat.sub" };
 function capBanner(e, q) {
+  if (q < .05 && !(capBanner.done || (capBanner.done = new WeakSet())).has(e)) { capBanner.done.add(e); sfx("strategic.capture", friendly(G.player, e.o) ? 1 : .6); }
   const [x, y] = toScreen(Z[e.z].x, Z[e.z].y);
   ctx.strokeStyle = hexA(C[e.o].color, 1 - q); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 10 + q * 46, 0, Math.PI * 2); ctx.stroke();
   if (q > .9) return;
@@ -4636,6 +4647,7 @@ body.addEventListener("click", e => {
   if (b.dataset.gov) { const N = G.nations[P]; UI.pend = N.gov.type === b.dataset.gov ? null : { type: "gov", v: b.dataset.gov }; showGov(null, true); return; }
   if (b.dataset.pol) { const [k, v] = b.dataset.pol.split(":"); UI.pend = G.nations[P].gov[k] === v ? null : { type: "pol", k, v }; showGov(null, true); return; }
   if (b.dataset.buy) { const err = buy(P, b.dataset.buy); toast(err || "Purchased."); updateHud(); refreshSheet(); return; }
+  if (b.dataset.sndon) { SND.set.on = !SND.set.on; SND.apply(); SND.save(); updateSoundBtn(); showLayers(); return; }
   if (b.dataset.lane) { UI.lanes[b.dataset.lane] = !UI.lanes[b.dataset.lane]; draw(); showLayers(null, true); return; }
   if (b.dataset.fogt) { UI.fog = !UI.fog; draw(); showLayers(null, true); return; }
   if (b.dataset.goto != null) { const z = +b.dataset.goto; flyTo({ x: Z[z].x, y: Z[z].y - 30 / Math.max(cam.s, 24), s: Math.max(cam.s, 24) }); showZone(z); return; }
@@ -4816,6 +4828,86 @@ function showArmy() {
   html += `</div>`;
   openSheet(html, { type: "army" });
 }
+// =====================================================================
+// SOUND (1.0.11 groundwork): every sound is synthesised in the browser with the Web Audio API, so
+// there are no audio files and nothing is borrowed. Game code calls a named cue; the table below maps
+// cues to sounds, so recorded sounds can replace any of them later without touching game logic.
+// =====================================================================
+const SND = (() => {
+  const KEY = "prww3-sound";
+  const set = { on: true, master: .6, ui: .8, combat: .8, strategic: .8 }; // per device, not in saves
+  try { Object.assign(set, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let ctx = null, out = null, noiseBuf = null, voices = 0;
+  const bus = {}, last = {}, pend = {}, log = [];
+  function init() {
+    if (ctx || !AC) return;
+    try {
+      ctx = new AC(); out = ctx.createGain(); out.connect(ctx.destination);
+      for (const c of ["ui", "combat", "strategic"]) { bus[c] = ctx.createGain(); bus[c].connect(out); }
+      const n = ctx.sampleRate; noiseBuf = ctx.createBuffer(1, n, n); const d = noiseBuf.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      apply();
+    } catch (e) { ctx = null; }
+  }
+  function apply() { if (!ctx) return; out.gain.value = set.on ? set.master : 0; for (const c in bus) bus[c].gain.value = set[c]; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(set)); } catch (e) {} }
+  // browsers keep sound blocked until the first tap; it pauses while the tab is hidden
+  function unlock() { init(); if (ctx && ctx.state === "suspended" && !document.hidden) ctx.resume().catch(() => {}); }
+  addEventListener("pointerdown", unlock, true); addEventListener("keydown", unlock, true);
+  document.addEventListener("visibilitychange", () => { if (ctx) (document.hidden ? ctx.suspend() : ctx.resume()).catch(() => {}); });
+  const env = (g, t, a, peak, d) => { g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(.0002, peak), t + a); g.gain.exponentialRampToValueAtTime(.0001, t + a + d); };
+  function tone(dst, t, f0, f1, dur, type, peak) {
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    env(g, t, .005, peak, dur); o.connect(g); g.connect(dst); o.start(t); o.stop(t + dur + .05); return dur;
+  }
+  function noise(dst, t, dur, ft, freq, q, peak) {
+    const sN = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(); sN.buffer = noiseBuf; f.type = ft; f.frequency.value = freq; f.Q.value = q;
+    env(g, t, .003, peak, dur); sN.connect(f); f.connect(g); g.connect(dst); sN.start(t, Math.random() * .5); sN.stop(t + dur + .05); return dur;
+  }
+  const CUES = {
+    "ui.tap": { cat: "ui", play: (d, t, k) => tone(d, t, 1800, 1400, .035, "triangle", .12 * k) },
+    "ui.tab": { cat: "ui", play: (d, t, k) => { tone(d, t, 900, 900, .03, "sine", .12 * k); return .04 + tone(d, t + .04, 1350, 1350, .04, "sine", .1 * k); } },
+    "ui.confirm": { cat: "ui", play: (d, t, k) => { tone(d, t, 660, 660, .08, "triangle", .16 * k); return .07 + tone(d, t + .07, 990, 990, .12, "triangle", .14 * k); } },
+    "ui.cancel": { cat: "ui", play: (d, t, k) => tone(d, t, 520, 300, .12, "triangle", .14 * k) },
+    "combat.infantry": { cat: "combat", play: (d, t, k) => { for (let i = 0; i < 3; i++) noise(d, t + i * .07 + Math.random() * .02, .05, "bandpass", 1800 + Math.random() * 600, 1.2, .35 * k); return .25; } },
+    "combat.explosion": { cat: "combat", play: (d, t, k) => { noise(d, t, .6, "lowpass", 900, .7, .6 * k); return tone(d, t, 110, 38, .5, "sine", .5 * k) + .1; } },
+    "strategic.capture": { cat: "strategic", play: (d, t, k) => { tone(d, t, 523, 523, .14, "square", .06 * k); tone(d, t + .13, 659, 659, .14, "square", .06 * k); return .26 + tone(d, t + .26, 784, 784, .3, "square", .07 * k); } },
+    "strategic.war": { cat: "strategic", play: (d, t, k) => { tone(d, t, 98, 92, 1.1, "sawtooth", .1 * k); tone(d, t, 147, 139, 1.1, "sawtooth", .06 * k); noise(d, t, .9, "lowpass", 300, .5, .15 * k); return 1.1; } },
+  };
+  // named cues that stay silent until a sound is designed for them
+  for (const k of ["ui.open", "ui.close", "ui.error", "ui.endturn", "combat.artillery", "combat.tank", "combat.jet", "combat.heli", "combat.ship", "combat.sub", "combat.missile", "combat.aa", "strategic.peace", "strategic.alliance", "strategic.ceasefire", "strategic.capital", "strategic.lost", "strategic.victory", "strategic.defeat", "strategic.newturn"]) CUES[k] = null;
+  const MAX_VOICES = 6, COOLDOWN = .06, MERGE_MS = 30;
+  function playNow(cue, vol) {
+    const c = CUES[cue]; if (!c || !set.on || !ctx || ctx.state !== "running") return false;
+    const now = ctx.currentTime, L = last[cue];
+    if (L != null && now - L < COOLDOWN) return false;
+    if (voices >= MAX_VOICES) return false;
+    last[cue] = now;
+    const dur = c.play(bus[c.cat], now + .005, Math.min(1.6, vol)) || .3;
+    voices++; setTimeout(() => voices--, (dur + .1) * 1000);
+    log.push([cue, +vol.toFixed(2)]); if (log.length > 200) log.shift();
+    return true;
+  }
+  // the same cue several times in one moment (ten rifles in a volley) plays once, a little louder
+  function play(cue, vol = 1) {
+    if (!(cue in CUES)) return;
+    if (pend[cue]) { pend[cue].n++; return; }
+    pend[cue] = { n: 1 };
+    setTimeout(() => { const p = pend[cue]; delete pend[cue]; playNow(cue, vol * (1 + .2 * Math.min(3, p.n - 1))); }, MERGE_MS);
+  }
+  return { play, set, apply, save, unlock, CUES, log, get ctx() { return ctx; }, get voices() { return voices; } };
+})();
+const sfx = (cue, vol) => SND.play(cue, vol);
+const SPK_ON = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8h3l4-3v10l-4-3H4z"/><path d="M14 7.5a3.5 3.5 0 010 5M16 5.5a6.5 6.5 0 010 9"/></svg>';
+const SPK_OFF = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 8h3l4-3v10l-4-3H4z"/><path d="M14 8l4 4M18 8l-4 4"/></svg>';
+function updateSoundBtn() { const b = $("zSound"); if (!b) return; b.innerHTML = SND.set.on ? SPK_ON : SPK_OFF; b.setAttribute("aria-pressed", String(!SND.set.on)); b.setAttribute("aria-label", SND.set.on ? "Sound on: tap to mute" : "Sound off: tap to turn on"); }
+function soundRowsHtml() {
+  const sw = (on, attr) => `<button class="switch" ${attr} aria-pressed="${on}"></button>`;
+  return `<div class="section-title">Sound <small>this device</small></div>
+    <div class="toggle-row"><span><b>Sound</b> · interface, combat and strategic effects</span>${sw(SND.set.on, 'data-sndon="1" aria-label="Sound"')}</div>
+    ${[["master", "Master"], ["ui", "Interface"], ["combat", "Combat"], ["strategic", "Strategic"]].map(([k, n]) => `<label class="vol"><span>${n}</span><input type="range" min="0" max="100" step="5" value="${Math.round(SND.set[k] * 100)}" data-vol="${k}" aria-label="${n} volume"><b>${Math.round(SND.set[k] * 100)}</b></label>`).join("")}
+    <p class="note">Sound starts on your first tap. More effects are on the way.</p>`;
+}
 function showLayers() {
   const sw = (on, attr) => `<button class="switch" ${attr} aria-pressed="${on}"></button>`;
   openSheet(`<div class="eyebrow"><span class="pill">Map & settings</span><span class="pill">v${VERSION} beta</span></div><h2>Layers</h2>
@@ -4831,6 +4923,7 @@ function showLayers() {
       <i style="background:rgba(125,220,139,.6)"></i><span>Full resupply: cities, depots and their neighbours</span>
       <i style="background:rgba(76,195,255,.55)"></i><span>In range of one of your supply units</span>
       <i style="background:rgba(245,184,74,.4)"></i><span>Your territory: +20 fuel and ammo a turn</span></div>
+    ${soundRowsHtml()}
     <p class="note"><b>Saving:</b> ${esc(saveStatusText())} The game saves after every order and every turn.</p>
     <p class="note"><b>The sea:</b> lighter blue is shallow coastal water, darker is deep ocean. Cells tinted in a nation's colour with a dashed edge are its territorial waters and airspace.</p>
     <p class="note">You see your own territory and one zone beyond it. Scouts, radar, aircraft and ships see further. Submarines only show up near your frigates and subs.</p>
@@ -5302,13 +5395,23 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
-  { v: "1.0.10 beta", date: "31 Oct 2026", title: "Cell panel tabs", items: [
+  { v: "1.0.11 beta", date: "31 Oct 2026", title: "Saturday night update (1.0.6 to 1.0.11)", items: [
+    "## What's coming (after Thursday 5 November)",
+    "Further balancing and bug fixes: tuning tonight's changes (how often the AI attacks now that battalions move together, and how tight manpower is for nations with volunteer armies) plus fixes for anything you report through Send feedback.",
+    "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines. Tonight's sound system and volume settings are the groundwork for it.",
+    "A graphics update: a visual pass over the map, unit art and battle effects.",
+    "The first unit expansion: the first new unit types to join the current roster.",
+    "## Sound (1.0.11)",
+    "The game has sound. Every effect is made in your browser, so there are no audio files to download. It starts on your first tap, at 60% volume, and pauses when you switch away from the game.",
+    "Starter sounds: button taps, tab switches, confirm and cancel, rifle fire and explosions in battle replays (timed with the shots on screen), a fanfare when a cell is captured and a low horn when war is declared on you or by you.",
+    "The speaker button above the map controls mutes and unmutes. Map & settings has a Sound section with master, interface, combat and strategic volume. Settings are kept on this device and aren't part of your save.",
+    "Big battles stay clear: at most 6 sounds play at once, and the same sound fired many times in a moment (ten rifles in one volley) plays once, a little louder.",
+    "## Cell panel tabs (1.0.10)",
     "The cell panel has tabs: Units, Orders, Recruit, Build and Info. The cell name, the command bar and the tabs stay pinned at the top, so a busy capital is no longer ten screens of scrolling (Bangkok: from about 4,900 pixels in one column to 600 to 2,400 per tab).",
     "Units lists everything in the cell: your battalions, your other units and support, the enemy, and the fight forecast. Orders holds every order button, embarking, landings, attaching support and strikes. Recruit has unit training and the units in training. Build has construction and buildings in progress. Info has the cell's owner, population, income, deposits, buildings and connections.",
     "Only the tabs that apply are shown. The panel opens on Units when anything is there, otherwise on Info, and it remembers the tab you last used for each kind of cell (your capital or city, your province, a sea cell, a foreign cell).",
     "Nothing was removed: every button from before is in exactly one tab. The tutorial and tips point to the new tabs.",
-  ] },
-  { v: "1.0.9 beta", date: "31 Oct 2026", title: "Battalions", items: [
+    "## Battalions (1.0.9)",
     "Battalions move as one. Ordering any unit in a battalion orders every member standing with it; they take one route, march at the pace of the slowest unit and arrive together. If a member is out of fuel or locked in a fight, the battalion waits for it.",
     "The only way to split a battalion is to disband it. If its members can't all travel a route (a ship lane one of them can't use, say), the order is refused and the message tells you so.",
     "A battalion boards a transport whole or not at all. If it doesn't fit, it stays ashore and the message says so; disband it to ship part of it.",
@@ -5318,8 +5421,7 @@ const PATCH_NOTES = [
     "The move overlay shows only the cells the whole battalion can reach this turn.",
     "The AI follows the same rules. Its battalions attack only when every member can reach the target, retreat together, and are disbanded when they don't fit aboard ship for an invasion.",
     "Old saves: a battalion already spread across several cells keeps its largest group; members elsewhere carry on unattached (a news item tells you how many of yours). Form a battalion again where they meet up.",
-  ] },
-  { v: "1.0.8 beta", date: "31 Oct 2026", title: "Manpower", items: [
+    "## Manpower (1.0.8)",
     "Manpower now matters. Every nation's draft pool is about a sixth of what it was: Thailand starts with about 1,000 and gains about 90 a turn (before, 6,300 and 550). Over 60 test turns the AI sat at its ceiling three turns in four; now it's about one in three, and spends what it gains.",
     "Units draw manpower for everyone it takes to keep them fighting, not just their seats. Infantry 60, special forces 40, light tank 50, main battle tank 80, artillery 50, helicopter 50, jet 70, airborne radar 90, frigate 220, submarine 120, radar picket 150, transport ship 120, supply ship 150. Healing draws from the same figure, so repairing a frigate costs far more than patching up infantry.",
     "The reserve ceiling is now 15 turns of gain plus a small base (Thailand: about 1,440). Your conscription policy is the main lever: selective service gives 1.8 times the volunteer rate, universal 2.8 times.",
@@ -5327,15 +5429,13 @@ const PATCH_NOTES = [
     "Minor nations start with enough for two infantry and gain a trickle, so they hold their small garrisons but can't rebuild quickly.",
     "Old saves: reserves above the new ceiling are cut to it when the save loads (a news item says by how much). Everything else carries over.",
     "The recruit list and the codex show each unit's manpower cost, and the recruit list shows your current reserve.",
-  ] },
-  { v: "1.0.7 beta", date: "31 Oct 2026", title: "Diplomacy", items: [
+    "## Diplomacy (1.0.7)",
     "One ally each: every nation, yours included, can hold only one alliance at a time. Pacts are still unlimited.",
     "Alliances need a reason: a common enemy, or a stronger hostile neighbour you both border. Good relations alone no longer create one, and the AI tells you why it declines (\"already allied with Japan\", \"no common enemy or threat\"). Alliances whose reason has gone can lapse.",
     "Diplomatic reset: every existing alliance has ended and those nations are back to neutral. Relations, pacts and wars are unchanged.",
     "Ceasefires: a peace treaty now brings a 20-turn ceasefire between the two nations that signed it. Neither can declare war on the other until it runs out (the nation panel shows the turns left). Nations that weren't party to the treaty aren't bound, and an ally under its own ceasefire can't be called into a war against that nation.",
     "Relations change more steadily: fighting the same enemy still brings nations together, being on opposite sides of a war now pushes them apart, and passive drift is capped so no pair stays locked at +100 forever. Before, 20 to 34 alliances formed by turn 60, with some nations holding 7; now it's a handful, one per nation.",
-  ] },
-  { v: "1.0.6 beta", date: "31 Oct 2026", title: "Combat integrity", items: [
+    "## Combat (1.0.6)",
     "Every attack you make now shows in the end-of-turn replay. Battles play as volleys: each side's units of one type fire together, so even a 25-unit fight shows every unit firing, with one damage number per target. Before, big battles silently dropped up to a third of the shots (usually infantry).",
     "Retreating under fire is shown: when units pull out of a fight, the enemy's parting volley plays in the replay, including any unit cut down as it leaves. Before, that damage happened off-screen.",
     "Units attacked during a turn now stand and fight: contact locks both sides for that turn, so an attacked unit takes at least one exchange of fire before it can withdraw. Before, an AI unit could walk out of the cell (even round behind your attackers) before a single shot.",
@@ -5748,6 +5848,18 @@ $("zoomIn").onclick = () => zoomAt(W / 2, H / 2, 2);
 $("zoomOut").onclick = () => zoomAt(W / 2, H / 2, .5);
 $("zoomHome").onclick = () => { if (G && G.nations[G.player].cap >= 0) { const z = Z[G.nations[G.player].cap]; flyTo({ x: z.x, y: z.y, s: Math.max(cam.s, 14) }); } else homeView(true); };
 $("zLayers").onclick = () => showLayers();
+$("zSound").onclick = () => { SND.set.on = !SND.set.on; SND.apply(); SND.save(); updateSoundBtn(); if (SND.set.on) sfx("ui.confirm"); toast(SND.set.on ? "Sound on." : "Sound off. Volume levels are under Map & settings."); if (sheetView && sheetView.type === "layers") showLayers(); };
+updateSoundBtn();
+// interface sounds: every button press, tabs, confirms and cancels
+document.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b || b.disabled || b.id === "zSound") return;
+  if (b.dataset.ztab || b.dataset.rtab) sfx("ui.tab");
+  else if (b.classList.contains("primary")) sfx("ui.confirm");
+  else if (b.id === "modeExit" || b.classList.contains("close") || /^(cancel|close|✕)$/i.test(b.textContent.trim()) || b.getAttribute("aria-label") === "Close") sfx("ui.cancel");
+  else sfx("ui.tap");
+}, true);
+body.addEventListener("input", e => { const r = e.target.closest && e.target.closest("[data-vol]"); if (!r) return; SND.set[r.dataset.vol] = r.value / 100; SND.apply(); SND.save(); const lb = r.parentElement.querySelector("b"); if (lb) lb.textContent = r.value; });
+body.addEventListener("change", e => { const r = e.target.closest && e.target.closest("[data-vol]"); if (r) sfx({ master: "ui.confirm", ui: "ui.tap", combat: "combat.infantry", strategic: "strategic.capture" }[r.dataset.vol]); });
 $("dRep").onclick = () => G && showReports();
 $("ticker").onclick = () => { $("ticker").hidden = true; showReports("last"); };
 $("pbSkip").onclick = () => { if (PB) endPlayback(); };
@@ -5780,6 +5892,6 @@ const fontsP = document.fonts && document.fonts.load ? Promise.all([document.fon
 fontsP.catch(() => {}).finally(() => { fontsReady = true; draw(); });
 setTimeout(() => { fontsReady = true; draw(); }, 1500);
 // test hook (harmless in play)
-window.__prw = { get G() { return G; }, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; } };
+window.__prw = { get G() { return G; }, SND, sfx, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; } };
 })();
 </script>
