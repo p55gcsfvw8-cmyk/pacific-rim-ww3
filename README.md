@@ -1,6 +1,6 @@
 # Pacific Rim WW3
 
-Turn-based grand strategy across the Asia-Pacific, played in a phone browser. Sixteen nations start neutral; hold 30% of the region's victory points to win.
+Turn-based grand strategy across the Asia-Pacific, played in a phone browser. Sixteen powers and fifteen AI-run minor nations start neutral; hold 30% of the region's victory points to win.
 
 **Status:** 1.0 Beta, early access playtest.
 **Play:** https://pacific-rim-ww3.netlify.app

@@ -227,6 +227,7 @@ button.row { cursor: pointer; }
 .btn.has-new { position: relative; }
 .btn.has-new::after { content: "NEW"; position: absolute; top: -7px; right: -6px; padding: 1px 6px; border-radius: 6px; background: #ff7b6b; color: #1a0b08; font: 700 10px var(--f-display); letter-spacing: .06em; }
 .notes { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; }
+.bugbox h4.nsub { margin: 16px 0 0; font-family: var(--f-display); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--signal); }
 .bugbox h3.nv { margin: 14px 0 0; font-family: var(--f-display); font-size: 14px; } .bugbox h3.nv small { color: var(--muted); font-weight: 500; }
 .feed p { margin: 0; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 13.5px; line-height: 1.4; } .feed p span { display: block; color: var(--muted); font-size: 11.5px; }
 .ea { margin-top: 16px; padding: 10px 12px; border-radius: 12px; border: 1px dashed rgba(245,184,74,.5); background: rgba(245,184,74,.06); display: grid; gap: 3px; }
@@ -456,7 +457,10 @@ canvas.fig { width: 52px; height: 26px; flex: none; margin-left: auto; }
 // MAP DATA & GEOMETRY
 // =====================================================================
 const M = JSON.parse(document.getElementById("map-data").textContent);
-const C = M.countries, Z = M.zones, LAND_N = M.landCount, NZ = Z.length;
+const C = M.countries, Z = M.zones, NZ = Z.length;
+// Land cells are flagged, not numbered first: the 1.0.5 minor-nation cells were appended after the sea so old saves keep their ids.
+const IS_LAND = Uint8Array.from(Z, z => z.k === "L" ? 1 : 0);
+const LAND_IDS = Z.map((z, i) => z.k === "L" ? i : -1).filter(i => i >= 0);
 const [BX0, BY0, BX1, BY1] = M.bounds;
 const DEG = Math.PI / 180;
 const latOf = y => (2 * Math.atan(Math.exp(y * DEG)) - Math.PI / 2) / DEG;
@@ -464,9 +468,12 @@ const projY = lat => Math.log(Math.tan(Math.PI / 4 + lat * DEG / 2)) / DEG;
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const FONT_D = css("--f-display"), FONT_B = css("--f-body");
 const COL = { signal: css("--signal"), land: css("--land-lane"), sea: css("--sea-lane"), air: css("--air-lane"), friendly: css("--friendly"), neutral: css("--neutral"), hostile: css("--hostile") };
-const PLAY = C.map((c, i) => c.playable ? i : -1).filter(i => i >= 0);
+const PLAY = C.map((c, i) => c.playable ? i : -1).filter(i => i >= 0); // every nation in the game, minors included
+// 1.0.5: minor nations hold the land that used to be grey. AI-run, not selectable yet, small and poor, but they fight back.
+const isMinor = ci => !!(C[ci] && C[ci].minor);
+const MAJORS = PLAY.filter(c => !isMinor(c)), MINORS = PLAY.filter(isMinor);
 const CODE = Object.fromEntries(C.map((c, i) => [c.code, i]));
-const shortName = ci => C[ci].name.replace(" (Pacific)", "");
+const shortName = ci => C[ci].name.replace(/ \(.*\)$/, "");
 
 const ring2path = r => { const p = new Path2D(); p.moveTo(r[0], r[1]); for (let i = 2; i < r.length; i += 2) p.lineTo(r[i], r[i + 1]); p.closePath(); return p; };
 const bboxOf = r => { let a = 1e9, b = 1e9, c = -1e9, d = -1e9; for (let i = 0; i < r.length; i += 2) { const x = r[i], y = r[i + 1]; if (x < a) a = x; if (x > c) c = x; if (y < b) b = y; if (y > d) d = y; } return [a, b, c, d]; };
@@ -477,7 +484,7 @@ const hitCtx = document.createElement("canvas").getContext("2d");
 const inside = (path, x, y) => hitCtx.isPointInPath(path, x, y);
 const inBB = (bb, x, y) => x >= bb[0] && x <= bb[2] && y >= bb[1] && y <= bb[3];
 const overlap = (a, b) => a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
-const isLand = i => i < LAND_N;
+const isLand = i => IS_LAND[i] === 1;
 
 // Shallow water hugs every coast; everything further out is deep ocean.
 const SHALLOW = new Uint8Array(NZ);
@@ -491,7 +498,7 @@ const stateBorderPath = C.map(() => new Path2D());
   for (let i = 0; i < sb.length; i += 4) {
     const x = (sb[i] + sb[i + 2]) / 2, y = (sb[i + 1] + sb[i + 3]) / 2;
     let best = -1, bd = 1e9;
-    for (let z = 0; z < LAND_N; z++) { const d = (Z[z].x - x) ** 2 + (Z[z].y - y) ** 2; if (d < bd) { bd = d; best = z; } }
+    for (const z of LAND_IDS) { if (Z[z].mx) continue; const d = (Z[z].x - x) ** 2 + (Z[z].y - y) ** 2; if (d < bd) { bd = d; best = z; } }
     const p = stateBorderPath[Z[best].c]; p.moveTo(sb[i], sb[i + 1]); p.lineTo(sb[i + 2], sb[i + 3]);
   }
 }
@@ -499,22 +506,22 @@ Z.forEach(z => { if (z.k === "L") z.lm = LM.findIndex(l => inBB(l.bb, z.x, z.y) 
 const ADJ = Z.map(() => []);
 M.edges.forEach(([a, b, f]) => { ADJ[a].push([b, f]); ADJ[b].push([a, f]); });
 {
-  const comp = new Int32Array(LAND_N).fill(-1); let k = 0;
-  for (let i = 0; i < LAND_N; i++) {
+  const comp = new Int32Array(NZ).fill(-1); let k = 0;
+  for (const i of LAND_IDS) {
     if (comp[i] >= 0) continue;
     const grp = [i], st = [i]; comp[i] = k;
-    while (st.length) { const x = st.pop(); for (const [y, f] of ADJ[x]) if (y < LAND_N && (f & 1) && comp[y] < 0 && Z[y].c === Z[i].c) { comp[y] = k; st.push(y); grp.push(y); } }
+    while (st.length) { const x = st.pop(); for (const [y, f] of ADJ[x]) if (isLand(y) && (f & 1) && comp[y] < 0 && Z[y].c === Z[i].c) { comp[y] = k; st.push(y); grp.push(y); } }
     if (!grp.some(j => Z[j].port)) {
-      const best = grp.filter(j => ADJ[j].some(([n]) => n >= LAND_N)).sort((a, b) => (Z[b].t !== "prov") - (Z[a].t !== "prov") || Z[b].p - Z[a].p)[0];
+      const best = grp.filter(j => ADJ[j].some(([n]) => !isLand(n))).sort((a, b) => (Z[b].t !== "prov") - (Z[a].t !== "prov") || Z[b].p - Z[a].p)[0];
       if (best != null) { Z[best].port = true; Z[best].coast = true; }
     }
     k++;
   }
-  for (let i = LAND_N; i < NZ; i++) SHALLOW[i] = ADJ[i].some(([j]) => j < LAND_N) ? 1 : 0;
+  for (const i of SEA_IDS) SHALLOW[i] = ADJ[i].some(([j]) => isLand(j)) ? 1 : 0;
   // known offshore oil and gas basins (lon/lat boxes); shallow cells inside them hold an offshore field
   const BASINS = [[117, 37, 122, 41], [121, 26, 127, 31], [111, 19, 117, 22.5], [106, 17, 110, 21], [106, 7, 110, 11], [99, 6, 104, 12], [103, 2, 109, 7],
     [111, 3, 116, 7.5], [105, -7, 109, -3.8], [116, -2.5, 119.5, 2], [124, -13.5, 130, -9], [113, -22, 121, -16.5], [145, -40.5, 149, -37.8], [172, -40.5, 175, -38.3], [118, 9.5, 120.5, 12.5]];
-  for (let i = LAND_N; i < NZ; i++) { const lon = Z[i].x, lat = latOf(Z[i].y); if (SHALLOW[i] && BASINS.some(([a, b, c, d]) => lon >= a && lon <= c && lat >= b && lat <= d)) OFFSHORE_OIL[i] = 1; }
+  for (const i of SEA_IDS) { const lon = Z[i].x, lat = latOf(Z[i].y); if (SHALLOW[i] && BASINS.some(([a, b, c, d]) => lon >= a && lon <= c && lat >= b && lat <= d)) OFFSHORE_OIL[i] = 1; }
 }
 
 const countryInfo = C.map((c, ci) => {
@@ -533,9 +540,9 @@ const countryInfo = C.map((c, ci) => {
 // RULES DATA
 // =====================================================================
 // Economic scale (higher = richer per person). Kept moderate so every nation is playable.
-const ECON = { CN: .75, JP: 1.9, KR: 1.7, KP: .15, TW: 1.8, PH: .3, VN: .35, TH: .5, MY: .8, SG: 2.8, ID: .35, PG: .25, AU: 2.3, NZ: 1.9, FJ: .45, US: 2.4 };
+const ECON = { BN: .5, TL: .15, SB: .15, VU: .15, NC: .3, WS: .15, TO: .15, PW: .2, RU: .3, MM: .12, LA: .15, KH: .15, MN: .2, IN: .1, BD: .1, CN: .75, JP: 1.9, KR: 1.7, KP: .15, TW: 1.8, PH: .3, VN: .35, TH: .5, MY: .8, SG: 2.8, ID: .35, PG: .25, AU: 2.3, NZ: 1.9, FJ: .45, US: 2.4 };
 const BONUS_FUNDS = { US: 12 }; // mainland support for Pacific forces
-const ARMY_SIZE = { CN: 24, US: 24, JP: 22, KR: 22, AU: 20, TW: 20, KP: 20, VN: 20, ID: 20, TH: 18, MY: 18, PH: 18, SG: 18, NZ: 16, PG: 16, FJ: 14 };
+const ARMY_SIZE = { BN: 4, TL: 4, SB: 4, VU: 4, NC: 4, WS: 4, TO: 4, PW: 4, RU: 6, MM: 6, LA: 4, KH: 5, MN: 5, IN: 6, BD: 4, CN: 24, US: 24, JP: 22, KR: 22, AU: 20, TW: 20, KP: 20, VN: 20, ID: 20, TH: 18, MY: 18, PH: 18, SG: 18, NZ: 16, PG: 16, FJ: 14 };
 const OIL_SITES = [[125.0, 46.6], [118.5, 37.4], [114.0, 4.4], [101.3, 1.0], [117.3, -0.5], [116.0, -20.8], [146.9, -38.2], [101.2, 12.7], [107.4, 10.5], [142.8, -5.9], [108.0, 37.6], [131.5, -1.1], [138.9, 37.9], [113.1, 3.2], [174.2, -39.3], [122.3, 40.8], [130.7, -12.5]];
 const ORE_SITES = [[118.7, -22.4], [121.5, -30.7], [148.3, -22.5], [151.0, -32.4], [139.5, -20.7], [136.9, -30.4], [146.4, -38.2], [112.5, 37.9], [109.8, 39.6], [109.8, 40.7], [123.0, 41.1], [101.7, 26.6], [118.2, 39.6], [137.1, -4.1], [121.3, -2.5], [116.0, -2.0], [128.0, 0.5], [141.1, -5.2], [143.1, -5.5], [155.5, -6.3], [125.6, 9.6], [120.7, 16.4], [129.2, 42.2], [142.0, 43.3], [107.2, 21.0], [107.7, 12.0], [101.1, 4.6], [98.4, 7.9], [177.9, -17.5], [171.3, -42.4], [129.0, 37.2], [117.2, 34.3], [104.0, 26.5], [126.0, 41.5]];
 
@@ -614,6 +621,11 @@ const START_GOV = {
   US: ["dem", "pro", "free", "vol", "free"], FJ: ["dem", "lim", "reg", "vol", "mix"], PG: ["dem", "lim", "free", "vol", "mix"],
   SG: ["dem", "lim", "reg", "uni", "free"], CN: ["one", "sup", "state", "sel", "dir"], VN: ["one", "lim", "state", "sel", "mix"],
   KP: ["one", "sup", "state", "uni", "dir"],
+  // minor nations
+  BN: ["cmon", "lim", "reg", "vol", "mix"], TL: ["dem", "lim", "free", "vol", "mix"], SB: ["dem", "lim", "free", "vol", "mix"], VU: ["dem", "lim", "free", "vol", "mix"],
+  NC: ["dem", "pro", "free", "vol", "mix"], WS: ["dem", "lim", "free", "vol", "mix"], TO: ["cmon", "lim", "reg", "vol", "mix"], PW: ["dem", "pro", "free", "vol", "free"],
+  RU: ["one", "sup", "state", "sel", "dir"], MM: ["mil", "sup", "state", "uni", "dir"], LA: ["one", "sup", "state", "sel", "dir"], KH: ["one", "sup", "state", "sel", "mix"],
+  MN: ["dem", "lim", "free", "vol", "mix"], IN: ["dem", "pro", "free", "vol", "mix"], BD: ["dem", "lim", "free", "vol", "mix"],
 };
 const ARCH = {
   War: { n: "Warmonger", d: "Seeks conquest and strikes when it smells weakness." },
@@ -636,13 +648,14 @@ function archOf(t) {
 const PROV = Z.map(() => null);
 // 1.0.1: every government collects a flat base revenue and provinces yield 15% less, so small nations aren't starved and giants don't run away
 const PROV_K = .85, BASE_FUNDS = 5;
+const baseFunds = ci => isMinor(ci) ? 1 : BASE_FUNDS; // minors: very limited funds
 {
-  const nearSite = (sites, lim) => { const out = new Map(); for (const [lo, la] of sites) { const x = lo, y = projY(la); let best = -1, bd = 1e9; for (let i = 0; i < LAND_N; i++) { const d = (Z[i].x - x) ** 2 + (Z[i].y - y) ** 2; if (d < bd) { bd = d; best = i; } } if (bd < lim * lim) out.set(best, true); } return out; };
+  const nearSite = (sites, lim) => { const out = new Map(); for (const [lo, la] of sites) { const x = lo, y = projY(la); let best = -1, bd = 1e9; for (const i of LAND_IDS) { const d = (Z[i].x - x) ** 2 + (Z[i].y - y) ** 2; if (d < bd) { bd = d; best = i; } } if (bd < lim * lim) out.set(best, true); } return out; };
   const oil = nearSite(OIL_SITES, 2.2), ore = nearSite(ORE_SITES, 2.2);
   for (const ci of PLAY) {
     const code = C[ci].code, ids = zonesByCountry[ci], pop = C[ci].pop;
-    const income = 4 + Math.sqrt(pop) * ECON[code];
-    const man = Math.sqrt(pop) * 110 + 40;
+    const income = (isMinor(ci) ? 1 : 4) + Math.sqrt(pop) * ECON[code];
+    const man = (Math.sqrt(pop) * 110 + 40) * (isMinor(ci) ? .3 : 1);
     const tot = ids.reduce((s, i) => s + Z[i].p, 0);
     ids.forEach(i => {
       const share = Z[i].p / tot;
@@ -650,8 +663,8 @@ const PROV_K = .85, BASE_FUNDS = 5;
     });
   }
 }
-const vpOf = i => Z[i].t === "cap" ? 10 : Z[i].t === "city" ? 3 : 1;
-const TOTAL_VP = Array.from({ length: LAND_N }, (_, i) => vpOf(i)).reduce((a, b) => a + b, 0);
+const vpOf = i => Z[i].mx ? (Z[i].t === "cap" ? 4 : Z[i].t === "city" ? 2 : 1) : Z[i].t === "cap" ? 10 : Z[i].t === "city" ? 3 : 1; // minor-nation land is worth less
+const TOTAL_VP = LAND_IDS.reduce((a, i) => a + vpOf(i), 0);
 const WIN_SHARE = 0.3;
 
 // neighbours between nations (land border or sea zones in common reach)
@@ -690,10 +703,11 @@ function aiBuyArmy(ci) {
 }
 const DEFAULT_ARMY = ["inf", "inf", "inf", "inf", "sf", "scout", "lt", "mbt", "lrad", "heli", "jet", "ff", "lland", "tland", "tsea", "lsea"];
 function newGame(player, seed = (Date.now() % 1e9) | 0, setup = null) {
-  G = { v: 2, seed, turn: 1, player, rng: seed, fronts: {}, bhp: {}, owner: new Int16Array(LAND_N), bld: {}, queue: [], units: [], nextId: 1, nations: {}, rel: {}, st: {}, since: {}, log: [], over: null, lastSeenLog: 0, actedDip: {} };
+  G = { v: 2, seed, turn: 1, player, rng: seed, fronts: {}, bhp: {}, owner: new Int16Array(NZ).fill(-1), bld: {}, queue: [], units: [], nextId: 1, nations: {}, rel: {}, st: {}, since: {}, log: [], over: null, lastSeenLog: 0, actedDip: {} };
   G.gid = Date.now().toString(36) + Math.random().toString(36).slice(2, 7); G.stats = { kills: 0, lost: 0, caps: 0, capitals: 0 };
-  for (let i = 0; i < LAND_N; i++) G.owner[i] = Z[i].c;
+  for (const i of LAND_IDS) G.owner[i] = Z[i].c;
   for (const ci of PLAY) {
+    if (isMinor(ci)) { G.nations[ci] = minorNation(ci); continue; }
     const code = C[ci].code, g = ci === player && setup && setup.gov ? setup.gov : START_GOV[code];
     const inc = estIncome(ci);
     const traitBias = { ind: C[ci].pop > 50 ? .1 : 0, dip: C[ci].pop < 10 ? .1 : 0 };
@@ -707,14 +721,15 @@ function newGame(player, seed = (Date.now() % 1e9) | 0, setup = null) {
   }
   for (const a of PLAY) for (const b of PLAY) if (a < b) { G.rel[a + "," + b] = Math.round((rng() - .5) * 16); G.st[a + "," + b] = "N"; }
   // starting buildings
-  for (const ci of PLAY) {
+  for (const ci of MAJORS) {
     const ids = zonesByCountry[ci].slice().sort((a, b) => Z[b].p - Z[a].p);
     const cap = G.nations[ci].cap;
     setB(cap, "air", 1); setB(cap, "road", 1); setB(cap, "hosp", 1); setB(cap, "depot", 1); setB(cap, "fac", ECON[C[ci].code] > 1 ? 2 : 1); setB(cap, "fort", 1);
     ids.filter(i => Z[i].t === "city").slice(0, 2).forEach(i => { setB(i, "air", 1); setB(i, "road", 1); });
   }
   // starter armies
-  for (const ci of PLAY) {
+  for (const ci of MINORS) minorSetup(ci);
+  for (const ci of MAJORS) {
     const list = ci === player && setup && setup.army ? setup.army.slice() : aiBuyArmy(ci);
     const cap = G.nations[ci].cap;
     const cities = zonesByCountry[ci].filter(i => Z[i].t !== "prov").sort((a, b) => Z[b].p - Z[a].p);
@@ -739,9 +754,41 @@ function newGame(player, seed = (Date.now() % 1e9) | 0, setup = null) {
     const pair = (sup, lead) => { const s = mine.find(u => u.t === sup), l = mine.find(u => u.t === lead && s && u.z === s.z); if (s && l) s.att = l.id; };
     pair("lland", "mbt"); pair("lsea", "ff"); pair("lair", "jet");
   }
-  news("world", 3, `Sixteen nations stand neutral across the Pacific. Every one of them means to win.`, { key: true });
+  G.minors = 1;
+  news("world", 3, `Sixteen powers stand neutral across the Pacific, with ${MINORS.length} minor nations caught between them. Every power means to win.`, { key: true });
   G.lastSeenLog = 0;
   invalidate();
+}
+// Minor nations: 4 infantry, a fortified capital and very little money. Not playable yet; they can be invaded and held.
+function minorNation(ci) {
+  const g = START_GOV[C[ci].code] || ["dem", "lim", "reg", "vol", "mix"];
+  const N = {
+    funds: 12 + Math.round(rng() * 6), man: Math.round(30 + Math.sqrt(C[ci].pop) * 5), mat: 6, fuel: 12,
+    stab: GOV[g[0]].stab, ws: GOV[g[0]].ws, gov: { type: g[0], civil: g[1], press: g[2], consc: g[3], econ: g[4] }, govChanged: -99, polChanged: -99,
+    t: { agg: .08 + rng() * .17, dip: .35 + rng() * .3, cau: .6 + rng() * .3, ind: .3 + rng() * .3 },
+    cap: countryInfo[ci].cap, alive: true, lost: 0, gained: 0, minor: true,
+  };
+  N.arch = archOf(N.t);
+  return N;
+}
+function minorSetup(ci) {
+  const cap = G.nations[ci].cap;
+  setB(cap, "road", 1); setB(cap, "fort", 1); setB(cap, "depot", 1);
+  const others = zonesByCountry[ci].filter(i => i !== cap).sort((a, b) => (Z[b].t !== "prov") - (Z[a].t !== "prov") || Z[b].p - Z[a].p);
+  for (const z of [cap, cap, others[0] ?? cap, others[1] ?? cap]) addUnit(ci, "inf", z);
+}
+// Saves from before 1.0.5 have no minor nations: hand them their land, forces and relations.
+function addMinors() {
+  if (G.owner.length < NZ) { const o = new Int16Array(NZ).fill(-1); o.set(G.owner.subarray(0, Math.min(G.owner.length, NZ))); for (const i of LAND_IDS) if (i >= G.owner.length) o[i] = Z[i].c; G.owner = o; }
+  let added = 0;
+  for (const ci of MINORS) {
+    if (G.nations[ci]) continue;
+    G.nations[ci] = minorNation(ci); added++;
+    for (const o of PLAY) if (o !== ci && G.st[key2(o, ci)] == null) { G.rel[key2(o, ci)] = Math.round((rng() - .5) * 16); G.st[key2(o, ci)] = "N"; }
+    minorSetup(ci);
+  }
+  G.minors = 1; G.ov = (G.ov || 0) + 1;
+  if (added) news("world", 3, `The map has grown: ${added} minor nations now hold the lands that were unaligned. They defend themselves and can be invaded.`, { key: true });
 }
 function B(i) { return G.bld[i] || {}; }
 let _waters = null, _wG = null, _wOv = -1;
@@ -749,16 +796,16 @@ function waters() {
   if (_waters && _wG === G && _wOv === (G.ov || 0)) return _waters;
   const W = new Int16Array(NZ).fill(-1);
   // ring 1: sea cells on a coast belong to whoever holds most of that coastline
-  for (let i = LAND_N; i < NZ; i++) {
+  for (const i of SEA_IDS) {
     const cnt = new Map();
-    for (const [j] of ADJ[i]) if (j < LAND_N) { const o = G.owner[j]; if (C[o].playable) cnt.set(o, (cnt.get(o) || 0) + 1 + Z[j].p * .2); }
+    for (const [j] of ADJ[i]) if (isLand(j)) { const o = G.owner[j]; if (C[o].playable) cnt.set(o, (cnt.get(o) || 0) + 1 + Z[j].p * .2); }
     if (cnt.size) W[i] = [...cnt.entries()].sort((a, b) => b[1] - a[1])[0][0];
   }
   // ring 2: open water next to only one nation's coastal waters, and no one else's coast
   const ring2 = [];
-  for (let i = LAND_N; i < NZ; i++) {
+  for (const i of SEA_IDS) {
     if (W[i] >= 0 || SHALLOW[i]) continue;
-    const os = new Set(); for (const [j] of ADJ[i]) if (j >= LAND_N && W[j] >= 0) os.add(W[j]);
+    const os = new Set(); for (const [j] of ADJ[i]) if (!isLand(j) && W[j] >= 0) os.add(W[j]);
     if (os.size === 1) ring2.push([i, [...os][0]]);
   }
   for (const [i, o] of ring2) W[i] = o;
@@ -818,14 +865,14 @@ function govMods(ci) {
 function estIncome(ci) {
   // used before G exists (start screen): original territory, base government
   const code = C[ci].code, g = START_GOV[code], gv = GOV[g[0]];
-  let funds = (BONUS_FUNDS[code] || 0) + BASE_FUNDS, man = 0, mat = 0;
+  let funds = (BONUS_FUNDS[code] || 0) + baseFunds(ci), man = 0, mat = 0;
   for (const i of zonesByCountry[ci]) { funds += PROV[i].inc; man += PROV[i].man; mat += .06 + (PROV[i].dep === "ore" ? 1.5 : 0); }
   return { funds: funds * gv.funds, man: man * gv.man * POLICY.consc.opts[g[3]].man, mat };
 }
 function econ(ci) {
   const N = G.nations[ci], gm = govMods(ci);
-  let funds = (BONUS_FUNDS[C[ci].code] || 0) + BASE_FUNDS, man = 0, mat = 0, fuel = 1, hosp = 0, prov = 0;
-  for (let i = 0; i < LAND_N; i++) {
+  let funds = (BONUS_FUNDS[C[ci].code] || 0) + baseFunds(ci), man = 0, mat = 0, fuel = 1, hosp = 0, prov = 0;
+  for (const i of LAND_IDS) {
     if (G.owner[i] !== ci) continue;
     prov++;
     const P = PROV[i], b = B(i), occ = Z[i].c !== ci ? .5 : 1;
@@ -836,7 +883,7 @@ function econ(ci) {
     hosp += b.hosp || 0;
   }
   const W = waters();
-  for (let i = LAND_N; i < NZ; i++) if (W[i] === ci && G.bld[i] && G.bld[i].rig) fuel += yieldOf(G.bld[i].rig);
+  for (const i of SEA_IDS) if (W[i] === ci && G.bld[i] && G.bld[i].rig) fuel += yieldOf(G.bld[i].rig);
   const stabF = .55 + .45 * N.stab / 100;
   funds *= gm.funds * stabF;
   man *= gm.man * (1 + Math.min(.5, hosp * .05)) * MAN_RATE;
@@ -846,8 +893,16 @@ function econ(ci) {
   upFu = N.lastFuel || 0; // fuel spent resupplying units last turn (already paid)
   return { funds, man, mat, fuel, upF, upFu, netF: funds - upF, netFu: fuel - upFu, prov, manCap: Math.round(man * 20) };
 }
-function power(ci) { let p = 0; for (const u of G.units) if (u.o === ci) p += (UT[u.t].f + UT[u.t].m * .5) * u.hp / 100; return p + G.nations[ci].funds * .2; }
-function vp(ci) { let v = 0; for (let i = 0; i < LAND_N; i++) if (G.owner[i] === ci) v += vpOf(i); return v; }
+let PWR = null; // per-turn cache while the AIs decide (31 nations asking about each other)
+function power(ci) {
+  if (PWR) { if (!PWR.size) for (const u of G.units) PWR.set(u.o, (PWR.get(u.o) || 0) + (UT[u.t].f + UT[u.t].m * .5) * u.hp / 100); return (PWR.get(ci) || 0) + G.nations[ci].funds * .2; }
+  let p = 0; for (const u of G.units) if (u.o === ci) p += (UT[u.t].f + UT[u.t].m * .5) * u.hp / 100; return p + G.nations[ci].funds * .2;
+}
+let _vpC = null, _vpG = null, _vpOv = -1; // victory points per nation, recounted only when a cell changes hands
+function vp(ci) {
+  if (!_vpC || _vpG !== G || _vpOv !== (G.ov || 0)) { _vpC = new Map(); for (const i of LAND_IDS) { const o = G.owner[i]; _vpC.set(o, (_vpC.get(o) || 0) + vpOf(i)); } _vpG = G; _vpOv = G.ov || 0; }
+  return _vpC.get(ci) || 0;
+}
 const costF = (ci, t) => Math.round(UT[t].f * govMods(ci).cost * 10) / 10;
 function canAfford(ci, f, m, man = 0) { const N = G.nations[ci]; return N.funds >= f && N.mat >= m && N.man >= man; }
 function pay(ci, f, m, man = 0) { const N = G.nations[ci]; N.funds -= f; N.mat -= m; N.man -= man; }
@@ -855,7 +910,7 @@ function pay(ci, f, m, man = 0) { const N = G.nations[ci]; N.funds -= f; N.mat -
 function recruitSites(ci, t) {
   const at = UT[t].at;
   const out = [];
-  for (let i = 0; i < LAND_N; i++) {
+  for (const i of LAND_IDS) {
     if (G.owner[i] !== ci || Z[i].c !== ci) continue;
     if (at === "city" && Z[i].t !== "prov") out.push(i);
     if (at === "air" && B(i).air) out.push(i);
@@ -1360,8 +1415,8 @@ function capture(n, z, tAt = REC ? REC.now + .5 : 0) {
   if (G.nations[prev].cap === z) {
     G.nations[prev].stab = Math.max(0, G.nations[prev].stab - 25);
     const left = [];
-    for (let i = 0; i < LAND_N; i++) if (G.owner[i] === prev) left.push(i);
-    G.nations[prev].cap = left.sort((a, b) => Z[b].p - Z[a].p)[0] ?? -1;
+    for (const i of LAND_IDS) if (G.owner[i] === prev) left.push(i);
+    G.nations[prev].cap = left.sort((a, b) => ((Z[b].c === prev) - (Z[a].c === prev)) || Z[b].p - Z[a].p)[0] ?? -1; // a new capital on home soil before conquered ground
     news("world", 3, `${shortName(n)} has captured ${Z[z].n}, the capital of ${shortName(prev)}.`, { key: true, z, n: [n, prev] });
     if (n === G.player) ts().gained++; if (prev === G.player) ts().lostP++;
   } else {
@@ -1377,7 +1432,7 @@ function capture(n, z, tAt = REC ? REC.now + .5 : 0) {
 function checkElimination(ci) {
   const N = G.nations[ci];
   if (!N.alive) return;
-  for (let i = 0; i < LAND_N; i++) if (G.owner[i] === ci) return;
+  for (const i of LAND_IDS) if (G.owner[i] === ci) return;
   N.alive = false;
   G.units = G.units.filter(u => u.o !== ci);
   G.queue = G.queue.filter(q => q.n !== ci);
@@ -1436,6 +1491,7 @@ function moveGroup(units, dest) {
     } else {
       msg = `${foe} held ${Z[dest].n}. You dealt ${res.dealtA} damage${res.dLost ? ` and destroyed ${res.dLost}` : ""}, took ${res.dealtD}${res.aLost ? ` and lost ${res.aLost}` : ""}. Survivors fell back.`;
       survivors.forEach(l => { rec("move", { id: l.u.id, from: dest, to: l.from, t: tEnd + .4 }); l.u.z = l.from; });
+      if (survivors.some(l => !isLand(l.from) && UT[l.u.t].dom === "land")) rescueAtSea(G); // a failed landing: back aboard the ships
       invalidate();
     }
     battleNews(n, owners, dest, res, msg);
@@ -1764,7 +1820,7 @@ function executeOrders(n) {
 // 2 = full resupply, 1 = local trickle (own territory), 0 = none
 function supplyMap(ci) {
   const hub = new Uint8Array(NZ);
-  for (let i = 0; i < LAND_N; i++) {
+  for (const i of LAND_IDS) {
     if (!friendly(ci, G.owner[i])) continue;
     if (!hub[i]) hub[i] = 1;
     const b = B(i);
@@ -1847,7 +1903,7 @@ function visibility(n) {
     let frontier = [src]; arr[src] = 1;
     for (let k = 0; k < r; k++) { const nx = []; for (const i of frontier) for (const [j] of ADJ[i]) if (!arr[j]) { arr[j] = 1; nx.push(j); } frontier = nx; }
   };
-  for (let i = 0; i < LAND_N; i++) if (team.includes(G.owner[i])) spread(i, 1, vis);
+  for (const i of LAND_IDS) if (team.includes(G.owner[i])) spread(i, 1, vis);
   for (const u of G.units) if (team.includes(u.o) && !u.in) {
     spread(u.z, UT[u.t].det, vis);
     if (UT[u.t].sonar != null) spread(u.z, UT[u.t].sonar, sonar);
@@ -1946,16 +2002,16 @@ function evolve(ci) {
   if (N.lost > 0) { t.cau += .02 * Math.min(3, N.lost); t.dip += .015; t.agg -= .005; }
   if (!wars.length) { t.ind += .006; t.agg -= .003; }
   if (wars.length && N.defending) { t.cau += .006; }
-  const ranks = PLAY.filter(c => G.nations[c].alive).sort((a, b) => vp(b) - vp(a));
+  const ranks = MAJORS.filter(c => G.nations[c].alive).sort((a, b) => vp(b) - vp(a));
   if (ranks.indexOf(ci) > ranks.length / 2 && G.turn > 8) t.agg += .004;
   for (const k of ["agg", "dip", "cau", "ind"]) t[k] = clamp(t[k] + (rng() - .5) * .018, .05, .95);
   N.arch = archOf(t);
-  if (N.arch !== before && ci !== G.player) news("analysis", 1, `Observers in ${capName(ci)} describe ${TONE[N.arch]} from ${shortName(ci)}'s leadership.`, { n: [ci] });
+  if (N.arch !== before && ci !== G.player && !isMinor(ci)) news("analysis", 1, `Observers in ${capName(ci)} describe ${TONE[N.arch]} from ${shortName(ci)}'s leadership.`, { n: [ci] });
   N.gained = 0; N.lost = 0;
 }
 function aiEconomy(ci) {
   const N = G.nations[ci], t = N.t, e = econ(ci);
-  const mine = []; for (let i = 0; i < LAND_N; i++) if (G.owner[i] === ci) mine.push(i);
+  const mine = []; for (const i of LAND_IDS) if (G.owner[i] === ci) mine.push(i);
   const wars = PLAY.filter(o => atWar(ci, o));
   if (N.fuel < 6 && N.funds > 20) buy(ci, "fuel");
   if (N.mat < 8 && N.funds > 30) buy(ci, "mat");
@@ -1964,7 +2020,8 @@ function aiEconomy(ci) {
   const maxBuilds = 1 + (t.ind > .6 ? 1 : 0) + (N.funds > 80 ? 2 : N.funds > 40 ? 1 : 0);
   const tryBuild = (z, k) => { if (builds < maxBuilds && !queueBuilding(ci, z, k)) builds++; };
   const reserve = 6 + 10 * t.cau;
-  if (N.funds > reserve + 10) {
+  if (isMinor(ci)) { if (N.funds > 28 && rng() < .15 && (B(N.cap).fort || 0) < 3) tryBuild(N.cap, "fort"); }
+  else if (N.funds > reserve + 10) {
     const deps = mine.filter(i => (PROV[i].dep === "ore" && !B(i).mine) || (PROV[i].dep === "oil" && !B(i).well));
     if (deps.length && rng() < .4 + t.ind * .5) tryBuild(deps[0], PROV[deps[0]].dep === "ore" ? "mine" : "well");
     else if (rng() < t.ind * .25) { const up = mine.filter(i => (B(i).mine || B(i).well) && (B(i).mine || B(i).well) < 5)[0]; if (up != null) tryBuild(up, B(up).mine ? "mine" : "well"); }
@@ -1977,7 +2034,7 @@ function aiEconomy(ci) {
       const dz = border.find(i => !B(i).depot && Z[i].t !== "prov") ?? border.find(i => !B(i).depot);
       if (wars.length && dz != null) tryBuild(dz, "depot");
     }
-    if (rng() < .25 + t.ind * .4) { const W = waters(); for (let i = LAND_N; i < NZ; i++) if (W[i] === ci && OFFSHORE_OIL[i] && (B(i).rig || 0) < 2) { tryBuild(i, "rig"); break; } }
+    if (rng() < .25 + t.ind * .4) { const W = waters(); for (const i of SEA_IDS) if (W[i] === ci && OFFSHORE_OIL[i] && (B(i).rig || 0) < 2) { tryBuild(i, "rig"); break; } }
     const rich = N.funds > 50 ? 2 : 1;
     if (rng() < .2 * rich) { const z = cities.find(i => !B(i).road); if (z != null) tryBuild(z, "road"); }
     if (rng() < .12 * rich) { const z = cities.find(i => !B(i).hosp); if (z != null) tryBuild(z, "hosp"); }
@@ -1986,6 +2043,12 @@ function aiEconomy(ci) {
   }
   // recruit
   const myUnits = G.units.filter(u => u.o === ci).length;
+  if (isMinor(ci)) { // small standing army of infantry, a little artillery when threatened
+    const target = ARMY_SIZE[C[ci].code] + wars.length * 2 + G.turn * .03;
+    if (myUnits < target && N.funds > 8) { const ty = wars.length && rng() < .25 ? "art" : "inf"; const sites = recruitSites(ci, ty); if (sites.length) queueUnit(ci, ty, sites.includes(N.cap) ? N.cap : sites[0]); }
+    if (e.netF < 0 && N.funds < 3) { const u = G.units.filter(x => x.o === ci).sort((a, b) => a.hp - b.hp)[0]; if (u && myUnits > 2) { G.units = G.units.filter(x => x !== u); invalidate(); } }
+    return;
+  }
   const target = ARMY_SIZE[C[ci].code] * (.8 + t.agg * .7) + wars.length * 6 + G.turn * .25 + N.funds / 40;
   let recruits = 0;
   const maxR = 2 + (wars.length ? 1 : 0) + (N.funds > 80 ? 2 : 0) + (N.funds > 200 ? 3 : 0);
@@ -2018,7 +2081,7 @@ function aiDiplomacy(ci) {
     if (o === G.player) {
       // AI may still declare war on the player or offer pacts
       if (s === "N" && r > 18 && t.dip > .5 && rng() < .08) { G.pendingOffer = { from: ci, kind: "nap", turn: G.turn }; news("world", 2, `${shortName(ci)} proposes a non-aggression pact with you. Answer in Diplomacy.`, { n: [ci] }); }
-    } else if (ci < o) {
+    } else if (ci < o && !isMinor(ci) && !isMinor(o)) { // minors keep out of the great-power blocs
       const T2 = G.nations[o].t;
       if (s === "N" && r > 14 && t.dip + T2.dip > .85 && rng() < .25) { setStance(ci, o, "P"); news("rumour", 1, `Diplomats hint at warmer ties between ${shortName(ci)} and ${shortName(o)}.`, { n: [ci, o] }); }
       else if (s === "P" && r > 30 && t.dip + T2.dip > .95 && G.turn - (G.since[key2(ci, o)] || 0) > 3 && rng() < .2) { setStance(ci, o, "A"); news("world", 2, `${shortName(ci)} and ${shortName(o)} formed an alliance.`, { key: true, n: [ci, o] }); }
@@ -2033,7 +2096,7 @@ function aiDiplomacy(ci) {
     }
   }
   // war decisions
-  if (G.turn < 4) return;
+  if (G.turn < 4 || isMinor(ci)) return; // minors never start wars; they defend and counter-attack
   const offensive = PLAY.filter(o => atWar(ci, o)).length;
   if (offensive >= 1 + (t.agg > .7 ? 1 : 0)) return;
   let best = null, bestS = -9;
@@ -2042,7 +2105,8 @@ function aiDiplomacy(ci) {
     const s = stance(ci, o); if (s === "W" || s === "A") continue;
     let allyP = 0; for (const c of PLAY) if (stance(o, c) === "A") allyP += power(c);
     const ratio = power(ci) / Math.max(1, power(o) + allyP * .7);
-    const score = t.agg * 1.3 + (1 - t.cau) * .35 - t.dip * .45 - relOf(ci, o) / 100 * .9 + Math.log(ratio) * .55 - (s === "P" ? .5 : 0) + (G.turn > 15 ? .1 : 0);
+    let score = t.agg * 1.3 + (1 - t.cau) * .35 - t.dip * .45 - relOf(ci, o) / 100 * .9 + Math.log(ratio) * .55 - (s === "P" ? .5 : 0) + (G.turn > 15 ? .1 : 0);
+    if (isMinor(o)) score += Math.min(Math.log(ratio), .5) * .55 - Math.log(ratio) * .55 - .45; // easy prey, but invading a small neutral costs standing: only hawks do it
     if (score > bestS) { bestS = score; best = o; }
   }
   if (best != null && bestS > .78 && rng() < .3) { declareWar(ci, best); if (best !== G.player) aiPersonalityShock(best, "attacked"); }
@@ -2076,7 +2140,8 @@ function aiMilitary(ci) {
     while (q.length) { const nx = []; for (const i of q) for (const [j] of ADJ[i]) if (d[j] > d[i] + 1 && passable(j)) { d[j] = d[i] + 1; nx.push(j); } q = nx; }
     return d;
   };
-  const enemyLand = []; for (let i = 0; i < LAND_N; i++) if (wars.includes(G.owner[i])) enemyLand.push(i);
+  const minor = isMinor(ci), homeEdge = z => !minor || !isLand(z) || Z[z].c === ci || ADJ[z].some(([j]) => isLand(j) && Z[j].c === ci); // minors fight for their own soil and the cells on its border
+  const enemyLand = []; for (const i of LAND_IDS) if (wars.includes(G.owner[i]) && homeEdge(i)) enemyLand.push(i);
   const landF = fieldFrom(enemyLand, j => isLand(j) && (G.owner[j] === ci || friendly(ci, G.owner[j]) || wars.includes(G.owner[j])));
   const shipPorts = [...new Set(G.units.filter(u => u.o === ci && u.t === "tsea" && !cargoOf(u).length && isLand(u.z)).map(u => u.z))];
   const portF = fieldFrom(shipPorts.length ? shipPorts : [G.nations[ci].cap].filter(z => z >= 0), j => isLand(j) && friendly(ci, G.owner[j]));
@@ -2086,7 +2151,7 @@ function aiMilitary(ci) {
   // 1) group attacks on reachable enemy-held zones
   const reaches = new Map(mine.map(u => [u, reach(u)]));
   const targets = new Set();
-  for (const [u, r] of reaches) for (const z of r.dist.keys()) if (hostilesAt(ci, z).length || (isLand(z) && wars.includes(G.owner[z]))) targets.add(z);
+  for (const [u, r] of reaches) for (const z of r.dist.keys()) if ((hostilesAt(ci, z).length || (isLand(z) && wars.includes(G.owner[z]))) && homeEdge(z)) targets.add(z);
   // supply columns and transports are prize targets: hit the enemy's back lines
   const val = z => (isLand(z) ? vpOf(z) : .5) + (hostilesAt(ci, z).some(u => isPassiveT(u.t)) ? 3 : 0);
   const ordered = [...targets].sort((a, b) => val(b) - val(a));
@@ -2155,7 +2220,7 @@ function seaHops(from) {
 function amphibTarget(ci, tr, wars) {
   const hops = seaHops(tr.z);
   let best = null, bs = -Infinity;
-  for (let i = 0; i < LAND_N; i++) {
+  for (const i of LAND_IDS) {
     if (!wars.includes(G.owner[i])) continue;
     let h = Infinity; for (const [j] of ADJ[i]) if (hops.has(j)) h = Math.min(h, hops.get(j));
     if (!isFinite(h) || h > 14) continue;
@@ -2253,7 +2318,7 @@ function endTurn() {
   REC.base = pt + .4;
   // 2) every AI acts
   const order = PLAY.filter(c => c !== G.player && G.nations[c].alive).sort(() => rng() - .5);
-  for (const ci of order) { aiDiplomacy(ci); aiMilitary(ci); aiEconomy(ci); if (G.units.some(u => u.o === ci && u.ord && u.ord.rtb)) executeOrders(ci); }
+  for (const ci of order) { PWR = new Map(); aiDiplomacy(ci); PWR = null; aiMilitary(ci); aiEconomy(ci); if (G.units.some(u => u.o === ci && u.ord && u.ord.rtb)) executeOrders(ci); }
   // 3) combat: strikes, then one exchange of fire in every contested cell
   const tC = Math.max(REC.base, ...REC.ev.map(e => (e.t || 0) + 1)) + .2;
   combatPhase(tC);
@@ -2282,6 +2347,7 @@ function endTurn() {
     if (!wars.length) N.defending = 0;
   }
   airOps();
+  rescueAtSea(G);
   supplyPhase();
   reap(REC.now);
   tidyBattalions();
@@ -2350,10 +2416,26 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.4 beta"; // early access playtest build
+const VERSION = "1.0.5 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
+// Land units left in open water without a ship (survivors of a failed landing fall back to the sea cell they attacked from):
+// back aboard a friendly transport there, else ashore on the nearest friendly coast, else lost.
+function rescueAtSea(s) {
+  let n = 0;
+  for (const u of s.units) {
+    if (u.in || isLand(u.z) || UT[u.t].dom !== "land") continue;
+    n++;
+    const tr = s.units.find(x => x.o === u.o && x.z === u.z && !x.in && x.hp > 0 && UT[x.t].cap && UT[x.t].dom === "sea" && UT[x.t].carries.includes(u.t) && s.units.reduce((t, c) => t + (c.in === x.id ? SIZE[c.t] || 1 : 0), 0) + (SIZE[u.t] || 1) <= UT[x.t].cap);
+    if (tr) { u.in = tr.id; u.mp = 0; continue; }
+    const seen = new Set([u.z]); let fr = [u.z], to = null;
+    for (let k = 0; k < 8 && to == null && fr.length; k++) { const nx = []; for (const i of fr) for (const [j] of ADJ[i]) if (!seen.has(j)) { seen.add(j); if (isLand(j) && (s.owner[j] === u.o || (s.st[key2(u.o, s.owner[j])] === "A"))) { to = j; break; } nx.push(j); } fr = nx; }
+    if (to != null) { u.z = to; u.mp = 0; } else u.hp = 0;
+  }
+  if (n) s.units = s.units.filter(u => u.hp > 0);
+  return n;
+}
 function reviveSave(s) {
   if (!s || s.v !== 2 || !s.nations || !s.nations[s.player]) return null;
   s.owner = Int16Array.from(s.owner);
@@ -2361,16 +2443,9 @@ function reviveSave(s) {
   // v0.7: battle mode is gone; old engagements just become contested cells
   delete s.pending; delete s.manual; for (const u of s.units) delete u.eng;
   // 0.9: infantry no longer swim. Anyone left at sea goes aboard a friendly transport there, or ashore at the nearest friendly coast.
-  for (const u of s.units) {
-    if (u.in || u.z < LAND_N || UT[u.t].dom !== "land") continue;
-    const tr = s.units.find(x => x.o === u.o && x.z === u.z && UT[x.t].cap && UT[x.t].dom === "sea" && UT[x.t].carries.includes(u.t));
-    if (tr) { u.in = tr.id; continue; }
-    const seen = new Set([u.z]); let fr = [u.z], to = null;
-    for (let k = 0; k < 8 && to == null && fr.length; k++) { const nx = []; for (const i of fr) for (const [j] of ADJ[i]) if (!seen.has(j)) { seen.add(j); if (j < LAND_N && (s.owner[j] === u.o || (s.st[key2(u.o, s.owner[j])] === "A"))) { to = j; break; } nx.push(j); } fr = nx; }
-    if (to != null) u.z = to; else u.hp = 0;
-  }
-  s.units = s.units.filter(u => u.hp > 0);
+  rescueAtSea(s);
   s.fronts ??= {}; s.bhp ??= {};
+  if (!s.minors) { const g0 = G; G = s; try { addMinors(); } finally { G = g0; } }
   return s;
 }
 function saveJson() { G.savedAt = Date.now(); return JSON.stringify({ ...G, owner: Array.from(G.owner) }); }
@@ -2612,11 +2687,12 @@ function renderBase() {
     ctx.setLineDash([]);
   }
   if (reachMap) { ctx.lineWidth = px * 1.4; ctx.strokeStyle = hexA(reachCol, .9); for (const [i] of reachMap) if (!isLand(i) && overlap(CELL[i].bb, vb)) ctx.stroke(CELL[i].path); }
-  if (UI.sel >= LAND_N) { ctx.lineWidth = px * 2; ctx.strokeStyle = COL.friendly; ctx.stroke(CELL[UI.sel].path); }
+  if (UI.sel >= 0 && !isLand(UI.sel)) { ctx.lineWidth = px * 2; ctx.strokeStyle = COL.friendly; ctx.stroke(CELL[UI.sel].path); }
   // land
   const pieces = [];
   LM.forEach((l, li) => pieces.push({ lm: li, pol: null, o: l.o }));
-  POL.forEach((p, pi) => pieces.push({ lm: p.lm, pol: pi, o: p.o }));
+  POL.forEach((p, pi) => { if (p.minor) pieces.push({ lm: p.lm, pol: pi, o: p.o }); }); // minor borders first: the powers' own borders sit on top
+  POL.forEach((p, pi) => { if (!p.minor) pieces.push({ lm: p.lm, pol: pi, o: p.o }); });
   for (const pc of pieces) {
     const l = LM[pc.lm]; const bb = pc.pol === null ? l.bb : POL[pc.pol].bb;
     if (!overlap(l.bb, vb) || !overlap(bb, vb)) continue;
@@ -2644,7 +2720,7 @@ function renderBase() {
     ctx.lineWidth = px * (s > 25 ? 2.2 : 1.4); ctx.strokeStyle = "rgba(6,14,26,0.62)";
     if (s > 25) ctx.setLineDash([px * 7, px * 4]);
     ctx.stroke(stateBorderPath[pc.o]); ctx.setLineDash([]);
-    if (UI.sel >= 0 && UI.sel < LAND_N && Z[UI.sel].c === pc.o) { ctx.lineWidth = px * 3; ctx.strokeStyle = "#ffffff"; ctx.stroke(CELL[UI.sel].path); }
+    if (UI.sel >= 0 && isLand(UI.sel) && Z[UI.sel].c === pc.o) { ctx.lineWidth = px * 3; ctx.strokeStyle = "#ffffff"; ctx.stroke(CELL[UI.sel].path); }
     ctx.restore();
   }
   for (const p of POL) {
@@ -2758,19 +2834,19 @@ function drawLabels(vb) {
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
   };
   const marks = [];
-  for (let i = 0; i < LAND_N; i++) {
+  for (const i of LAND_IDS) {
     const z = Z[i]; if (z.x < vb[0] || z.x > vb[2] || z.y < vb[1] || z.y > vb[3]) continue;
-    const isCap = z.t === "cap", isCity = z.t === "city";
+    const isCap = z.t === "cap" && (!z.mx || s >= 8), isCity = z.t === "city"; // minor capitals show from mid zoom
     if (!(isCap || (isCity && (s >= 13 || (s >= 8 && z.p > 6))) || s >= 26)) continue;
     const [x, y] = toScreen(z.x, z.y);
-    marks.push({ i, x, y, pri: isCap ? 0 : isCity ? 1 + 1 / (1 + z.p) : 3 });
+    marks.push({ i, x, y, pri: isCap ? (z.mx ? .5 : 0) : isCity ? 1 + 1 / (1 + z.p) : 3 });
   }
   marks.sort((a, b) => a.pri - b.pri);
   for (const m of marks) {
     const z = Z[m.i];
     if (z.t === "cap") {
       ctx.save(); ctx.translate(m.x, m.y); ctx.beginPath();
-      for (let k = 0; k < 10; k++) { const r = k % 2 ? 3.4 : 8; const a = -Math.PI / 2 + k * Math.PI / 5; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      for (let k = 0; k < 10; k++) { const r = (k % 2 ? 3.4 : 8) * (z.mx ? .72 : 1); const a = -Math.PI / 2 + k * Math.PI / 5; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
       ctx.closePath(); ctx.fillStyle = COL.signal; ctx.strokeStyle = "#0b1622"; ctx.lineWidth = 1.6; ctx.fill(); ctx.stroke(); ctx.restore();
     } else if (z.t === "city") {
       ctx.fillStyle = "#f4f7fb"; ctx.strokeStyle = "#0b1622"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.rect(m.x - 3.6, m.y - 3.6, 7.2, 7.2); ctx.fill(); ctx.stroke();
@@ -2779,13 +2855,14 @@ function drawLabels(vb) {
   for (const m of marks) {
     const z = Z[m.i], isCap = z.t === "cap", isCity = z.t === "city";
     if (!fontsReady && !isCap) continue;
-    label(z.n, m.x, m.y - (isCap ? 15 : 12), isCap ? `700 13px ${FONT_D}` : isCity ? `600 12px ${FONT_B}` : `500 11px ${FONT_B}`, isCap ? "#fff6e3" : isCity ? "#f1f5f9" : "rgba(236,242,248,0.86)", { h: isCap ? 13 : 12, halo: isCap || isCity ? 3 : 2.6, haloColor: "rgba(4,10,18,0.78)", force: UI.sel === m.i });
+    label(z.n, m.x, m.y - (isCap ? 15 : 12), isCap ? `700 ${z.mx ? 11.5 : 13}px ${FONT_D}` : isCity ? `600 12px ${FONT_B}` : `500 11px ${FONT_B}`, isCap ? "#fff6e3" : isCity ? "#f1f5f9" : "rgba(236,242,248,0.86)", { h: isCap ? 13 : 12, halo: isCap || isCity ? 3 : 2.6, haloColor: "rgba(4,10,18,0.78)", force: UI.sel === m.i });
   }
   if (s < 16) C.forEach((c, ci) => {
     const inf = countryInfo[ci]; if (!inf || !c.playable) return;
+    const mn = isMinor(ci); if (mn && s < 4 && inf.area < 2000) return; // tiny island minors only label once you zoom in
     const [x, y] = toScreen(inf.lx, inf.ly);
-    const size = Math.max(10, Math.min(22, Math.sqrt(inf.area) * s * .012 + 8));
-    label(shortName(ci).toUpperCase(), x, y, `700 ${size}px ${FONT_D}`, "rgba(255,255,255,0.92)", { track: size * .16, h: size, halo: 3.5 });
+    const size = mn ? Math.max(9, Math.min(14, Math.sqrt(inf.area) * s * .01 + 7)) : Math.max(10, Math.min(22, Math.sqrt(inf.area) * s * .012 + 8));
+    label(shortName(ci).toUpperCase(), x, y, `${mn ? 600 : 700} ${size}px ${FONT_D}`, mn ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.92)", { track: size * .16, h: size, halo: 3.5 });
   });
   for (const [n, x, y, big] of M.seaLabels) {
     if ((s < 11 && !big) || s > 40) continue;
@@ -3137,7 +3214,7 @@ function drawInfraIcon(k, x, y, sz, on, lvl) {
 function drawInfra(vb) {
   const s = cam.s; if (s < 6) return;
   const V = G && UI.fog ? playerVis() : null;
-  for (let i = 0; i < LAND_N; i++) {
+  for (const i of LAND_IDS) {
     const z = Z[i]; if (z.x < vb[0] || z.x > vb[2] || z.y < vb[1] || z.y > vb[3]) continue;
     const P = PROV[i], b = G ? B(i) : {};
     const known = !G || !V || friendly(G.player, G.owner[i]) || V.vis[i];
@@ -3163,7 +3240,7 @@ function drawInfra(vb) {
     const iy = y + (z.t !== "prov" ? 40 : 24);
     for (const [k, on, lvl] of icons) { drawInfraIcon(k, ix, iy, sz, on, lvl); ix += sz + gap; }
   }
-  for (let i = LAND_N; i < NZ; i++) {
+  for (const i of SEA_IDS) {
     if (!OFFSHORE_OIL[i]) continue;
     const z = Z[i]; if (z.x < vb[0] || z.x > vb[2] || z.y < vb[1] || z.y > vb[3]) continue;
     const [x, y] = toScreen(z.x, z.y), rig = G ? B(i).rig || 0 : 0;
@@ -4315,15 +4392,16 @@ const traitBar = (label, v) => `<div class="trait">${label}<div><i style="width:
 function relBar(r) { const w = Math.abs(r) / 2; return `<span class="relbar"><i style="left:${r >= 0 ? 50 : 50 - w}%;width:${w}%;background:${r >= 0 ? "var(--good)" : "var(--bad)"}"></i></span>`; }
 function showDiplomacy() {
   const P = G.player;
-  const list = PLAY.filter(c => c !== P).sort((a, b) => (G.nations[b].alive - G.nations[a].alive) || relOf(P, b) - relOf(P, a));
+  const list = PLAY.filter(c => c !== P).sort((a, b) => (isMinor(a) - isMinor(b)) || (G.nations[b].alive - G.nations[a].alive) || relOf(P, b) - relOf(P, a));
   const offer = G.pendingOffer && G.pendingOffer.turn >= G.turn - 1 ? G.pendingOffer : null;
   let html = `<div class="eyebrow"><span class="pill">Diplomacy</span><span class="pill">Turn ${G.turn}</span></div><h2>World standings</h2>`;
   if (offer) html += `<div class="row" style="margin-top:10px;border-color:var(--signal)"><div class="t">${swatch(offer.from)}<span>${esc(shortName(offer.from))} ${offer.kind === "peace" ? "offers peace" : "proposes a non-aggression pact"}</span></div><div class="s">Answer before it expires.</div><div class="r" style="flex-direction:row"><button class="btn primary" data-offer="yes">Accept</button><button class="btn" data-offer="no">Refuse</button></div></div>`;
-  const ranks = PLAY.filter(c => G.nations[c].alive).sort((a, b) => vp(b) - vp(a));
+  const ranks = MAJORS.filter(c => G.nations[c].alive).sort((a, b) => vp(b) - vp(a));
   html += `<div class="section-title">Leaderboard <small>win at ${WIN_SHARE * 100}% of VP</small></div><div class="rows">${ranks.slice(0, 5).map((c, k) => `<div class="row"><div class="t">${k + 1}. ${swatch(c)}<span>${esc(shortName(c))}${c === P ? " (you)" : ""}</span></div><div class="r"><span class="cost">${Math.round(vp(c) / TOTAL_VP * 100)}% VP</span></div></div>`).join("")}</div>`;
-  html += `<div class="section-title">Nations <small>relation −100 … +100</small></div><div class="rows">`;
+  html += `<div class="section-title">Powers <small>relation −100 … +100</small></div><div class="rows">`;
   for (const c of list) {
     const N = G.nations[c], s = stance(P, c), r = relOf(P, c);
+    if (isMinor(c) && c === list.find(isMinor)) html += `</div><div class="section-title">Minor nations <small>AI only · can be invaded</small></div><div class="rows">`;
     html += `<button class="row" data-nation="${c}" ${N.alive ? "" : 'style="opacity:.5"'}><div class="t">${swatch(c)}<span>${esc(shortName(c))}</span></div><div class="s">${N.alive ? `${ARCH[N.arch].n} · ${GOV[N.gov.type].name}` : "Fallen"}</div><div class="r"><span class="pill st-${s}">${STN[s]}</span>${relBar(r)}</div></button>`;
   }
   html += `</div>`;
@@ -4343,8 +4421,8 @@ function showNation(ci, refresh) {
   if (ci === P) { showGov(); return; }
   const s = stance(P, ci), r = relOf(P, ci);
   const capZ = N.cap;
-  let html = `<div class="eyebrow"><span class="pill st-${s}">${STN[s]}</span><span class="pill">${N.alive ? ARCH[N.arch].n : "Fallen"}</span></div>
-    <h2 style="display:flex;align-items:center;gap:10px">${swatch(ci)}${esc(shortName(ci))}</h2>
+  let html = `<div class="eyebrow"><span class="pill st-${s}">${STN[s]}</span>${isMinor(ci) ? `<span class="pill">Minor nation</span>` : ""}<span class="pill">${N.alive ? ARCH[N.arch].n : "Fallen"}</span></div>
+    <h2 style="display:flex;align-items:center;gap:10px">${swatch(ci)}${esc(shortName(ci))}</h2>${isMinor(ci) ? `<p class="note" style="margin:4px 0 0">A minor nation: run by the AI and not playable yet. It starts with 4 infantry and very little money, defends itself and fights back, and its land can be invaded and held. Its cells are worth less victory points (capital 4, city 2, province 1).</p>` : ""}
     <div class="where"><span>${GOV[N.gov.type].name}</span>${capZ >= 0 ? `<span>·</span><span>Capital</span><button class="linkbtn" data-goto="${capZ}">${esc(Z[capZ].n)}</button>` : ""}</div>
     <dl class="stats"><div><dt>Relation</dt><dd class="${r >= 0 ? "pos" : "neg"}">${r > 0 ? "+" : ""}${Math.round(r)}</dd></div><div><dt>Strength</dt><dd>${powerLabel(ci)}</dd></div><div><dt>VP share</dt><dd>${Math.round(vp(ci) / TOTAL_VP * 100)}%</dd></div></dl>`;
   if (N.alive) {
@@ -4423,7 +4501,7 @@ function showEcon() {
     ${row("Fuel", fmt(N.fuel), `+${fmt(e.fuel, 1)} produced · ${fmt(e.upFu, 1)} spent refuelling units last turn`)}
   </div><p class="note">Every unit carries its own fuel and ammo. Depots, cities and supply units refill them from these national stocks: fuel from Fuel, ammo from Materials. In debt, stability falls fast.</p>
   <div class="section-title">Market</div><div class="actions" style="margin-top:0"><button class="btn" data-buy="fuel">Buy 10 fuel · $${MARKET.fuel.price}B</button><button class="btn" data-buy="mat">Buy 10 materials · $${MARKET.mat.price}B</button></div>`;
-  const deps = []; for (let i = 0; i < LAND_N; i++) if (G.owner[i] === P && PROV[i].dep) deps.push(i);
+  const deps = []; for (const i of LAND_IDS) if (G.owner[i] === P && PROV[i].dep) deps.push(i);
   if (deps.length) html += `<div class="section-title">Your deposits <small>${deps.filter(i => PROV[i].dep === "oil" ? B(i).well : B(i).mine).length}/${deps.length} developed</small></div><div class="rows">${deps.map(i => { const oil = PROV[i].dep === "oil", dev = oil ? B(i).well : B(i).mine; return `<button class="row" data-goto="${i}"><div class="t"><span>${esc(Z[i].n)}</span></div><div class="s">${oil ? "Oil" : "Ore"} · ${dev ? `<b class="pos">${oil ? "oil well running, +4 fuel" : "mine running, +4 materials"}</b>` : `untapped · build ${oil ? "an oil well" : "a mine"}`}</div></button>`; }).join("")}</div>`;
   else html += `<p class="note">You hold no oil or ore deposits. Buy fuel and materials on the market, or take some.</p>`;
   const q = G.queue.filter(x => x.n === P);
@@ -4791,7 +4869,7 @@ function forgetSave(name) { try { localStorage.removeItem(saveKeyFor(name)); } c
 // Score: ground held, ground taken, enemies destroyed, minus losses; a win adds a bonus that grows the faster it came.
 function scoreParts(g = G) {
   const P = g.player, st = g.stats || {}, share = vp(P) / TOTAL_VP;
-  const parts = { held: Math.round(share * 100) * 40, taken: (st.caps || 0) * 25 + (st.capitals || 0) * 250, kills: (st.kills || 0) * 15, losses: -(st.lost || 0) * 5, victory: g.over && g.over.win ? 2000 + Math.max(0, 120 - g.turn) * 15 : 0 };
+  const parts = { held: Math.round(share * 100) * 40, taken: (st.caps || 0) * 25 + (st.capitals || 0) * 250 + (st.mcaps || 0) * 75, kills: (st.kills || 0) * 15, losses: -(st.lost || 0) * 5, victory: g.over && g.over.win ? 2000 + Math.max(0, 120 - g.turn) * 15 : 0 };
   parts.total = Math.max(0, Object.values(parts).reduce((a, b) => a + b, 0));
   return parts;
 }
@@ -4825,7 +4903,7 @@ function tallyTurn(ev, pre) {
     if (e.type === "volley") for (const s of e.shots) { if (s.kill && s.fo === P && s.v >= 0) st.kills++; }
     else if (e.type === "strike") { if (e.kill && e.o === P) st.kills++; }
     else if (e.type === "die") { const p = pre.get(e.id); if (p && p.o === P) st.lost++; }
-    else if (e.type === "cap" && e.o === P) { st.caps++; if (Z[e.z].t === "cap") st.capitals++; }
+    else if (e.type === "cap" && e.o === P) { st.caps++; if (Z[e.z].t === "cap") { if (Z[e.z].mx) st.mcaps = (st.mcaps || 0) + 1; else st.capitals++; } }
   }
 }
 
@@ -4934,20 +5012,32 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
-  { v: "1.0.4 beta", date: "31 Oct 2026", items: [
-    "Strike missions: Attack in range now also shows targets beyond reach (orange). Aircraft fly out to striking distance, hit it, return to base to refuel and go again, every other turn, until the target's clear. Ships and artillery move into range the same way. This fixes jets that seemed to do nothing on distant targets like Singapore.",
-    "Hit first: the strike screen lets you choose what to go for (armour, infantry, ships, aircraft, supply, buildings). By default jets on a strike now go for tanks, ships, troops and supply before enemy aircraft.",
+  { v: "1.0.5 beta", date: "31 Oct 2026", title: "Saturday morning update (1.0.3 to 1.0.5)", items: [
+    "## The map grows: minor nations",
+    "The grey unaligned land is now 15 minor nations across 76 new cells, each in its own colour: Myanmar, Laos, Cambodia, Mongolia, Russia (Far East and southern Sakhalin), Northeast India, Bangladesh, Brunei, Timor-Leste, Solomon Islands, Vanuatu, New Caledonia, Samoa, Tonga and Palau.",
+    "Minors aren't playable yet. The AI runs them: each starts with 4 infantry, a fortified capital and very little money, and slowly adds infantry (and some artillery once threatened).",
+    "They defend themselves and fight back. They retake their own ground and hit cells on their border, but never start wars or invade deep.",
+    "Declare war on a minor to invade it and hold its land. Most AI powers leave them alone; hawkish ones may move in. Minor land is worth fewer victory points: capital 4, city 2, province 1.",
+    "Minors own their coastal waters, so you can't fly through a neutral minor's airspace.",
+    "Victory still takes 30% of all victory points, and the new land adds about 11% to the total. Taking a minor's capital scores 75 (a great power's capital is still 250).",
+    "Diplomacy lists minor nations in their own section; tap one for its profile. Old saves upgrade on load: the minors appear with their land and forces.",
+    "## Strikes, radar and sonar",
+    "Strike missions: Attack in range also shows targets beyond reach (orange). Aircraft fly out to striking distance, hit it, return to base to refuel and go again, every other turn, until the target's clear. Ships and artillery move into range the same way. This fixes jets that seemed to do nothing on distant targets like Singapore.",
+    "Hit first: the strike screen lets you choose what to go for (armour, infantry, ships, aircraft, supply, buildings). By default jets now go for tanks, ships, troops and supply before enemy aircraft.",
     "Air defences saturate: each extra aircraft striking the same cell in a turn faces less anti-aircraft fire, so big strike packages no longer get shredded one by one.",
     "Radar and sonar: select air or naval units and their radar coverage (with a sweep), sonar rings and enemy contacts (AIR / SEA / SUB) appear on the map. Turn it on permanently under Layers.",
-    "Tap a unit's tag to pick its cell; while giving orders, tap an enemy's tag to hunt it.",
-    "Command bar: battalions in the cell appear as quick-select chips, and Form battalion sits on the bar.",
-  ] },
-  { v: "1.0.3 beta", date: "31 Oct 2026", items: [
-    "Command bar: Order, Attack in range, Select all and Targets now sit at the top of every cell panel and stay there while you scroll. No more hunting for the move button.",
-    "Quick select: in the Army panel, tap any unit's icon to jump to it with that unit selected, ready to order. Select all and Clear on the command bar.",
+    "Ships and aircraft striking the same target: the replay shows the bombardment and then the full air strike run, every aircraft included.",
+    "## Giving orders",
+    "Command bar: Order, Attack in range, Select all, Targets and Form battalion sit at the top of every cell panel and stay there while you scroll. Battalions in the cell appear as quick-select chips.",
+    "While giving orders, tap an enemy's tag (or the cell it's in) to hunt it. Tapping any unit's tag picks its cell.",
+    "Quick select: in the Army panel, tap any unit's icon to jump to it with that unit selected, ready to order.",
     "Tips for new commanders: short pop-up tips the first time you open a cell, give an order and finish your orders. Hide them any time. The Tutorial is marked START HERE until you've tried it.",
-    "Ships and aircraft striking the same target: the replay now shows the bombardment and then the full air strike run, every aircraft included (before, jets could be cut from the replay even though their hits landed).",
+    "## Fixes",
     "Three-way fights: when a cell changes hands, units of a nation that isn't at war with the new owner pull back instead of getting stuck inside it; the same happens after a peace treaty or a broken alliance. Battles with three or more nations show each side in its own position.",
+    "Infantry from a failed landing were sometimes left floating at sea for the rest of the game. They now go back aboard their transport, or ashore on the nearest friendly coast.",
+    "A nation that loses its capital now moves its government to its own land, not to a city it had just captured.",
+    "Tips no longer pop up while you're placing an order or a strike.",
+    "End-of-turn processing was tuned to keep pace with nearly twice as many nations.",
   ] },
   { v: "1.0.2 beta", date: "31 Oct 2026", items: [
     "Online leaderboard: every campaign posts its score to a global board on the web version, updated each turn and locked in on victory or defeat.",
@@ -4973,8 +5063,8 @@ const notesNew = () => notesSeen() !== PATCH_NOTES[0].v;
 function showPatchNotes() {
   try { localStorage.setItem("prww3-notes-seen", PATCH_NOTES[0].v); } catch (e) {}
   const [cur, ...old] = PATCH_NOTES, m = document.createElement("div"); m.className = "cardmodal";
-  const list = n => `<ul class="notes">${n.items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>`;
-  m.innerHTML = `<div class="bugbox"><div class="eyebrow"><span class="pill cap">Patch notes</span><span class="pill">v${esc(cur.v)}</span></div><h2>What's new in ${esc(cur.v)}</h2><p class="note">${esc(cur.date)}</p>${list(cur)}
+  const list = n => { let h = "", open = false; for (const i of n.items) { if (i.startsWith("## ")) { if (open) h += "</ul>"; h += `<h4 class="nsub">${esc(i.slice(3))}</h4><ul class="notes">`; open = true; } else { if (!open) { h += `<ul class="notes">`; open = true; } h += `<li>${esc(i)}</li>`; } } return h + (open ? "</ul>" : ""); };
+  m.innerHTML = `<div class="bugbox"><div class="eyebrow"><span class="pill cap">Patch notes</span><span class="pill">v${esc(cur.v)}</span></div><h2>What's new in ${esc(cur.v)}</h2><p class="note">${cur.title ? esc(cur.title) + " · " : ""}${esc(cur.date)}</p>${list(cur)}
     ${old.length ? `<details><summary>Earlier versions</summary>${old.map(n => `<h3 class="nv">${esc(n.v)} <small>${esc(n.date)}</small></h3>${list(n)}`).join("")}</details>` : ""}
     <div class="actions"><button class="btn primary" id="pnClose">Close</button></div></div>`;
   document.body.appendChild(m); m.onclick = e => { if (e.target === m) m.remove(); }; $("pnClose").onclick = () => m.remove();
@@ -5006,7 +5096,7 @@ function showTip(k, tries = 0) {
 // ---------- tutorial: a very basic guided first turn ----------
 // Edit TUTORIAL_STEPS to grow it each patch. A step with done() advances by itself when the player does the thing;
 // a step without one shows a Next button. ping() returns a cell to highlight.
-const TUTORIAL_UPDATED = "1.0.4 beta";
+const TUTORIAL_UPDATED = "1.0.5 beta";
 const TUT_NATION = "AU";
 const TUTORIAL_STEPS = [
   { title: "Welcome, Commander", text: "You lead Australia in a war for the Pacific. Win by holding 30% of the region's victory points: capitals, cities and provinces. This practice game walks you through the basics." },
@@ -5017,7 +5107,7 @@ const TUTORIAL_STEPS = [
   { title: "The replay", text: "The camera followed each move and fight. During a replay, Next jumps ahead, 2× speeds it up and Skip ends it. Reports (bottom left) list everything that happened." },
   { title: "Build something", text: "Tap one of your provinces and, under Construction, add Roads or a Factory. Buildings go up over a few turns and level up to 5.", done: () => G.queue.some(q => q.n === G.player && q.kind !== "u") },
   { title: "Your army", text: "Tap Army in the dock to see every unit you own. Tap any unit's icon to jump straight to it, selected and ready to order.", done: () => TUT.saw.army },
-  { title: "Diplomacy", text: "Tap Diplomacy. Every nation starts neutral: you can sign pacts, send aid, form alliances, or declare war.", done: () => TUT.saw.dip },
+  { title: "Diplomacy", text: "Tap Diplomacy. Every nation starts neutral: you can sign pacts, send aid, form alliances, or declare war. The small minor nations at the bottom of the list defend themselves, but you can invade and hold their land.", done: () => TUT.saw.dip },
   { title: "Going to war", text: "Once at war, tap your units, tap Order, then tap an enemy or its tag: your units hunt it down. For aircraft, ships and artillery, Attack in range shows red cells they can hit now and orange ones they'll fly or sail out to strike." },
   { title: "You're ready", text: "That's the basics. The Units tab has a card for every unit, and Patch notes show what's new. Keep practising here, or head back and start a real campaign.", end: true },
 ];
@@ -5089,7 +5179,7 @@ function showTitle() {
   MENU.view = "title"; SETUP = null;
   const el = openMenu("hero"), last = PROF.last && profMeta(PROF.last) ? PROF.last : null;
   el.innerHTML = `<div class="start-in">${heroHead()}
-    <p class="lede">Turn-based war and diplomacy across the Pacific. Sixteen nations, all neutral at the start, each led by an AI with its own ambitions.</p>
+    <p class="lede">Turn-based war and diplomacy across the Pacific. Sixteen powers and fifteen minor nations, all neutral at the start, each led by an AI with its own ambitions.</p>
     ${API != null ? `<button class="online-chip" id="onlineChip">${onlineChipHtml()}</button>` : ""}
     <div class="menu">
       ${last ? `<button class="btn primary big" id="mQuick"><span>Continue as ${esc(last)}</span><small>${savedLine(last)}</small></button>` : ""}
@@ -5162,7 +5252,7 @@ async function showScores() {
   if (MENU.view !== "scores") return;
   el.innerHTML = head + (list.length ? `<div class="scores"><table><thead><tr><th>#</th><th>Commander</th><th>Nation</th><th class="n">Score</th><th>Result</th></tr></thead><tbody>${list.map((e, i) => { const ci = CODE[e.nation]; return `<tr class="${USER && e.name === USER ? "me" : ""}"><td>${i + 1}</td><td>${esc(e.name)}</td><td>${ci != null ? `${swatch(ci)}${esc(shortName(ci))}` : esc(e.nation)}</td><td class="n">${Number(e.score).toLocaleString()}</td><td><small>${esc(e.result)}${e.result === "In progress" ? "" : ""}, turn ${e.turn}</small></td></tr>`; }).join("")}</tbody></table></div>`
       : `<p class="note">No scores yet. Every campaign posts its score here as you play, and again when it ends.</p>`) +
-    `<p class="note" style="margin-top:10px">${online ? "Global leaderboard: every commander playing the web version. Campaigns update each turn and lock in on victory or defeat." : API != null ? "Couldn't reach the global leaderboard, so these are the scores on this device." : "Scores on this device. The global leaderboard is on the web version of the game."} Score = territory held (40 a victory-point %) + 25 a province taken + 250 a capital + 15 an enemy unit destroyed − 5 a unit lost; a victory adds 2,000 plus a speed bonus.</p>
+    `<p class="note" style="margin-top:10px">${online ? "Global leaderboard: every commander playing the web version. Campaigns update each turn and lock in on victory or defeat." : API != null ? "Couldn't reach the global leaderboard, so these are the scores on this device." : "Scores on this device. The global leaderboard is on the web version of the game."} Score = territory held (40 a victory-point %) + 25 a province taken + 250 a capital (75 for a minor nation's) + 15 an enemy unit destroyed − 5 a unit lost; a victory adds 2,000 plus a speed bonus.</p>
     <div class="actions"><button class="btn" id="mBack">← Back</button></div></div>`;
   $("mBack").onclick = () => showTitle();
   MENU_FX.caption();
@@ -5172,7 +5262,7 @@ async function showScores() {
 let startPick = null;
 function showStart() {
   MENU.view = "nations";
-  const el = openMenu("slim"), nations = PLAY.slice().sort((a, b) => C[a].name.localeCompare(C[b].name)), m = USER && profMeta(USER);
+  const el = openMenu("slim"), nations = MAJORS.slice().sort((a, b) => C[a].name.localeCompare(C[b].name)), m = USER && profMeta(USER);
   const render = () => {
     let html = `<div class="start-in"><div class="hero-pad"><div class="fxcap" id="fxCap"></div></div><div class="actions" style="margin-top:0"><button class="btn" id="natBack">← Menu</button><span class="pill" style="align-self:center">Commander ${esc(USER || "")}</span></div>
       <h2 class="h2big">Choose your nation</h2><p class="lede" style="margin-top:4px">Every nation starts neutral with the same ${BUDGET} requisition points for its army. Big economies grow faster; small ones are harder to crack.</p>
@@ -5360,6 +5450,6 @@ const fontsP = document.fonts && document.fonts.load ? Promise.all([document.fon
 fontsP.catch(() => {}).finally(() => { fontsReady = true; draw(); });
 setTimeout(() => { fontsReady = true; draw(); }, 1500);
 // test hook (harmless in play)
-window.__prw = { get G() { return G; }, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; } };
+window.__prw = { get G() { return G; }, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; } };
 })();
 </script>
