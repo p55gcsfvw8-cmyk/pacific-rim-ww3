@@ -600,6 +600,16 @@ Object.assign(UT, {
 // fuel used per movement point, ammo used per battle
 const SUPPLY_USE = { art: [7, 20], inf: [0, 6], sf: [0, 8], scout: [4, 4], lt: [6, 12], mbt: [9, 15], lrad: [5, 2], heli: [8, 25], jet: [6, 25], aew: [5, 0], ff: [4, 15], ss: [4, 25], rp: [4, 10], tland: [3, 0], tair: [5, 0], tsea: [3, 0], lland: [3, 0], lair: [5, 0], lsea: [3, 0] };
 for (const [k, [f, a]] of Object.entries(SUPPLY_USE)) { UT[k].fpm = f; UT[k].apb = a; }
+// 1.0.12: materials follow an abstract manufacturing weight W (infantry = 1; a game value, not a tonnage):
+// materials = max(1, round(1.2 x W^0.75)), so cost grows with weight but slower, keeping aircraft and ships buildable.
+// Funds +6.5% (to $0.1) for every unit costing more than $3. Starting-army requisition prices keep the 1.0.11 values.
+const UNIT_W = { inf: 1, sf: 1.5, scout: 3, lrad: 4, tland: 3, lland: 4, lt: 8, art: 11, mbt: 14, heli: 9, jet: 14, aew: 20, tair: 18, lair: 18, ss: 30, rp: 34, ff: 40, tsea: 28, lsea: 28 };
+const FUNDS_UP = 1.065;
+for (const [k, T] of Object.entries(UT)) {
+  T.f0 = T.f; T.m0 = T.m; T.w = UNIT_W[k] ?? 1;
+  T.m = Math.max(1, Math.round(1.2 * T.w ** .75));
+  if (T.f > 3) T.f = Math.round(T.f * FUNDS_UP * 10) / 10;
+}
 const SIZE = { inf: 1, sf: 1, scout: 1, lrad: 2, lt: 2, mbt: 3, art: 3, lland: 2, tland: 2 };
 // b = damage against structures; rng = how many cells away a unit can strike from
 const STRUCT_ATK = { inf: 2, sf: 6, scout: 1, lt: 3, mbt: 5, art: 9, lrad: 0, heli: 4, jet: 6, aew: 0, ff: 5, ss: 0, rp: 1 };
@@ -615,14 +625,15 @@ const SUPPORT_ARMY = () => ["lland", "tland", "tsea", "lsea", "tair", "lair"];
 const EXTRA_ARMY = ["ss", "mbt", "inf", "jet", "ff", "inf", "lt", "heli", "mbt", "inf"];
 
 const BLD = {
-  fort: { name: "Defences", max: 5, f: 4, m: 6, turns: 2, desc: "Bunkers and trenches. Each level cuts damage to defending land units by about a fifth." },
+  fort: { name: "Defences", max: 5, f: 4, m: 6, turns: 2, desc: "Bunkers and trenches. Your land units here take 20% less damage at level 1, rising to 56% less at level 5. Loses a level when the cell is captured." },
   road: { name: "Roads", max: 5, f: 3, m: 4, turns: 1, desc: "Faster land moves between road provinces (more with each level) and +6% income per level." },
-  hosp: { name: "Hospital", max: 5, f: 5, m: 3, turns: 2, desc: "Units here heal 15 + 5 per level each turn. +5% manpower growth per level." },
+  hosp: { name: "Hospital", max: 5, f: 5, m: 3, turns: 2, desc: "Units here heal 15 + 5 per level each turn. +5% manpower growth per level, counted across all your hospitals up to +50%." },
   fac:  { name: "Factory", max: 5, f: 8, m: 6, turns: 3, desc: "+2 materials and +1.5 funds per level." },
   mine: { name: "Mine", max: 5, f: 6, m: 3, turns: 2, need: "ore", desc: "+4 materials at level 1, +2 more per level. Needs an ore deposit." },
   well: { name: "Oil well", max: 5, f: 8, m: 5, turns: 2, need: "oil", desc: "+4 fuel at level 1, +2 more per level. Needs an oil deposit." },
-  air:  { name: "Airbase", max: 5, f: 6, m: 6, turns: 2, desc: "Build, refuel and rearm aircraft here. Each level adds air defence against strikes on this cell." },
+  air:  { name: "Airbase", max: 1, f: 6, m: 6, turns: 2, desc: "Build, refuel and rearm aircraft here. It has no guns of its own: station anti-air units to defend it." },
   depot: { name: "Logistics depot", max: 5, f: 6, m: 5, turns: 2, desc: "Full resupply here and next door; from level 3 it reaches two cells. Supply columns reload faster with each level." },
+  mtc:  { name: "Military Training Centre", max: 5, f: 6, m: 5, turns: 2, city: true, desc: "Trains recruits for deployment: +5% manpower growth per level, counted across all your centres up to +25%. Cities only." },
   rig:  { name: "Offshore oil rig", max: 5, f: 10, m: 8, turns: 3, need: "oil", sea: true, desc: "+4 fuel at level 1, +2 more per level. Built over an offshore oil field in your own waters." },
 };
 const fortF = z => 1 + .25 * (B(z).fort || 0);           // damage divisor for defenders
@@ -719,7 +730,7 @@ const pickW = arr => { const tot = arr.reduce((s, x) => s + x[1], 0); let r = rn
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 const BUDGET = 240; // requisition points every nation gets for its starting army
-const price = t => Math.round(UT[t].f + UT[t].m * .5);
+const price = t => Math.round(UT[t].f0 + UT[t].m0 * .5); // requisition points for the starting army (1.0.11 values kept)
 function aiBuyArmy(ci) {
   const t = G.nations[ci].t; let left = BUDGET; const list = [];
   const take = k => { const p = price(k); if (p <= left) { list.push(k); left -= p; return true; } return false; };
@@ -898,7 +909,7 @@ function estIncome(ci) {
 }
 function econ(ci) {
   const N = G.nations[ci], gm = govMods(ci);
-  let funds = (BONUS_FUNDS[C[ci].code] || 0) + baseFunds(ci), man = BONUS_MAN[C[ci].code] || 0, mat = 0, fuel = 1, hosp = 0, prov = 0;
+  let funds = (BONUS_FUNDS[C[ci].code] || 0) + baseFunds(ci), man = BONUS_MAN[C[ci].code] || 0, mat = 0, fuel = 1, hosp = 0, trn = 0, prov = 0;
   for (const i of LAND_IDS) {
     if (G.owner[i] !== ci) continue;
     prov++;
@@ -907,18 +918,19 @@ function econ(ci) {
     man += P.man * (Z[i].c !== ci ? .2 : 1);
     mat += .06 + (P.dep === "ore" ? 1.5 : 0) + yieldOf(b.mine || 0) + (b.fac || 0) * 2;
     fuel += (P.dep === "oil" ? 1.5 : 0) + yieldOf(b.well || 0);
-    hosp += b.hosp || 0;
+    hosp += b.hosp || 0; trn += b.mtc || 0;
   }
   const W = waters();
   for (const i of SEA_IDS) if (W[i] === ci && G.bld[i] && G.bld[i].rig) fuel += yieldOf(G.bld[i].rig);
   const stabF = .55 + .45 * N.stab / 100;
   funds *= gm.funds * stabF;
-  man *= gm.man * (1 + Math.min(.5, hosp * .05)) * MAN_RATE;
+  // hospitals +5% a level (to +50%) and 1.0.12 training centres +5% a level (to +25%), added together, not compounded
+  man *= gm.man * (1 + Math.min(.5, hosp * .05) + Math.min(.25, trn * .05)) * MAN_RATE;
   mat *= gm.mat;
   let upF = 0, upFu = 0;
   for (const u of G.units) if (u.o === ci) upF += UT[u.t].uf * gm.cost;
   upFu = N.lastFuel || 0; // fuel spent resupplying units last turn (already paid)
-  return { funds, man, mat, fuel, upF, upFu, netF: funds - upF, netFu: fuel - upFu, prov, manCap: Math.round(man * MAN_CAP_TURNS + MAN_CAP_BASE) };
+  return { funds, man, mat, fuel, upF, upFu, netF: funds - upF, netFu: fuel - upFu, prov, hospB: Math.min(.5, hosp * .05), trnB: Math.min(.25, trn * .05), manCap: Math.round(man * MAN_CAP_TURNS + MAN_CAP_BASE) };
 }
 let PWR = null; // per-turn cache while the AIs decide (31 nations asking about each other)
 function power(ci) {
@@ -934,11 +946,17 @@ const costF = (ci, t) => Math.round(UT[t].f * govMods(ci).cost * 10) / 10;
 function canAfford(ci, f, m, man = 0) { const N = G.nations[ci]; return N.funds >= f && N.mat >= m && N.man >= man; }
 function pay(ci, f, m, man = 0) { const N = G.nations[ci]; N.funds -= f; N.mat -= m; N.man -= man; }
 
+// 1.0.12: every city and capital can start 4 units a turn (land, air at its airbase, sea at its port).
+// Provinces have no recruitment capacity, so ports and airbases outside cities don't recruit.
+const RECRUIT_SLOTS = 4;
+const slotsOf = z => isLand(z) && Z[z].t !== "prov" ? RECRUIT_SLOTS : 0; // a future building can add to this
+const slotsUsed = z => G.queue.reduce((n, q) => n + (q.kind === "u" && q.z === z && q.at === G.turn ? 1 : 0), 0);
+const slotsLeft = z => Math.max(0, slotsOf(z) - slotsUsed(z));
 function recruitSites(ci, t) {
   const at = UT[t].at;
   const out = [];
   for (const i of LAND_IDS) {
-    if (G.owner[i] !== ci || Z[i].c !== ci) continue;
+    if (G.owner[i] !== ci || Z[i].c !== ci || !slotsOf(i)) continue;
     if (at === "city" && Z[i].t !== "prov") out.push(i);
     if (at === "air" && B(i).air) out.push(i);
     if (at === "port" && Z[i].port) out.push(i);
@@ -947,18 +965,32 @@ function recruitSites(ci, t) {
 }
 function queueUnit(ci, t, z) {
   const ut = UT[t], f = costF(ci, t);
-  if (!canAfford(ci, f, ut.m, manOf(t))) return "Not enough resources.";
   if (!recruitSites(ci, t).includes(z)) return "Can't build that here.";
+  if (!slotsLeft(z)) return `${Z[z].n} has used all ${slotsOf(z)} recruitment slots this turn.`;
+  if (!canAfford(ci, f, ut.m, manOf(t))) return "Not enough resources.";
   pay(ci, f, ut.m, manOf(t));
-  G.queue.push({ n: ci, kind: "u", t, z, left: ut.turns });
+  G.queue.push({ n: ci, kind: "u", t, z, left: ut.turns, at: G.turn, pf: f, pm: ut.m, pman: manOf(t) });
   return null;
+}
+// a unit ordered this turn can be called off for a full refund, which frees its slot
+function cancelRecruit(ci, q) {
+  if (!q || q.kind !== "u" || q.n !== ci || q.at !== G.turn || !G.queue.includes(q)) return "Only units ordered this turn can be cancelled.";
+  const N = G.nations[ci]; N.funds += q.pf || 0; N.mat += q.pm || 0; N.man += q.pman || 0;
+  G.queue = G.queue.filter(x => x !== q);
+  return null;
+}
+// what one land cell adds to its holder's funds each turn, exactly as the economy counts it
+function cellFunds(i) {
+  const o = G.owner[i]; if (o < 0) return 0;
+  const P = PROV[i], b = B(i), occ = Z[i].c !== o ? .5 : 1, N = G.nations[o];
+  return (P.inc * (1 + .06 * (b.road || 0)) + (b.fac || 0) * 1.5) * occ * govMods(o).funds * (.55 + .45 * N.stab / 100);
 }
 function buildingOptions(ci, z) {
   const b = B(z), dep = depOf(z);
-  return Object.entries(BLD).filter(([, d]) => !!d.sea === !isLand(z)).map(([k, d]) => {
+  return Object.entries(BLD).filter(([, d]) => !!d.sea === !isLand(z) && (!d.city || Z[z].t !== "prov")).map(([k, d]) => {
     const lvl = b[k] || 0, queued = G.queue.some(q => q.kind === "b" && q.z === z && q.t === k);
     let why = null;
-    if (lvl >= d.max) why = "Maximum level";
+    if (lvl >= d.max) why = "Maximum level"; // 1.0.12: airbases have one level; older saves keep any higher level they already had
     else if (d.need && dep !== d.need) why = d.sea ? "Needs an offshore oil field" : `Needs ${d.need === "oil" ? "an oil" : "an ore"} deposit`;
     else if (queued) why = "Under construction";
     else if (G.queue.some(q => q.kind === "b" && q.z === z)) why = "Builders busy here";
@@ -2211,6 +2243,7 @@ function aiEconomy(ci) {
     const rich = N.funds > 50 ? 2 : 1;
     if (rng() < .2 * rich) { const z = cities.find(i => !B(i).road); if (z != null) tryBuild(z, "road"); }
     if (rng() < .12 * rich) { const z = cities.find(i => !B(i).hosp); if (z != null) tryBuild(z, "hosp"); }
+    if (rng() < .12 * rich && cities.reduce((t, i) => t + (B(i).mtc || 0), 0) < (rich > 1 ? 5 : 3)) { const z = cities.find(i => (B(i).mtc || 0) < 5); if (z != null) tryBuild(z, "mtc"); }
     if (rng() < .12 * rich) { const z = cities.find(i => !B(i).air); if (z != null) tryBuild(z, "air"); }
     if (rng() < .1 * rich) { const z = mine.find(i => !B(i).road && ADJ[i].some(([j]) => B(j).road)); if (z != null) tryBuild(z, "road"); }
   }
@@ -2218,7 +2251,7 @@ function aiEconomy(ci) {
   const myUnits = G.units.filter(u => u.o === ci).length;
   if (isMinor(ci)) { // small standing army of infantry, a little artillery when threatened
     const target = ARMY_SIZE[C[ci].code] + wars.length * 2 + G.turn * .03;
-    if (myUnits < target && N.funds > 8) { const ty = wars.length && rng() < .25 ? "art" : "inf"; const sites = recruitSites(ci, ty); if (sites.length) queueUnit(ci, ty, sites.includes(N.cap) ? N.cap : sites[0]); }
+    if (myUnits < target && N.funds > 8) { const ty = wars.length && rng() < .25 ? "art" : "inf"; const sites = recruitSites(ci, ty).filter(slotsLeft); if (sites.length) queueUnit(ci, ty, sites.includes(N.cap) ? N.cap : sites[0]); }
     if (e.netF < 0 && N.funds < 3) { const u = G.units.filter(x => x.o === ci).sort((a, b) => a.hp - b.hp)[0]; if (u && myUnits > 2) { G.units = G.units.filter(x => x !== u); invalidate(); } }
     return;
   }
@@ -2235,7 +2268,7 @@ function aiEconomy(ci) {
     const crewable = opts.filter(([u]) => N.man >= manOf(u));
     if (!crewable.length) break;
     const ty = pickW(crewable);
-    const sites = recruitSites(ci, ty);
+    const sites = recruitSites(ci, ty).filter(slotsLeft); // full cities are skipped; no site left means another type is tried
     if (!sites.length) { recruits++; continue; }
     let z = sites[0];
     if (wars.length) { const front = sites.find(i => ADJ[i].some(([j]) => isLand(j) && wars.includes(G.owner[j]))); if (front != null) z = front; }
@@ -2613,7 +2646,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.11 beta"; // early access playtest build
+const VERSION = "1.0.12 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -3439,6 +3472,7 @@ function drawInfraIcon(k, x, y, sz, on, lvl) {
     case "depot": ctx.rect(-s, -s * .75, s * 2, s * 1.6); ctx.moveTo(-s, -s * .75); ctx.lineTo(s, s * .85); ctx.moveTo(s, -s * .75); ctx.lineTo(-s, s * .85); ctx.stroke(); break;
     case "air": ctx.moveTo(0, -s); ctx.lineTo(0, s); ctx.moveTo(-s, s * .05); ctx.lineTo(s, s * .05); ctx.moveTo(-s * .45, s * .85); ctx.lineTo(s * .45, s * .85); ctx.stroke(); break;
     case "fort": ctx.moveTo(0, -s); ctx.lineTo(s * .9, -s * .55); ctx.lineTo(s * .8, s * .2); ctx.lineTo(0, s); ctx.lineTo(-s * .8, s * .2); ctx.lineTo(-s * .9, -s * .55); ctx.closePath(); ctx.stroke(); if (lvl > 1) { ctx.font = `700 ${sz * .5}px ${FONT_D}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(lvl, 0, s * .05); } break;
+    case "mtc": ctx.moveTo(-s, -s * .1); ctx.lineTo(0, -s * .8); ctx.lineTo(s, -s * .1); ctx.moveTo(-s, s * .6); ctx.lineTo(0, -s * .1); ctx.lineTo(s, s * .6); ctx.stroke(); break;
     case "hosp": ctx.moveTo(0, -s); ctx.lineTo(0, s); ctx.moveTo(-s, 0); ctx.lineTo(s, 0); ctx.lineWidth = 2.2; ctx.stroke(); break;
     case "mine": ctx.moveTo(-s, s); ctx.lineTo(s * .4, -s * .4); ctx.moveTo(-s * .2, -s * .9); ctx.quadraticCurveTo(s * .6, -s * .9, s, -s * .1); ctx.stroke(); break;
     case "rig": ctx.moveTo(-s, s * .2); ctx.lineTo(s, s * .2); ctx.moveTo(-s * .7, s * .2); ctx.lineTo(-s * .7, s); ctx.moveTo(s * .7, s * .2); ctx.lineTo(s * .7, s); ctx.moveTo(-s * .4, s * .2); ctx.lineTo(0, -s); ctx.lineTo(s * .4, s * .2); ctx.stroke(); break;
@@ -3467,7 +3501,7 @@ function drawInfra(vb) {
     if (G && known) {
       if (b.well) icons.push(["well", true]);
       if (b.mine) icons.push(["mine", true]);
-      for (const k of (s >= 30 ? ["fac", "depot", "air", "fort", "hosp"] : ["depot", "air", "fort"])) if (b[k]) icons.push([k, true, b[k]]);
+      for (const k of (s >= 30 ? ["fac", "depot", "air", "fort", "hosp", "mtc"] : ["depot", "air", "fort"])) if (b[k]) icons.push([k, true, b[k]]);
     }
     if (!icons.length) continue;
     const sz = 15, gap = 2, tot = icons.length * (sz + gap) - gap;
@@ -4228,7 +4262,7 @@ function showZone(i, refresh) {
     const st = M.states[z.s];
     T.info += `<div class="where"><span>${esc(st.name)}</span><span>·</span>${swatch(owner)}<button class="linkbtn" data-nation="${owner}">${esc(shortName(owner))}</button>${owner !== z.c ? `<span>(from ${esc(shortName(z.c))})</span>` : ""}</div>`;
     const Pv = PROV[i], b = B(i);
-    T.info += `<dl class="stats"><div><dt>Population</dt><dd>${fmtPop(z.p)}</dd></div><div><dt>Income</dt><dd>$${fmt(Pv.inc * (b.road ? 1.1 : 1) + (b.fac || 0) * 1.5, 1)}<small>/t</small></dd></div><div><dt>Deposit</dt><dd>${Pv.dep === "oil" ? `Oil<small>${b.well ? " · tapped" : " · untapped"}</small>` : Pv.dep === "ore" ? `Ore<small>${b.mine ? " · mined" : " · untapped"}</small>` : "—"}</dd></div></dl>`;
+    T.info += `<dl class="stats"><div><dt>Population</dt><dd>${fmtPop(z.p)}</dd></div><div><dt>Income</dt><dd>$${fmt(cellFunds(i), 1)}<small>/t</small></dd></div><div><dt>Deposit</dt><dd>${Pv.dep === "oil" ? `Oil<small>${b.well ? " · tapped" : " · untapped"}</small>` : Pv.dep === "ore" ? `Ore<small>${b.mine ? " · mined" : " · untapped"}</small>` : "—"}</dd></div></dl>`;
     if (vis || owner === P) {
       const blist = Object.entries(b).filter(([, v]) => v > 0).map(([k, v]) => `${BLD[k].name} L${v}`);
       T.info += `<p class="note" style="margin-top:8px">${blist.length ? "Built: " + blist.join(" · ") : "No infrastructure."} · Worth ${vpOf(i)} VP</p>`;
@@ -4349,7 +4383,7 @@ function showZone(i, refresh) {
   // own province: build & recruit
   if (land && owner === P) {
     const q = G.queue.filter(x => x.z === i && x.n === P);
-    const qrow = x => `<div class="row"><div class="t"><span>${x.kind === "u" ? UT[x.t].name : BLD[x.t].name}</span></div><div class="s">${x.left} turn${x.left > 1 ? "s" : ""} left</div></div>`;
+    const qrow = x => `<div class="row"><div class="t"><span>${x.kind === "u" ? UT[x.t].name : BLD[x.t].name}</span></div><div class="s">${x.left} turn${x.left > 1 ? "s" : ""} left${x.kind === "u" && x.at === G.turn ? " · ordered this turn" : ""}</div>${x.kind === "u" && x.at === G.turn ? `<div class="r"><button class="btn" data-cancelq="${G.queue.indexOf(x)}">Cancel</button><span class="cost">full refund</span></div>` : ""}</div>`;
     const qu = q.filter(x => x.kind === "u"), qb = q.filter(x => x.kind !== "u");
     if (qu.length) T.recruit += `<div class="section-title">In training</div><div class="rows">${qu.map(qrow).join("")}</div>`;
     if (qb.length) T.build += `<div class="section-title">In progress</div><div class="rows">${qb.map(qrow).join("")}</div>`;
@@ -4361,13 +4395,14 @@ function showZone(i, refresh) {
     T.build += `</div>`;
     const recruitable = UT_KEYS.filter(t => recruitSites(P, t).includes(i));
     if (recruitable.length) {
-      T.recruit += `<div class="section-title">Recruit <small>${fmtMan(G.nations[P].man)} manpower in reserve</small></div><div class="rows">`;
+      const sl = slotsLeft(i);
+      T.recruit += `<div class="section-title">Recruit <small>${sl} of ${slotsOf(i)} slots left this turn · ${fmtMan(G.nations[P].man)} manpower</small></div><div class="rows">`;
       for (const t of recruitable) {
-        const T2 = UT[t], f = costF(P, t), ok = canAfford(P, f, T2.m, manOf(t));
+        const T2 = UT[t], f = costF(P, t), ok = sl > 0 && canAfford(P, f, T2.m, manOf(t));
         T.recruit += `<div class="row unit">${symCanvas(t)}<div class="t"><span>${T2.name}</span></div><div class="s">${T2.size} · ${T2.mp} MP · ${T2.turns}t</div><div class="r"><button class="btn" data-recruit="${t}" ${ok ? "" : "disabled"}>Build</button><span class="cost">$${f} · ${T2.m} mat · ${fmtMan(manOf(t))} men</span></div></div>`;
       }
       T.recruit += `</div>`;
-    } else if (Z[i].t === "prov") T.build += `<p class="note">Units are recruited in cities. Aircraft need an airbase, ships need a port.</p>`;
+    } else if (Z[i].t === "prov") T.build += `<p class="note">Units are recruited in cities: each city and capital can start 4 a turn. Aircraft need a city airbase, ships a city port.</p>`;
   }
   // connections
   const nb = ADJ[i].map(([j, f]) => ({ j, f })).sort((a, b) => (Z[a.j].k > Z[b.j].k ? 1 : -1) || Z[a.j].n.localeCompare(Z[b.j].n));
@@ -4653,6 +4688,7 @@ body.addEventListener("click", e => {
   if (b.dataset.feedback) { showFeedback(); return; }
   if (b.dataset.fbcopy) { copyFeedback(); return; }
   if (b.dataset.build) { const err = queueBuilding(P, sheetView.arg, b.dataset.build); toast(err || `${BLD[b.dataset.build].name} under construction.`); updateHud(); refreshSheet(); save(); return; }
+  if (b.dataset.cancelq != null) { const q = G.queue[+b.dataset.cancelq], err = cancelRecruit(P, q); toast(err || `${UT[q.t].name} cancelled and refunded.`); updateHud(); refreshSheet(); save(); return; }
   if (b.dataset.recruit) { const err = queueUnit(P, b.dataset.recruit, sheetView.arg); toast(err || `${UT[b.dataset.recruit].name} in training.`); updateHud(); refreshSheet(); save(); return; }
   if (b.dataset.nation) { showNation(+b.dataset.nation); return; }
   if (b.dataset.dip) { const [kind, ai] = b.dataset.dip.split(":"); UI.pend = { type: "dip", kind, ai: +ai }; showNation(+ai, true); return; }
@@ -4811,7 +4847,7 @@ function showEcon() {
   let html = `<div class="eyebrow"><span class="pill">Economy</span></div><h2>Treasury & logistics</h2><div class="rows" style="margin-top:12px">
     ${row("Funds", `$${fmt(N.funds)}B`, `+$${fmt(e.funds, 1)} income · −$${fmt(e.upF, 1)} army upkeep`)}
     ${row("Personnel deployed", fmtMan(deployedOf(P)), `Soldiers and crews serving in your ${G.units.filter(u => u.o === P).length} units. Casualties come off this as units lose health.`)}
-    ${row("Manpower reserve", fmtMan(N.man), `${N.man >= e.manCap ? "Full" : `+${fmt(e.man)} people per turn`}, up to ${fmtMan(e.manCap)}. New units draw their crew from here, and so does healing: every point of health a unit regains brings back some of its people.`)}
+    ${row("Manpower reserve", fmtMan(N.man), `${N.man >= e.manCap ? "Full" : `+${fmt(e.man)} people per turn`}, up to ${fmtMan(e.manCap)}. Hospitals add ${Math.round(e.hospB * 100)}% (up to 50%) and training centres ${Math.round(e.trnB * 100)}% (up to 25%). New units draw their crew from here, and so does healing: every point of health a unit regains brings back some of its people.`)}
     ${row("Materials", fmt(N.mat), `+${fmt(e.mat, 1)} per turn from land, mines and factories`)}
     ${row("Fuel", fmt(N.fuel), `+${fmt(e.fuel, 1)} produced · ${fmt(e.upFu, 1)} spent refuelling units last turn`)}
   </div><p class="note">Every unit carries its own fuel and ammo. Depots, cities and supply units refill them from these national stocks: fuel from Fuel, ammo from Materials. In debt, stability falls fast.</p>
@@ -4932,7 +4968,7 @@ function showLayers() {
     <div class="toggle-row"><span><b>Radar & sonar</b> · always on (otherwise only while air or naval units are selected)</span>${sw(!!UI.sensors, 'data-sens="1" aria-label="Radar and sonar"')}</div>
     <div class="toggle-row"><span><b>Supply network</b> · where units get fuel and ammo</span>${sw(UI.supplyLayer, 'data-supl="1" aria-label="Supply network"')}</div>
     <div class="legend"><i style="background:#1b1f24;border:2px dashed #7d93ab"></i><span>Untapped deposit (dark = oil, grey = ore). Zoom in for building icons.</span>
-      <i style="background:#0b1622;border:2px solid var(--signal)"></i><span>Built: mine, oil well, factory, depot, airbase, defences, hospital</span>
+      <i style="background:#0b1622;border:2px solid var(--signal)"></i><span>Built: mine, oil well, factory, depot, airbase, defences, hospital, training centre</span>
       <i style="background:rgba(125,220,139,.6)"></i><span>Full resupply: cities, depots and their neighbours</span>
       <i style="background:rgba(76,195,255,.55)"></i><span>In range of one of your supply units</span>
       <i style="background:rgba(245,184,74,.4)"></i><span>Your territory: +20 fuel and ammo a turn</span></div>
@@ -4948,7 +4984,7 @@ function howToHtml() {
     <li><b>Give orders.</b> Tap a zone with your units, press <b>Order</b>, then tap a destination. Highlighted zones are reached this turn; anything further takes several turns. The dotted route stays until they arrive.</li>
     <li><b>Hunt them down.</b> Order units onto an enemy you can see and they pursue it: if it moves they follow, ranged units stop as soon as it's in range and open fire, and the hunt ends when it's destroyed, slips into the fog, or your unit falls. Any new order calls the hunt off.</li>
     <li><b>End the turn.</b> Your orders play out first, then every AI moves. Units that meet enemies fight; land units capture enemy provinces they enter. The camera then follows every significant move and fight: <b>Next</b> jumps to the next event, <b>2×</b> doubles the speed, <b>Skip</b> ends the replay.</li>
-    <li><b>Build.</b> Tap your own province to add defences, roads, hospitals, factories, mines, oil wells, depots or airbases, and upgrade each from level 1 to 5. Recruit in cities. Soldiers and crews come out of your manpower reserve, and so do reinforcements when damaged units heal.</li>
+    <li><b>Build.</b> Tap your own province to add defences, roads, hospitals, factories, mines, oil wells, depots, airbases or (in cities) training centres, and upgrade most of them from level 1 to 5 (an airbase has one level). Recruit in cities: each city and capital can start 4 units a turn, and a unit ordered this turn can be cancelled for a full refund. Soldiers and crews come out of your manpower reserve, and so do reinforcements when damaged units heal.</li>
     <li><b>Mind the economy.</b> Units cost upkeep in funds and fuel. Buy fuel and materials under Nation → Economy.</li>
     <li><b>Use diplomacy.</b> Pacts, alliances, aid and envoys shape how leaders treat you. Their personalities shift as the war unfolds.</li>
     <li><b>Keep them supplied.</b> Every unit carries fuel and ammo. Moving burns fuel, fighting burns ammo. Cities, logistics depots and supply trucks, aircraft and ships refill them. Cut the enemy's supply lines and their tanks stop.</li>
@@ -5408,12 +5444,27 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
-  { v: "1.0.11 beta", date: "31 Oct 2026", title: "Saturday night update (1.0.6 to 1.0.11)", items: [
+  { v: "1.0.12 beta", date: "1 Nov 2026", title: "Economic development", items: [
+    "## Military Training Centre",
+    "A new building for cities and capitals: each level adds +5% to your manpower growth, counted across all your centres up to +25%. It stacks with hospitals (still +5% a level up to +50%), added together rather than multiplied, so infrastructure can now lift manpower growth by up to 75%. Your reserve ceiling rises with it. Cost: $6 and 5 materials at level 1, up to $20 and 17 at level 5, 2 turns each.",
+    "## What units cost",
+    "Materials now follow each unit's manufacturing weight: infantry still 1, special forces 2, scouts 3, light tanks 6, main battle tanks 9, artillery 7, helicopters 6, jets 9, airborne radar 11, submarines 15, radar pickets 17, frigates 19, transport and supply ships 15, transport and supply aircraft 10.",
+    "Units costing more than $3 cost about 6.5% more money (a main battle tank $9.6, a jet $14.9, a frigate $17). Infantry, scouts and trucks are unchanged, and so are starting-army prices, buildings, income and upkeep.",
+    "## Recruitment slots",
+    "Each city and capital can start 4 units a turn: land units, aircraft at its airbase and ships at its port all share them. The Recruit tab shows the slots left. Units already in training never take a new slot, and a refused order costs nothing.",
+    "Provinces don't recruit: ports and airbases outside cities no longer build units. Every power still has at least 4 port cities.",
+    "A unit ordered this turn can be cancelled from the Recruit tab for a full refund, which frees its slot.",
+    "The AI follows the same limit and spreads its recruiting across cities.",
+    "## Buildings checked",
+    "Every building was tested at every level. Two fixes came out of it: airbases never had the air defence their description promised, so they now have one level and an honest description (defend them with anti-air units), and the Income figure on a cell's Info tab now matches what the economy actually pays (it showed +10% for roads at any level instead of +6% a level). The defences and hospital descriptions now give the real numbers.",
+    "Old saves: buildings, reserves and queued units carry over unchanged. Airbases already above level 1 keep their level.",
     "## What's coming (after Thursday 5 November)",
     "Further balancing and bug fixes: tuning tonight's changes (how often the AI attacks now that battalions move together, and how tight manpower is for nations with volunteer armies) plus fixes for anything you report through Send feedback.",
     "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines. Tonight's sound system and volume settings are the groundwork for it.",
     "A graphics update: a visual pass over the map, unit art and battle effects.",
     "The first unit expansion: the first new unit types to join the current roster.",
+  ] },
+  { v: "1.0.11 beta", date: "31 Oct 2026", title: "Saturday night update (1.0.6 to 1.0.11)", items: [
     "## Sound (1.0.11)",
     "The game has sound. Every effect is made in your browser, so there are no audio files to download. It starts on your first tap, at 60% volume, and pauses when you switch away from the game.",
     "Starter sounds: button taps, tab switches, confirm and cancel, rifle fire and explosions in battle replays (timed with the shots on screen), a fanfare when a cell is captured and a low horn when war is declared on you or by you.",
@@ -5905,7 +5956,7 @@ const fontsP = document.fonts && document.fonts.load ? Promise.all([document.fon
 fontsP.catch(() => {}).finally(() => { fontsReady = true; draw(); });
 setTimeout(() => { fontsReady = true; draw(); }, 1500);
 // test hook (harmless in play)
-window.__prw = { get G() { return G; }, SND, sfx, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; } };
+window.__prw = { get G() { return G; }, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; } };
 })();
 </script>
 
