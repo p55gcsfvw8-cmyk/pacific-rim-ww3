@@ -198,6 +198,9 @@ button.row { cursor: pointer; }
 .menu .btn.big span { font-size: 16px; font-weight: 700; }
 .menu .btn.big small { font-size: 12px; opacity: .78; font-weight: 500; text-transform: none; letter-spacing: 0; }
 .menu-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.menu a.btn { text-decoration: none; color: inherit; box-sizing: border-box; }
+.menu .btn.discord span { display: inline-flex; align-items: center; gap: 8px; }
+.dc-dot { width: 9px; height: 9px; border-radius: 50%; background: #5865f2; box-shadow: 0 0 0 3px rgba(88,101,242,.25); flex: none; }
 .coach { position: fixed; left: 50%; transform: translateX(-50%); width: min(92vw, 460px); top: 200px; z-index: 46; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(245,184,74,.55); background: rgba(10,22,38,.96); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
 .coach[hidden] { display: none; }
 .coach.tip { border-color: rgba(127,194,255,.55); z-index: 45; }
@@ -2646,7 +2649,8 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.13 beta"; // early access playtest build
+const VERSION = "1.0.14 beta";
+const DISCORD_URL = "https://discord.gg/jv8T6Pxz3e"; // official community server (permanent invite) // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -5551,7 +5555,7 @@ function showBugReport() {
     <div class="actions"><button class="btn primary" id="bugCopy">Copy report</button>${navigator.share ? `<button class="btn" id="bugShare">Share</button>` : ""}${G ? `<button class="btn" id="bugSave">Download save file</button>` : ""}<button class="btn" id="bugClose">Close</button></div>
     <p class="note" id="bugMsg" role="status" style="color:var(--signal)"></p>
     <details><summary>What gets attached</summary><pre class="bugpre">${esc(bugMeta())}</pre></details>
-    <p class="note">Send the report (and the save file, if you can) to whoever invited you to the playtest. A save file lets us replay your exact game.</p></div>`;
+    <p class="note">Post the report (and the save file, if you can) in #bug-reports on the <a href="${DISCORD_URL}" target="_blank" rel="noopener noreferrer" style="color:var(--signal)">official Discord</a>. A save file lets us replay your exact game.</p></div>`;
   document.body.appendChild(m);
   const txt = () => `PACIFIC RIM WW3 BUG REPORT\n\n${($("bugTxt").value || "(no description)").trim()}\n\n${bugMeta()}`;
   const say = s => { $("bugMsg").textContent = s; };
@@ -5620,10 +5624,25 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.14 beta", date: "1 Nov 2026", title: "Official Discord", items: [
+    "## Join the community",
+    "The game now has an official Discord server: Official - Fractured Coasts WW3. Tap Join the official Discord on the start screen. It opens Discord in a new tab or the Discord app, and your game stays where it was.",
+    "Bug reports have a home: post them in #bug-reports on the Discord. The Report a bug box links straight there.",
+    "## Correction",
+    "The 1.0.13 notes named the badge that covered End Turn wrongly. It was the \"Powered by Netlify\" badge added by our web host, not a third-party wrapper. The game hides it, so it no longer covers any controls.",
+    "## For the community tools",
+    "The game now publishes its version, patch notes and its nation, unit and building data as a read-only feed. Our Discord bot, FORBID COMMAND, and the future website will read their answers from it, so they always match the game you're playing.",
+    "Nothing in play changed: combat, the economy, units, buildings and saves are exactly as in 1.0.13.",
+    "## What's coming (after Thursday 5 November)",
+    "Further balancing and bug fixes, including anything you report on the Discord.",
+    "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+    "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+    "The first unit expansion: the first new unit types to join the current roster.",
+  ] },
   { v: "1.0.13 beta", date: "1 Nov 2026", title: "Graphics update: building visuals and interface access", items: [
     "A visual overhaul of the map is underway. Buildings now have their own artwork and detailed information cards, while interface improvements make important controls easier to access during gameplay.",
     "## Controls stay clear",
-    "Some players saw a \"Powered by Weblify\" badge over End Turn, the Units and Nation buttons and the Assault button. It isn't part of the game or its hosting: it's added by a page wrapper or the browser. The game now hides any badge or small frame of this kind that gets added to its page, and if the game is shown inside a Weblify page (where it can't reach the badge) the bottom controls move up clear of the corner.",
+    "Some players saw a \"Powered by Netlify\" badge (added by our web host) over End Turn, the Units and Nation buttons and the Assault button. The game now hides any badge or small frame of this kind that gets added to its page, so it no longer covers the controls.",
     "Checked at phone width with a badge forced on top: End Turn, the command bar, the cell panel and its tabs, Assault and Disembark, unit cards, country information and battle replay controls all take taps normally.",
     "## Buildings on the map",
     "The yellow-and-black building tags are replaced by artwork for all ten buildings: defences, roads, hospital, factory, mine, oil well, airbase, logistics depot, offshore oil rig and Military Training Centre. Each one looks different, not one shape in ten colours.",
@@ -5880,8 +5899,9 @@ function showTitle() {
       <button class="btn big${(() => { try { return localStorage.getItem("prww3-tut") ? "" : " has-start"; } catch (e) { return ""; } })()}" id="mTut"><span>Tutorial</span><small>A very basic guided first turn (practice game, not saved)</small></button>
       <div class="menu-row"><button class="btn" id="mScores">Hi-scores</button><button class="btn" id="mHow" aria-expanded="${!!UI.startHow}">${UI.startHow ? "Hide how to play" : "How to play"}</button></div>
       <div class="menu-row"><button class="btn${notesNew() ? " has-new" : ""}" id="mNotes">Patch notes</button><button class="btn" id="mBug">Report a bug</button></div>
+      <a class="btn big discord" id="mDiscord" href="${DISCORD_URL}" target="_blank" rel="noopener noreferrer"><span><i class="dc-dot" aria-hidden="true"></i>Join the official Discord</span><small>Official - Fractured Coasts WW3 · news and help</small></a>
     </div>
-    <div class="ea"><b>Early access playtest</b><span>You're playing a test build. Expect rough edges and balance changes. Found something odd? Tap Report a bug: it attaches the details we need.</span></div>
+    <div class="ea"><b>Early access playtest</b><span>You're playing a test build. Expect rough edges and balance changes. Found something odd? Tap Report a bug: it attaches the details we need. Post it in #bug-reports on our Discord.</span></div>
     ${UI.startHow ? `<div class="pick">${howToHtml()}</div>` : ""}
     <p class="note" style="margin-top:14px">${CLOUD.db ? "Games save every turn in this browser and to your Claude account." : "Games save every turn in this browser, so a closed tab or a flat battery won't cost you a campaign."}</p></div>`;
   if (last) $("mQuick").onclick = () => { setUser(last); loadAndPlay(); };
@@ -6172,6 +6192,43 @@ const fontsP = document.fonts && document.fonts.load ? Promise.all([document.fon
 fontsP.catch(() => {}).finally(() => { fontsReady = true; draw(); });
 setTimeout(() => { fontsReady = true; draw(); }, 1500);
 // test hook (harmless in play)
-window.__prw = { get G() { return G; }, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; }, BLD, BLD_INFO, BLD_CAT, bldEffect, bldCost, bldsAt, showBldCard, showBldAt, defMult, laneCost, supplyMap, cellFunds, recruitSites, fortDiv, roadCost, hospHeal, depotReload };
+
+// ---------- public data feed (1.0.14) ----------
+// build.py loads the built game in a headless browser and calls this to write site/data/v1/*.json, the read-only feed
+// FORBID COMMAND and the website use. It reads the same tables the game plays with, so the feed can't drift from the game.
+function exportFeed() {
+  const prev = G, num = x => Math.round(x * 100) / 100, govName = k => GOV[k].name;
+  const notes = PATCH_NOTES.map(n => { const sections = []; let cur = { heading: null, items: [] }; sections.push(cur);
+    for (const it of n.items) { if (it.startsWith("## ")) { cur = { heading: it.slice(3), items: [] }; sections.push(cur); } else cur.items.push(it); }
+    return { version: n.v, date: n.date, title: n.title, sections: sections.filter(x => x.items.length) }; });
+  const meta = { schema: 1, game: "The Fractured Coasts: WW3", inGameTitle: "Pacific Rim WW3", version: VERSION, released: PATCH_NOTES[0].date, discord: DISCORD_URL,
+    play: "https://pacific-rim-ww3.netlify.app/", mode: "Single-player against AI nations", patchNotes: notes };
+  const units = UT_KEYS.map(t => { const T = UT[t], I = UNIT_INFO[t] || {};
+    return { key: t, name: T.name, domain: T.dom, role: T.role || "combat", size: T.size, crew: T.crew, manpower: manOf(t), funds: T.f, materials: T.m, buildTurns: T.turns,
+      recruitAt: T.at, upkeepFunds: T.uf, movement: T.mp, defence: T.d, detection: T.det, sonar: !!T.sonar, strikeRange: T.rng || 0, fuelPerMove: T.fpm || 0, ammoPerFight: T.apb || 0,
+      attack: T.role ? null : { land: T.g, air: T.a, ships: T.n, subs: T.s, structures: T.b || 0 }, carries: T.cap ? { slots: T.cap, units: T.carries } : null, supplies: T.cargo || 0,
+      startingArmyPoints: price(t), description: I.desc || "", bestUsedFor: I.use || [], strongAgainst: I.strong || "", weakAgainst: I.weak || "" }; });
+  const buildings = BLD_ORDER.map(k => { const d = BLD[k], I = BLD_INFO[k], levels = [];
+    for (let l = 1; l <= d.max; l++) { const c = bldCost(k, l); levels.push({ level: l, funds: c.f, materials: c.m, turns: d.turns, effect: bldEffect(k, l) }); }
+    return { key: k, name: d.name, category: BLD_CAT[k], maxLevel: d.max, buildTurns: d.turns, citiesOnly: !!d.city, offshore: !!d.sea, needs: d.need ? (d.sea ? "offshore oil field" : d.need + " deposit") : null,
+      purpose: I.purpose, placement: I.place, howItWorks: I.how, tips: I.tips, levels }; });
+  const battalions = BAT_TYPES.map(b => ({ key: b.k, name: b.name, echelon: b.ech, arm: b.arm, requirement: b.req, effect: b.fx }));
+  const governments = Object.entries(GOV).map(([k, g]) => ({ key: k, name: g.name, stability: g.stab, warSupport: g.ws, fundsMultiplier: g.funds, manpowerMultiplier: g.man, unitCostMultiplier: g.cost, summary: g.blurb }));
+  const nations = [];
+  try {
+    newGame(MAJORS[0], 1);
+    for (const ci of PLAY) { const c = C[ci], N = G.nations[ci], e = econ(ci), cells = zonesByCountry[ci], g = START_GOV[c.code];
+      const army = {}; for (const u of G.units) if (u.o === ci) army[u.t] = (army[u.t] || 0) + 1;
+      nations.push({ code: c.code, name: shortName(ci), playable: !isMinor(ci), minor: isMinor(ci), population: c.pop, capital: N.cap != null ? Z[N.cap].n : null,
+        government: g ? govName(g[0]) : null, cells: cells.length, cities: cells.filter(i => Z[i].t !== "prov").length, ports: cells.filter(i => Z[i].port).length,
+        victoryPointsPct: num(100 * cells.reduce((a, i) => a + vpOf(i), 0) / TOTAL_VP),
+        start: { funds: Math.round(N.funds), materials: Math.round(N.mat), fuel: Math.round(N.fuel || 0), manpower: Math.round(N.man), incomeFunds: num(e.funds), incomeMaterials: num(e.mat), incomeManpower: num(e.man) },
+        startingArmy: isMinor(ci) ? army : null }); }
+  } finally { G = prev; invalidate(); }
+  const codex = { schema: 1, version: VERSION, rules: { winSharePct: WIN_SHARE * 100, recruitSlotsPerCity: RECRUIT_SLOTS, startingArmyPoints: BUDGET, powers: MAJORS.length, minorNations: MINORS.length, cells: NZ, landCells: LAND_IDS.length },
+    nations, governments, units, battalions, buildings, notes: { startingArmy: "Powers pick their own starting army with " + BUDGET + " points; minor nations' starting forces are fixed." } };
+  return { meta, codex };
+}
+window.__prw = { get G() { return G; }, exportFeed, VERSION, PATCH_NOTES, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; }, BLD, BLD_INFO, BLD_CAT, bldEffect, bldCost, bldsAt, showBldCard, showBldAt, defMult, laneCost, supplyMap, cellFunds, recruitSites, fortDiv, roadCost, hospHeal, depotReload };
 })();
 </script>

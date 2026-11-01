@@ -1,0 +1,312 @@
+{
+ "schema": 1,
+ "game": "The Fractured Coasts: WW3",
+ "inGameTitle": "Pacific Rim WW3",
+ "version": "1.0.14 beta",
+ "released": "1 Nov 2026",
+ "discord": "https://discord.gg/jv8T6Pxz3e",
+ "play": "https://pacific-rim-ww3.netlify.app/",
+ "mode": "Single-player against AI nations",
+ "patchNotes": [
+  {
+   "version": "1.0.14 beta",
+   "date": "1 Nov 2026",
+   "title": "Official Discord",
+   "sections": [
+    {
+     "heading": "Join the community",
+     "items": [
+      "The game now has an official Discord server: Official - Fractured Coasts WW3. Tap Join the official Discord on the start screen. It opens Discord in a new tab or the Discord app, and your game stays where it was.",
+      "Bug reports have a home: post them in #bug-reports on the Discord. The Report a bug box links straight there."
+     ]
+    },
+    {
+     "heading": "Correction",
+     "items": [
+      "The 1.0.13 notes named the badge that covered End Turn wrongly. It was the \"Powered by Netlify\" badge added by our web host, not a third-party wrapper. The game hides it, so it no longer covers any controls."
+     ]
+    },
+    {
+     "heading": "For the community tools",
+     "items": [
+      "The game now publishes its version, patch notes and its nation, unit and building data as a read-only feed. Our Discord bot, FORBID COMMAND, and the future website will read their answers from it, so they always match the game you're playing.",
+      "Nothing in play changed: combat, the economy, units, buildings and saves are exactly as in 1.0.13."
+     ]
+    },
+    {
+     "heading": "What's coming (after Thursday 5 November)",
+     "items": [
+      "Further balancing and bug fixes, including anything you report on the Discord.",
+      "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+      "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+      "The first unit expansion: the first new unit types to join the current roster."
+     ]
+    }
+   ]
+  },
+  {
+   "version": "1.0.13 beta",
+   "date": "1 Nov 2026",
+   "title": "Graphics update: building visuals and interface access",
+   "sections": [
+    {
+     "heading": null,
+     "items": [
+      "A visual overhaul of the map is underway. Buildings now have their own artwork and detailed information cards, while interface improvements make important controls easier to access during gameplay."
+     ]
+    },
+    {
+     "heading": "Controls stay clear",
+     "items": [
+      "Some players saw a \"Powered by Netlify\" badge (added by our web host) over End Turn, the Units and Nation buttons and the Assault button. The game now hides any badge or small frame of this kind that gets added to its page, so it no longer covers the controls.",
+      "Checked at phone width with a badge forced on top: End Turn, the command bar, the cell panel and its tabs, Assault and Disembark, unit cards, country information and battle replay controls all take taps normally."
+     ]
+    },
+    {
+     "heading": "Buildings on the map",
+     "items": [
+      "The yellow-and-black building tags are replaced by artwork for all ten buildings: defences, roads, hospital, factory, mine, oil well, airbase, logistics depot, offshore oil rig and Military Training Centre. Each one looks different, not one shape in ten colours.",
+      "Roads are drawn as roads: a road connects two neighbouring cells that both have one, wider at higher levels, the same rule movement uses.",
+      "The art scales with zoom. Zoomed out, a cell with buildings shows a small amber dot. At mid zoom it shows one small building picture plus a \"+N\" count. Zoomed in, up to four pictures with their levels. They sit above the cell name, clear of unit tags.",
+      "Tap the building pictures to see what stands in the cell and open any building's card. When you're giving a move or strike order, a tap is an order as before: building pictures never get in the way of orders."
+     ]
+    },
+    {
+     "heading": "Building cards",
+     "items": [
+      "Unit cards now have a Buildings tab, grouped into Military, Industrial, Infrastructure and Logistics. Each card shows the artwork, purpose, cost and materials, build time, maximum level, what every level does with its upgrade cost, where it can be built, how it works, and tips.",
+      "Every number on the cards comes from the same formulas the game runs on, and each one was measured against the game itself. Building, upgrading and costs are unchanged and still happen in a cell's Build tab.",
+      "A cell's Info tab lists its buildings with their pictures; tap one for its card."
+     ]
+    },
+    {
+     "heading": "Nothing else changed",
+     "items": [
+      "Combat, unit statistics, building effects and prices, the economy, recruitment and cells are untouched: eight full AI games play out identically to 1.0.12, and the building checks give the same numbers. Old saves load as they are and the save file is the same size."
+     ]
+    },
+    {
+     "heading": "What's coming (after Thursday 5 November)",
+     "items": [
+      "Further balancing and bug fixes, including anything you report through Send feedback.",
+      "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+      "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+      "The first unit expansion: the first new unit types to join the current roster."
+     ]
+    }
+   ]
+  },
+  {
+   "version": "1.0.12 beta",
+   "date": "1 Nov 2026",
+   "title": "Economic development",
+   "sections": [
+    {
+     "heading": "Military Training Centre",
+     "items": [
+      "A new building for cities and capitals: each level adds +5% to your manpower growth, counted across all your centres up to +25%. It stacks with hospitals (still +5% a level up to +50%), added together rather than multiplied, so infrastructure can now lift manpower growth by up to 75%. Your reserve ceiling rises with it. Cost: $6 and 5 materials at level 1, up to $20 and 17 at level 5, 2 turns each."
+     ]
+    },
+    {
+     "heading": "What units cost",
+     "items": [
+      "Materials now follow each unit's manufacturing weight: infantry still 1, special forces 2, scouts 3, light tanks 6, main battle tanks 9, artillery 7, helicopters 6, jets 9, airborne radar 11, submarines 15, radar pickets 17, frigates 19, transport and supply ships 15, transport and supply aircraft 10.",
+      "Units costing more than $3 cost about 6.5% more money (a main battle tank $9.6, a jet $14.9, a frigate $17). Infantry, scouts and trucks are unchanged, and so are starting-army prices, buildings, income and upkeep."
+     ]
+    },
+    {
+     "heading": "Recruitment slots",
+     "items": [
+      "Each city and capital can start 4 units a turn: land units, aircraft at its airbase and ships at its port all share them. The Recruit tab shows the slots left. Units already in training never take a new slot, and a refused order costs nothing.",
+      "Provinces don't recruit: ports and airbases outside cities no longer build units. Every power still has at least 4 port cities.",
+      "A unit ordered this turn can be cancelled from the Recruit tab for a full refund, which frees its slot.",
+      "The AI follows the same limit and spreads its recruiting across cities."
+     ]
+    },
+    {
+     "heading": "Buildings checked",
+     "items": [
+      "Every building was tested at every level. Two fixes came out of it: airbases never had the air defence their description promised, so they now have one level and an honest description (defend them with anti-air units), and the Income figure on a cell's Info tab now matches what the economy actually pays (it showed +10% for roads at any level instead of +6% a level). The defences and hospital descriptions now give the real numbers.",
+      "Old saves: buildings, reserves and queued units carry over unchanged. Airbases already above level 1 keep their level."
+     ]
+    },
+    {
+     "heading": "What's coming (after Thursday 5 November)",
+     "items": [
+      "Further balancing and bug fixes: tuning tonight's changes (how often the AI attacks now that battalions move together, and how tight manpower is for nations with volunteer armies) plus fixes for anything you report through Send feedback.",
+      "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines. Tonight's sound system and volume settings are the groundwork for it.",
+      "A graphics update: a visual pass over the map, unit art and battle effects.",
+      "The first unit expansion: the first new unit types to join the current roster."
+     ]
+    }
+   ]
+  },
+  {
+   "version": "1.0.11 beta",
+   "date": "31 Oct 2026",
+   "title": "Saturday night update (1.0.6 to 1.0.11)",
+   "sections": [
+    {
+     "heading": "Sound (1.0.11)",
+     "items": [
+      "The game has sound. Every effect is made in your browser, so there are no audio files to download. It starts on your first tap, at 60% volume, and pauses when you switch away from the game.",
+      "Starter sounds: button taps, tab switches, confirm and cancel, rifle fire and explosions in battle replays (timed with the shots on screen), a fanfare when a cell is captured and a low horn when war is declared on you or by you.",
+      "The speaker button above the map controls mutes and unmutes. Map & settings has a Sound section with master, interface, combat and strategic volume. Settings are kept on this device and aren't part of your save.",
+      "Big battles stay clear: at most 6 sounds play at once, and the same sound fired many times in a moment (ten rifles in one volley) plays once, a little louder."
+     ]
+    },
+    {
+     "heading": "Cell panel tabs (1.0.10)",
+     "items": [
+      "The cell panel has tabs: Units, Orders, Recruit, Build and Info. The cell name, the command bar and the tabs stay pinned at the top, so a busy capital is no longer ten screens of scrolling (Bangkok: from about 4,900 pixels in one column to 600 to 2,400 per tab).",
+      "Units lists everything in the cell: your battalions, your other units and support, the enemy, and the fight forecast. Orders holds every order button, embarking, landings, attaching support and strikes. Recruit has unit training and the units in training. Build has construction and buildings in progress. Info has the cell's owner, population, income, deposits, buildings and connections.",
+      "Only the tabs that apply are shown. The panel opens on Units when anything is there, otherwise on Info, and it remembers the tab you last used for each kind of cell (your capital or city, your province, a sea cell, a foreign cell).",
+      "Nothing was removed: every button from before is in exactly one tab. The tutorial and tips point to the new tabs."
+     ]
+    },
+    {
+     "heading": "Battalions (1.0.9)",
+     "items": [
+      "Battalions move as one. Ordering any unit in a battalion orders every member standing with it; they take one route, march at the pace of the slowest unit and arrive together. If a member is out of fuel or locked in a fight, the battalion waits for it.",
+      "The only way to split a battalion is to disband it. If its members can't all travel a route (a ship lane one of them can't use, say), the order is refused and the message tells you so.",
+      "A battalion boards a transport whole or not at all. If it doesn't fit, it stays ashore and the message says so; disband it to ship part of it.",
+      "In the replay a battalion travelling together is drawn as one tag with its echelon and member count (for example \"II ×6\"), instead of a staircase of tags that spread out along the route.",
+      "Battalion bonuses only count members standing together in the same cell. Before, a member left behind elsewhere still got its battalion's bonus.",
+      "Forming a new battalion from members of an old one now updates straight away, so you no longer see a one-unit leftover battalion until the end of the turn.",
+      "The move overlay shows only the cells the whole battalion can reach this turn.",
+      "The AI follows the same rules. Its battalions attack only when every member can reach the target, retreat together, and are disbanded when they don't fit aboard ship for an invasion.",
+      "Old saves: a battalion already spread across several cells keeps its largest group; members elsewhere carry on unattached (a news item tells you how many of yours). Form a battalion again where they meet up."
+     ]
+    },
+    {
+     "heading": "Manpower (1.0.8)",
+     "items": [
+      "Manpower now matters. Every nation's draft pool is about a sixth of what it was: Thailand starts with about 1,000 and gains about 90 a turn (before, 6,300 and 550). Over 60 test turns the AI sat at its ceiling three turns in four; now it's about one in three, and spends what it gains.",
+      "Units draw manpower for everyone it takes to keep them fighting, not just their seats. Infantry 60, special forces 40, light tank 50, main battle tank 80, artillery 50, helicopter 50, jet 70, airborne radar 90, frigate 220, submarine 120, radar picket 150, transport ship 120, supply ship 150. Healing draws from the same figure, so repairing a frigate costs far more than patching up infantry.",
+      "The reserve ceiling is now 15 turns of gain plus a small base (Thailand: about 1,440). Your conscription policy is the main lever: selective service gives 1.8 times the volunteer rate, universal 2.8 times.",
+      "Big populations still matter, but less: the gap between the largest manpower pool and a typical nation has narrowed from about 8 times to about 4. The US draws mainland reinforcements on top of its Pacific territories.",
+      "Minor nations start with enough for two infantry and gain a trickle, so they hold their small garrisons but can't rebuild quickly.",
+      "Old saves: reserves above the new ceiling are cut to it when the save loads (a news item says by how much). Everything else carries over.",
+      "The recruit list and the codex show each unit's manpower cost, and the recruit list shows your current reserve."
+     ]
+    },
+    {
+     "heading": "Diplomacy (1.0.7)",
+     "items": [
+      "One ally each: every nation, yours included, can hold only one alliance at a time. Pacts are still unlimited.",
+      "Alliances need a reason: a common enemy, or a stronger hostile neighbour you both border. Good relations alone no longer create one, and the AI tells you why it declines (\"already allied with Japan\", \"no common enemy or threat\"). Alliances whose reason has gone can lapse.",
+      "Diplomatic reset: every existing alliance has ended and those nations are back to neutral. Relations, pacts and wars are unchanged.",
+      "Ceasefires: a peace treaty now brings a 20-turn ceasefire between the two nations that signed it. Neither can declare war on the other until it runs out (the nation panel shows the turns left). Nations that weren't party to the treaty aren't bound, and an ally under its own ceasefire can't be called into a war against that nation.",
+      "Relations change more steadily: fighting the same enemy still brings nations together, being on opposite sides of a war now pushes them apart, and passive drift is capped so no pair stays locked at +100 forever. Before, 20 to 34 alliances formed by turn 60, with some nations holding 7; now it's a handful, one per nation."
+     ]
+    },
+    {
+     "heading": "Combat (1.0.6)",
+     "items": [
+      "Every attack you make now shows in the end-of-turn replay. Battles play as volleys: each side's units of one type fire together, so even a 25-unit fight shows every unit firing, with one damage number per target. Before, big battles silently dropped up to a third of the shots (usually infantry).",
+      "Retreating under fire is shown: when units pull out of a fight, the enemy's parting volley plays in the replay, including any unit cut down as it leaves. Before, that damage happened off-screen.",
+      "Units attacked during a turn now stand and fight: contact locks both sides for that turn, so an attacked unit takes at least one exchange of fire before it can withdraw. Before, an AI unit could walk out of the cell (even round behind your attackers) before a single shot.",
+      "Pick your target: when Attack in range points at a cell with several enemies you can see, a target list shows each one with its owner, battalion, health and the damage your strike would do. Tap one and every attacker that can hit it goes for it; artillery and ships too. If it's destroyed or leaves, they fall back to the Hit first order.",
+      "Your replay always includes all of your strikes, battles and captures, however busy the turn; other nations' events fill the remaining slots."
+     ]
+    }
+   ]
+  },
+  {
+   "version": "1.0.5 beta",
+   "date": "31 Oct 2026",
+   "title": "Saturday morning update (1.0.3 to 1.0.5)",
+   "sections": [
+    {
+     "heading": "The map grows: minor nations",
+     "items": [
+      "The grey unaligned land is now 15 minor nations across 76 new cells, each in its own colour: Myanmar, Laos, Cambodia, Mongolia, Russia (Far East and southern Sakhalin), Northeast India, Bangladesh, Brunei, Timor-Leste, Solomon Islands, Vanuatu, New Caledonia, Samoa, Tonga and Palau.",
+      "Minors aren't playable yet. The AI runs them: each starts with 4 infantry, a fortified capital and very little money, and slowly adds infantry (and some artillery once threatened).",
+      "They defend themselves and fight back. They retake their own ground and hit cells on their border, but never start wars or invade deep.",
+      "Declare war on a minor to invade it and hold its land. Most AI powers leave them alone; hawkish ones may move in. Minor land is worth fewer victory points: capital 4, city 2, province 1.",
+      "Minors own their coastal waters, so you can't fly through a neutral minor's airspace.",
+      "Victory still takes 30% of all victory points, and the new land adds about 11% to the total. Taking a minor's capital scores 75 (a great power's capital is still 250).",
+      "Diplomacy lists minor nations in their own section; tap one for its profile. Old saves upgrade on load: the minors appear with their land and forces."
+     ]
+    },
+    {
+     "heading": "Strikes, radar and sonar",
+     "items": [
+      "Strike missions: Attack in range also shows targets beyond reach (orange). Aircraft fly out to striking distance, hit it, return to base to refuel and go again, every other turn, until the target's clear. Ships and artillery move into range the same way. This fixes jets that seemed to do nothing on distant targets like Singapore.",
+      "Hit first: the strike screen lets you choose what to go for (armour, infantry, ships, aircraft, supply, buildings). By default jets now go for tanks, ships, troops and supply before enemy aircraft.",
+      "Air defences saturate: each extra aircraft striking the same cell in a turn faces less anti-aircraft fire, so big strike packages no longer get shredded one by one.",
+      "Radar and sonar: select air or naval units and their radar coverage (with a sweep), sonar rings and enemy contacts (AIR / SEA / SUB) appear on the map. Turn it on permanently under Layers.",
+      "Ships and aircraft striking the same target: the replay shows the bombardment and then the full air strike run, every aircraft included."
+     ]
+    },
+    {
+     "heading": "Giving orders",
+     "items": [
+      "Command bar: Order, Attack in range, Select all, Targets and Form battalion sit at the top of every cell panel and stay there while you scroll. Battalions in the cell appear as quick-select chips.",
+      "While giving orders, tap an enemy's tag (or the cell it's in) to hunt it. Tapping any unit's tag picks its cell.",
+      "Quick select: in the Army panel, tap any unit's icon to jump to it with that unit selected, ready to order.",
+      "Tips for new commanders: short pop-up tips the first time you open a cell, give an order and finish your orders. Hide them any time. The Tutorial is marked START HERE until you've tried it."
+     ]
+    },
+    {
+     "heading": "Fixes",
+     "items": [
+      "Three-way fights: when a cell changes hands, units of a nation that isn't at war with the new owner pull back instead of getting stuck inside it; the same happens after a peace treaty or a broken alliance. Battles with three or more nations show each side in its own position.",
+      "Infantry from a failed landing were sometimes left floating at sea for the rest of the game. They now go back aboard their transport, or ashore on the nearest friendly coast.",
+      "A nation that loses its capital now moves its government to its own land, not to a city it had just captured.",
+      "Tips no longer pop up while you're placing an order or a strike.",
+      "End-of-turn processing was tuned to keep pace with nearly twice as many nations."
+     ]
+    }
+   ]
+  },
+  {
+   "version": "1.0.2 beta",
+   "date": "31 Oct 2026",
+   "title": null,
+   "sections": [
+    {
+     "heading": null,
+     "items": [
+      "Online leaderboard: every campaign posts its score to a global board on the web version, updated each turn and locked in on victory or defeat.",
+      "Players online: see who's playing right now, what nation and turn they're on, plus a live activity log of new campaigns, victories and defeats.",
+      "Tutorial: a very basic guided first turn (Tutorial on the title screen). It runs as a practice game and never touches your saved campaign.",
+      "Patch notes: this button. A badge appears when there's something new."
+     ]
+    }
+   ]
+  },
+  {
+   "version": "1.0.1 beta",
+   "date": "31 Oct 2026",
+   "title": null,
+   "sections": [
+    {
+     "heading": null,
+     "items": [
+      "Bombardments now land even when another nation drives the target out first: units pulling out of a cell under fire take the hit as they leave.",
+      "Tap an enemy while giving orders to hunt it straight away, with the odds shown. Ships and artillery move into range and fire on arrival.",
+      "End-of-turn battles: the map dims and the fighting units show on a panel in front.",
+      "Manpower grows about 15% slower.",
+      "Starting cash now $70 to $96 for every nation (was $29 to $136); every nation gets $5 base income a turn."
+     ]
+    }
+   ]
+  },
+  {
+   "version": "1.0 beta",
+   "date": "31 Oct 2026",
+   "title": null,
+   "sections": [
+    {
+     "heading": null,
+     "items": [
+      "Official early access playtest begins.",
+      "Report a bug button with automatic game details; download a save file or open one from the Load screen.",
+      "Commander names, saves per commander, hi-scores, animated menu battles, follow-cam replays, pursuit orders."
+     ]
+    }
+   ]
+  }
+ ]
+}

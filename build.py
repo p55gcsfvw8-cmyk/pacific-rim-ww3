@@ -4,7 +4,9 @@ Reads src/template.html (the whole game, with the map left as a __MAP_DATA__ pla
 and src/map.json, and writes:
   site/index.html          the web build Netlify serves (full page with mobile web-app tags)
   dist/claude-artifact.html  the body-only version published as the Claude artifact
-Run: python3 build.py
+  site/data/v1/*.json      the public data feed (version, patch notes, nations, units, buildings), read
+                           from the built game by tools/export_feed.py
+Run: python3 build.py   (SKIP_FEED=1 skips the feed, e.g. without Playwright; never for a release)
 """
 import os
 
@@ -32,3 +34,6 @@ os.makedirs(os.path.join(ROOT, "dist"), exist_ok=True)
 open(os.path.join(ROOT, "site", "index.html"), "w", encoding="utf-8").write(HEAD + game.replace('<meta charset="utf-8">\n', "", 1) + "\n</html>\n")
 open(os.path.join(ROOT, "dist", "claude-artifact.html"), "w", encoding="utf-8").write(game)
 print("built site/index.html and dist/claude-artifact.html")
+if os.environ.get("SKIP_FEED") != "1":
+    import subprocess, sys
+    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "export_feed.py")], check=True)

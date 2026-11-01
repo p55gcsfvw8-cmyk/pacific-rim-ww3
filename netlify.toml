@@ -8,3 +8,16 @@
   for = "/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+
+# Short link to the official Discord (the invite is permanent; change it here, not in the game, if it ever moves)
+[[redirects]]
+  from = "/discord"
+  to = "https://discord.gg/jv8T6Pxz3e"
+  status = 302
+
+# The public data feed: read-only, readable from the website and other sites
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=300"

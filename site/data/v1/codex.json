@@ -1,0 +1,2140 @@
+{
+ "schema": 1,
+ "version": "1.0.14 beta",
+ "rules": {
+  "winSharePct": 30,
+  "recruitSlotsPerCity": 4,
+  "startingArmyPoints": 240,
+  "powers": 16,
+  "minorNations": 15,
+  "cells": 1527,
+  "landCells": 798
+ },
+ "nations": [
+  {
+   "code": "CN",
+   "name": "China",
+   "playable": true,
+   "minor": false,
+   "population": 1408,
+   "capital": "Beijing",
+   "government": "One-Party State",
+   "cells": 149,
+   "cities": 31,
+   "ports": 11,
+   "victoryPointsPct": 17.22,
+   "start": {
+    "funds": 96,
+    "materials": 94,
+    "fuel": 30,
+    "manpower": 4143,
+    "incomeFunds": 23.33,
+    "incomeMaterials": 27.53,
+    "incomeManpower": 362.52
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "JP",
+   "name": "Japan",
+   "playable": true,
+   "minor": false,
+   "population": 123.5,
+   "capital": "Tokyo",
+   "government": "Constitutional Monarchy",
+   "cells": 64,
+   "cities": 14,
+   "ports": 11,
+   "victoryPointsPct": 7.82,
+   "start": {
+    "funds": 92,
+    "materials": 31,
+    "fuel": 30,
+    "manpower": 682,
+    "incomeFunds": 28.85,
+    "incomeMaterials": 9.34,
+    "incomeManpower": 59.68
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "KR",
+   "name": "South Korea",
+   "playable": true,
+   "minor": false,
+   "population": 51.7,
+   "capital": "Seoul",
+   "government": "Democracy",
+   "cells": 26,
+   "cities": 8,
+   "ports": 6,
+   "victoryPointsPct": 3.87,
+   "start": {
+    "funds": 85,
+    "materials": 22,
+    "fuel": 30,
+    "manpower": 1396,
+    "incomeFunds": 20.3,
+    "incomeMaterials": 7.06,
+    "incomeManpower": 122.13
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "KP",
+   "name": "North Korea",
+   "playable": true,
+   "minor": false,
+   "population": 26.5,
+   "capital": "Pyongyang",
+   "government": "One-Party State",
+   "cells": 26,
+   "cities": 6,
+   "ports": 6,
+   "victoryPointsPct": 3.55,
+   "start": {
+    "funds": 70,
+    "materials": 28,
+    "fuel": 30,
+    "manpower": 1354,
+    "incomeFunds": 7.07,
+    "incomeMaterials": 7.87,
+    "incomeManpower": 118.46
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "TW",
+   "name": "Taiwan",
+   "playable": true,
+   "minor": false,
+   "population": 23.4,
+   "capital": "Taipei",
+   "government": "Democracy",
+   "cells": 13,
+   "cities": 5,
+   "ports": 5,
+   "victoryPointsPct": 2.37,
+   "start": {
+    "funds": 81,
+    "materials": 13,
+    "fuel": 30,
+    "manpower": 1087,
+    "incomeFunds": 17.62,
+    "incomeMaterials": 4.78,
+    "incomeManpower": 95.16
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "PH",
+   "name": "Philippines",
+   "playable": true,
+   "minor": false,
+   "population": 115,
+   "capital": "Manila",
+   "government": "Democracy",
+   "cells": 45,
+   "cities": 11,
+   "ports": 13,
+   "victoryPointsPct": 5.85,
+   "start": {
+    "funds": 75,
+    "materials": 33,
+    "fuel": 30,
+    "manpower": 664,
+    "incomeFunds": 11.86,
+    "incomeMaterials": 7.7,
+    "incomeManpower": 58.09
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "VN",
+   "name": "Vietnam",
+   "playable": true,
+   "minor": false,
+   "population": 101,
+   "capital": "Hanoi",
+   "government": "One-Party State",
+   "cells": 32,
+   "cities": 8,
+   "ports": 7,
+   "victoryPointsPct": 4.34,
+   "start": {
+    "funds": 73,
+    "materials": 30,
+    "fuel": 30,
+    "manpower": 1366,
+    "incomeFunds": 10.43,
+    "incomeMaterials": 6.92,
+    "incomeManpower": 119.51
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "TH",
+   "name": "Thailand",
+   "playable": true,
+   "minor": false,
+   "population": 71.6,
+   "capital": "Bangkok",
+   "government": "Constitutional Monarchy",
+   "cells": 40,
+   "cities": 8,
+   "ports": 4,
+   "victoryPointsPct": 4.98,
+   "start": {
+    "funds": 75,
+    "materials": 26,
+    "fuel": 30,
+    "manpower": 1004,
+    "incomeFunds": 12.09,
+    "incomeMaterials": 5.9,
+    "incomeManpower": 87.89
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "MY",
+   "name": "Malaysia",
+   "playable": true,
+   "minor": false,
+   "population": 34,
+   "capital": "Kuala Lumpur",
+   "government": "Constitutional Monarchy",
+   "cells": 33,
+   "cities": 8,
+   "ports": 8,
+   "victoryPointsPct": 4.42,
+   "start": {
+    "funds": 76,
+    "materials": 24,
+    "fuel": 30,
+    "manpower": 435,
+    "incomeFunds": 12.86,
+    "incomeMaterials": 5.48,
+    "incomeManpower": 38.05
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "SG",
+   "name": "Singapore",
+   "playable": true,
+   "minor": false,
+   "population": 6,
+   "capital": "Singapore",
+   "government": "Democracy",
+   "cells": 4,
+   "cities": 4,
+   "ports": 4,
+   "victoryPointsPct": 1.5,
+   "start": {
+    "funds": 79,
+    "materials": 11,
+    "fuel": 30,
+    "manpower": 775,
+    "incomeFunds": 17.4,
+    "incomeMaterials": 3.82,
+    "incomeManpower": 67.78
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "ID",
+   "name": "Indonesia",
+   "playable": true,
+   "minor": false,
+   "population": 281,
+   "capital": "Jakarta",
+   "government": "Democracy",
+   "cells": 88,
+   "cities": 17,
+   "ports": 25,
+   "victoryPointsPct": 10.19,
+   "start": {
+    "funds": 78,
+    "materials": 55,
+    "fuel": 30,
+    "manpower": 947,
+    "incomeFunds": 13.98,
+    "incomeMaterials": 13.28,
+    "incomeManpower": 82.82
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "PG",
+   "name": "Papua New Guinea",
+   "playable": true,
+   "minor": false,
+   "population": 10.3,
+   "capital": "Port Moresby",
+   "government": "Democracy",
+   "cells": 29,
+   "cities": 5,
+   "ports": 6,
+   "victoryPointsPct": 3.63,
+   "start": {
+    "funds": 71,
+    "materials": 35,
+    "fuel": 30,
+    "manpower": 312,
+    "incomeFunds": 9.9,
+    "incomeMaterials": 8.24,
+    "incomeManpower": 27.32
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "AU",
+   "name": "Australia",
+   "playable": true,
+   "minor": false,
+   "population": 27.2,
+   "capital": "Canberra",
+   "government": "Constitutional Monarchy",
+   "cells": 109,
+   "cities": 12,
+   "ports": 13,
+   "victoryPointsPct": 11.06,
+   "start": {
+    "funds": 84,
+    "materials": 66,
+    "fuel": 30,
+    "manpower": 406,
+    "incomeFunds": 23.63,
+    "incomeMaterials": 16.24,
+    "incomeManpower": 35.53
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "NZ",
+   "name": "New Zealand",
+   "playable": true,
+   "minor": false,
+   "population": 5.3,
+   "capital": "Wellington",
+   "government": "Constitutional Monarchy",
+   "cells": 35,
+   "cities": 6,
+   "ports": 6,
+   "victoryPointsPct": 4.27,
+   "start": {
+    "funds": 76,
+    "materials": 24,
+    "fuel": 30,
+    "manpower": 270,
+    "incomeFunds": 16.51,
+    "incomeMaterials": 6.84,
+    "incomeManpower": 23.6
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "FJ",
+   "name": "Fiji",
+   "playable": true,
+   "minor": false,
+   "population": 0.93,
+   "capital": "Suva",
+   "government": "Democracy",
+   "cells": 14,
+   "cities": 4,
+   "ports": 6,
+   "victoryPointsPct": 2.29,
+   "start": {
+    "funds": 71,
+    "materials": 19,
+    "fuel": 30,
+    "manpower": 207,
+    "incomeFunds": 9.66,
+    "incomeMaterials": 4.34,
+    "incomeManpower": 18.12
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "US",
+   "name": "United States",
+   "playable": true,
+   "minor": false,
+   "population": 1.7,
+   "capital": "Honolulu",
+   "government": "Democracy",
+   "cells": 15,
+   "cities": 5,
+   "ports": 9,
+   "victoryPointsPct": 2.53,
+   "start": {
+    "funds": 90,
+    "materials": 14,
+    "fuel": 30,
+    "manpower": 763,
+    "incomeFunds": 28.88,
+    "incomeMaterials": 4.41,
+    "incomeManpower": 66.76
+   },
+   "startingArmy": null
+  },
+  {
+   "code": "BN",
+   "name": "Brunei",
+   "playable": false,
+   "minor": true,
+   "population": 0.46,
+   "capital": "Bandar Seri Begawan",
+   "government": "Constitutional Monarchy",
+   "cells": 1,
+   "cities": 1,
+   "ports": 1,
+   "victoryPointsPct": 0.32,
+   "start": {
+    "funds": 17,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 2.03,
+    "incomeMaterials": 0.06,
+    "incomeManpower": 3.03
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "TL",
+   "name": "Timor-Leste",
+   "playable": false,
+   "minor": true,
+   "population": 1.4,
+   "capital": "Dili",
+   "government": "Democracy",
+   "cells": 3,
+   "cities": 1,
+   "ports": 1,
+   "victoryPointsPct": 0.47,
+   "start": {
+    "funds": 16,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 1.9,
+    "incomeMaterials": 0.18,
+    "incomeManpower": 3.72
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "SB",
+   "name": "Solomon Islands",
+   "playable": false,
+   "minor": true,
+   "population": 0.74,
+   "capital": "Honiara",
+   "government": "Democracy",
+   "cells": 5,
+   "cities": 1,
+   "ports": 5,
+   "victoryPointsPct": 0.63,
+   "start": {
+    "funds": 18,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 1.86,
+    "incomeMaterials": 0.3,
+    "incomeManpower": 3.27
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "VU",
+   "name": "Vanuatu",
+   "playable": false,
+   "minor": true,
+   "population": 0.33,
+   "capital": "Port Vila",
+   "government": "Democracy",
+   "cells": 3,
+   "cities": 1,
+   "ports": 3,
+   "victoryPointsPct": 0.47,
+   "start": {
+    "funds": 14,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 1.82,
+    "incomeMaterials": 0.18,
+    "incomeManpower": 2.88
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "NC",
+   "name": "New Caledonia",
+   "playable": false,
+   "minor": true,
+   "population": 0.27,
+   "capital": "Noumea",
+   "government": "Democracy",
+   "cells": 2,
+   "cities": 1,
+   "ports": 1,
+   "victoryPointsPct": 0.39,
+   "start": {
+    "funds": 17,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 1.98,
+    "incomeMaterials": 0.12,
+    "incomeManpower": 2.81
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "WS",
+   "name": "Samoa",
+   "playable": false,
+   "minor": true,
+   "population": 0.22,
+   "capital": "Apia",
+   "government": "Democracy",
+   "cells": 2,
+   "cities": 1,
+   "ports": 2,
+   "victoryPointsPct": 0.39,
+   "start": {
+    "funds": 17,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 1.82,
+    "incomeMaterials": 0.12,
+    "incomeManpower": 2.74
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "TO",
+   "name": "Tonga",
+   "playable": false,
+   "minor": true,
+   "population": 0.1,
+   "capital": "Nuku'alofa",
+   "government": "Constitutional Monarchy",
+   "cells": 1,
+   "cities": 1,
+   "ports": 1,
+   "victoryPointsPct": 0.32,
+   "start": {
+    "funds": 14,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 1.78,
+    "incomeMaterials": 0.06,
+    "incomeManpower": 2.53
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "PW",
+   "name": "Palau",
+   "playable": false,
+   "minor": true,
+   "population": 0.02,
+   "capital": "Ngerulmud",
+   "government": "Democracy",
+   "cells": 1,
+   "cities": 1,
+   "ports": 1,
+   "victoryPointsPct": 0.32,
+   "start": {
+    "funds": 16,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 2.12,
+    "incomeMaterials": 0.05,
+    "incomeManpower": 2.29
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "RU",
+   "name": "Russia",
+   "playable": false,
+   "minor": true,
+   "population": 3.8,
+   "capital": "Vladivostok",
+   "government": "One-Party State",
+   "cells": 9,
+   "cities": 2,
+   "ports": 2,
+   "victoryPointsPct": 1.03,
+   "start": {
+    "funds": 13,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 123,
+    "incomeFunds": 1.63,
+    "incomeMaterials": 0.65,
+    "incomeManpower": 10.28
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "MM",
+   "name": "Myanmar",
+   "playable": false,
+   "minor": true,
+   "population": 54,
+   "capital": "Naypyidaw",
+   "government": "Military Government",
+   "cells": 16,
+   "cities": 5,
+   "ports": 3,
+   "victoryPointsPct": 1.82,
+   "start": {
+    "funds": 17,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 550,
+    "incomeFunds": 1.45,
+    "incomeMaterials": 1.15,
+    "incomeManpower": 45.85
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "LA",
+   "name": "Laos",
+   "playable": false,
+   "minor": true,
+   "population": 7.6,
+   "capital": "Vientiane",
+   "government": "One-Party State",
+   "cells": 6,
+   "cities": 1,
+   "ports": 0,
+   "victoryPointsPct": 0.71,
+   "start": {
+    "funds": 14,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 152,
+    "incomeFunds": 1.53,
+    "incomeMaterials": 0.43,
+    "incomeManpower": 12.66
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "KH",
+   "name": "Cambodia",
+   "playable": false,
+   "minor": true,
+   "population": 17,
+   "capital": "Phnom Penh",
+   "government": "One-Party State",
+   "cells": 5,
+   "cities": 1,
+   "ports": 1,
+   "victoryPointsPct": 0.63,
+   "start": {
+    "funds": 17,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 200,
+    "incomeFunds": 1.85,
+    "incomeMaterials": 0.3,
+    "incomeManpower": 16.69
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "MN",
+   "name": "Mongolia",
+   "playable": false,
+   "minor": true,
+   "population": 2.9,
+   "capital": "Ulaanbaatar",
+   "government": "Democracy",
+   "cells": 12,
+   "cities": 1,
+   "ports": 0,
+   "victoryPointsPct": 1.18,
+   "start": {
+    "funds": 13,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 2.02,
+    "incomeMaterials": 0.72,
+    "incomeManpower": 4.42
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "IN",
+   "name": "India",
+   "playable": false,
+   "minor": true,
+   "population": 29,
+   "capital": "Imphal",
+   "government": "Democracy",
+   "cells": 8,
+   "cities": 3,
+   "ports": 0,
+   "victoryPointsPct": 1.03,
+   "start": {
+    "funds": 14,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 2.28,
+    "incomeMaterials": 0.48,
+    "incomeManpower": 9.45
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  },
+  {
+   "code": "BD",
+   "name": "Bangladesh",
+   "playable": false,
+   "minor": true,
+   "population": 2.5,
+   "capital": "Rangamati",
+   "government": "Democracy",
+   "cells": 2,
+   "cities": 1,
+   "ports": 1,
+   "victoryPointsPct": 0.39,
+   "start": {
+    "funds": 13,
+    "materials": 6,
+    "fuel": 12,
+    "manpower": 120,
+    "incomeFunds": 1.89,
+    "incomeMaterials": 0.12,
+    "incomeManpower": 4.26
+   },
+   "startingArmy": {
+    "inf": 4
+   }
+  }
+ ],
+ "governments": [
+  {
+   "key": "dem",
+   "name": "Democracy",
+   "stability": 70,
+   "warSupport": 40,
+   "fundsMultiplier": 1.08,
+   "manpowerMultiplier": 1,
+   "unitCostMultiplier": 1,
+   "summary": "Strong economy. Offensive wars hurt stability unless war support is high."
+  },
+  {
+   "key": "cmon",
+   "name": "Constitutional Monarchy",
+   "stability": 74,
+   "warSupport": 45,
+   "fundsMultiplier": 1.04,
+   "manpowerMultiplier": 1,
+   "unitCostMultiplier": 1,
+   "summary": "The steadiest system. A head of state above politics."
+  },
+  {
+   "key": "one",
+   "name": "One-Party State",
+   "stability": 66,
+   "warSupport": 60,
+   "fundsMultiplier": 0.98,
+   "manpowerMultiplier": 1.2,
+   "unitCostMultiplier": 1,
+   "summary": "Mobilises people easily. Free nations trust it less."
+  },
+  {
+   "key": "mil",
+   "name": "Military Government",
+   "stability": 52,
+   "warSupport": 70,
+   "fundsMultiplier": 0.88,
+   "manpowerMultiplier": 1.35,
+   "unitCostMultiplier": 0.9,
+   "summary": "Cheap, fast armies. Weak economy and shaky stability."
+  }
+ ],
+ "units": [
+  {
+   "key": "inf",
+   "name": "Infantry",
+   "domain": "land",
+   "role": "combat",
+   "size": "60 soldiers",
+   "crew": 60,
+   "manpower": 60,
+   "funds": 2,
+   "materials": 1,
+   "buildTurns": 1,
+   "recruitAt": "city",
+   "upkeepFunds": 0.05,
+   "movement": 3,
+   "defence": 7,
+   "detection": 1,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 0,
+   "ammoPerFight": 6,
+   "attack": {
+    "land": 5,
+    "air": 1,
+    "ships": 0,
+    "subs": 0,
+    "structures": 2
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 3,
+   "description": "Sixty riflemen with machine guns and anti-tank launchers. Cheap, everywhere, and the only unit that can wade across water on its own.",
+   "bestUsedFor": [
+    "Holding cities, hills and jungle",
+    "Taking and occupying ground",
+    "Soaking up an attack behind defences"
+   ],
+   "strongAgainst": "Other infantry, support units",
+   "weakAgainst": "Tanks, artillery, helicopters"
+  },
+  {
+   "key": "sf",
+   "name": "Special Forces",
+   "domain": "land",
+   "role": "combat",
+   "size": "12 operators",
+   "crew": 12,
+   "manpower": 40,
+   "funds": 4.3,
+   "materials": 2,
+   "buildTurns": 2,
+   "recruitAt": "city",
+   "upkeepFunds": 0.1,
+   "movement": 3,
+   "defence": 5,
+   "detection": 2,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 0,
+   "ammoPerFight": 8,
+   "attack": {
+    "land": 7,
+    "air": 1,
+    "ships": 1,
+    "subs": 0,
+    "structures": 6
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 5,
+   "description": "A dozen elite operators trained for sabotage, raids and deep reconnaissance. Light, quiet and dangerous behind the lines.",
+   "bestUsedFor": [
+    "Raiding supply columns and transports",
+    "Wrecking enemy buildings",
+    "Spotting ahead of the main force"
+   ],
+   "strongAgainst": "Support units, structures",
+   "weakAgainst": "Armour, any stand-up fight"
+  },
+  {
+   "key": "scout",
+   "name": "Scout",
+   "domain": "land",
+   "role": "combat",
+   "size": "8 soldiers + 2 vehicles",
+   "crew": 8,
+   "manpower": 20,
+   "funds": 2,
+   "materials": 3,
+   "buildTurns": 1,
+   "recruitAt": "city",
+   "upkeepFunds": 0.05,
+   "movement": 4,
+   "defence": 3,
+   "detection": 2,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 4,
+   "ammoPerFight": 4,
+   "attack": {
+    "land": 2,
+    "air": 0,
+    "ships": 0,
+    "subs": 0,
+    "structures": 1
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 3,
+   "description": "A small mounted patrol that sees further than it can fight. Fast enough to find the enemy and get away again.",
+   "bestUsedFor": [
+    "Pushing back the fog of war",
+    "Watching borders and coasts",
+    "Catching unescorted trucks"
+   ],
+   "strongAgainst": "Lone support units",
+   "weakAgainst": "Almost everything else"
+  },
+  {
+   "key": "lt",
+   "name": "Light Tank",
+   "domain": "land",
+   "role": "combat",
+   "size": "1 tank + 3 crew",
+   "crew": 3,
+   "manpower": 50,
+   "funds": 5.3,
+   "materials": 6,
+   "buildTurns": 2,
+   "recruitAt": "city",
+   "upkeepFunds": 0.15,
+   "movement": 3,
+   "defence": 6,
+   "detection": 1,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 6,
+   "ammoPerFight": 12,
+   "attack": {
+    "land": 7,
+    "air": 1,
+    "ships": 0,
+    "subs": 0,
+    "structures": 3
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 7,
+   "description": "A fast, lightly armoured tank. Hits harder than infantry and moves quicker than a main battle tank, but can't trade blows with one.",
+   "bestUsedFor": [
+    "Exploiting gaps and chasing retreats",
+    "Hunting supply columns",
+    "Supporting infantry assaults"
+   ],
+   "strongAgainst": "Infantry, support units",
+   "weakAgainst": "Main battle tanks, helicopters, jets"
+  },
+  {
+   "key": "mbt",
+   "name": "Main Battle Tank",
+   "domain": "land",
+   "role": "combat",
+   "size": "1 tank + 4 crew",
+   "crew": 4,
+   "manpower": 80,
+   "funds": 9.6,
+   "materials": 9,
+   "buildTurns": 2,
+   "recruitAt": "city",
+   "upkeepFunds": 0.25,
+   "movement": 2,
+   "defence": 11,
+   "detection": 1,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 9,
+   "ammoPerFight": 15,
+   "attack": {
+    "land": 12,
+    "air": 0,
+    "ships": 0,
+    "subs": 0,
+    "structures": 5
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 13,
+   "description": "Heavy armour and a big gun. The backbone of any land offensive, but slow, thirsty and hungry for ammunition.",
+   "bestUsedFor": [
+    "Breaking through defended lines",
+    "Killing other tanks",
+    "Spearheading with supply trucks close behind"
+   ],
+   "strongAgainst": "Armour, infantry in the open",
+   "weakAgainst": "Helicopters, jets, artillery from range"
+  },
+  {
+   "key": "art",
+   "name": "SP Artillery",
+   "domain": "land",
+   "role": "combat",
+   "size": "1 gun + 5 crew",
+   "crew": 5,
+   "manpower": 50,
+   "funds": 7.5,
+   "materials": 7,
+   "buildTurns": 2,
+   "recruitAt": "city",
+   "upkeepFunds": 0.2,
+   "movement": 2,
+   "defence": 4,
+   "detection": 1,
+   "sonar": false,
+   "strikeRange": 2,
+   "fuelPerMove": 7,
+   "ammoPerFight": 20,
+   "attack": {
+    "land": 10,
+    "air": 0,
+    "ships": 2,
+    "subs": 0,
+    "structures": 9
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 10,
+   "description": "A self-propelled howitzer. Fires on cells up to two away without ever entering the fight, but its thin armour means it must stay behind the line.",
+   "bestUsedFor": [
+    "Shelling a contested cell before you assault",
+    "Breaking fortifications and buildings",
+    "Wearing down an attack on your own lines"
+   ],
+   "strongAgainst": "Infantry, structures, anything dug in",
+   "weakAgainst": "Anything that reaches it: tanks, aircraft"
+  },
+  {
+   "key": "lrad",
+   "name": "Mobile Radar",
+   "domain": "land",
+   "role": "combat",
+   "size": "1 vehicle + 4 crew",
+   "crew": 4,
+   "manpower": 30,
+   "funds": 5.3,
+   "materials": 3,
+   "buildTurns": 2,
+   "recruitAt": "city",
+   "upkeepFunds": 0.1,
+   "movement": 2,
+   "defence": 2,
+   "detection": 3,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 5,
+   "ammoPerFight": 2,
+   "attack": {
+    "land": 0,
+    "air": 2,
+    "ships": 0,
+    "subs": 0,
+    "structures": 0
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 7,
+   "description": "A truck-mounted search radar. Sees aircraft and movement far over the horizon and gives nearby air defence something to aim at.",
+   "bestUsedFor": [
+    "Extending your vision over a front",
+    "Spotting incoming air strikes",
+    "Watching a long border cheaply"
+   ],
+   "strongAgainst": "Nothing on its own",
+   "weakAgainst": "Everything; keep it escorted"
+  },
+  {
+   "key": "heli",
+   "name": "Helicopter",
+   "domain": "air",
+   "role": "combat",
+   "size": "1 airframe + 2 crew",
+   "crew": 2,
+   "manpower": 50,
+   "funds": 8.5,
+   "materials": 6,
+   "buildTurns": 2,
+   "recruitAt": "air",
+   "upkeepFunds": 0.2,
+   "movement": 5,
+   "defence": 4,
+   "detection": 2,
+   "sonar": false,
+   "strikeRange": 2,
+   "fuelPerMove": 8,
+   "ammoPerFight": 25,
+   "attack": {
+    "land": 9,
+    "air": 1,
+    "ships": 5,
+    "subs": 3,
+    "structures": 4
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 11,
+   "description": "An attack helicopter armed with anti-tank missiles and cannon. Strikes cells up to two away and is a menace to armour and small ships.",
+   "bestUsedFor": [
+    "Killing tanks from range",
+    "Hitting ships close to shore",
+    "Hunting submarines in a pinch"
+   ],
+   "strongAgainst": "Armour, light ships, support",
+   "weakAgainst": "Jets, frigates and air defence"
+  },
+  {
+   "key": "jet",
+   "name": "Jet Fighter",
+   "domain": "air",
+   "role": "combat",
+   "size": "1 airframe + 1 pilot",
+   "crew": 1,
+   "manpower": 70,
+   "funds": 14.9,
+   "materials": 9,
+   "buildTurns": 3,
+   "recruitAt": "air",
+   "upkeepFunds": 0.35,
+   "movement": 9,
+   "defence": 6,
+   "detection": 2,
+   "sonar": false,
+   "strikeRange": 4,
+   "fuelPerMove": 6,
+   "ammoPerFight": 25,
+   "attack": {
+    "land": 6,
+    "air": 12,
+    "ships": 7,
+    "subs": 0,
+    "structures": 6
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 18,
+   "description": "A multi-role fighter. Rules the sky, then turns its missiles and bombs on anything within three cells.",
+   "bestUsedFor": [
+    "Destroying enemy aircraft",
+    "Air strikes deep behind the front",
+    "Hitting ships at sea"
+   ],
+   "strongAgainst": "Aircraft, ships",
+   "weakAgainst": "Air defence; can't touch submarines"
+  },
+  {
+   "key": "aew",
+   "name": "Airborne Radar",
+   "domain": "air",
+   "role": "combat",
+   "size": "1 AEW&C + 10 crew",
+   "crew": 10,
+   "manpower": 90,
+   "funds": 19.2,
+   "materials": 11,
+   "buildTurns": 3,
+   "recruitAt": "air",
+   "upkeepFunds": 0.4,
+   "movement": 7,
+   "defence": 3,
+   "detection": 4,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 5,
+   "ammoPerFight": 0,
+   "attack": {
+    "land": 0,
+    "air": 0,
+    "ships": 0,
+    "subs": 0,
+    "structures": 0
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 23,
+   "description": "A flying radar station. Unarmed, but it sees four cells in every direction and spots what everything else misses.",
+   "bestUsedFor": [
+    "Seeing deep into enemy territory",
+    "Early warning over the sea"
+   ],
+   "strongAgainst": "Nothing; it doesn't fight",
+   "weakAgainst": "Jets; keep it behind your own fighters"
+  },
+  {
+   "key": "ff",
+   "name": "Frigate",
+   "domain": "sea",
+   "role": "combat",
+   "size": "1 ship + 180 crew",
+   "crew": 180,
+   "manpower": 220,
+   "funds": 17,
+   "materials": 19,
+   "buildTurns": 3,
+   "recruitAt": "port",
+   "upkeepFunds": 0.4,
+   "movement": 4,
+   "defence": 9,
+   "detection": 2,
+   "sonar": true,
+   "strikeRange": 1,
+   "fuelPerMove": 4,
+   "ammoPerFight": 15,
+   "attack": {
+    "land": 7,
+    "air": 7,
+    "ships": 10,
+    "subs": 12,
+    "structures": 5
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 22,
+   "description": "A general-purpose warship with guns, missiles and sonar. Shells targets on the coast and hunts submarines.",
+   "bestUsedFor": [
+    "Escorting transports and supply ships",
+    "Hunting submarines",
+    "Naval gunfire on coastal cells"
+   ],
+   "strongAgainst": "Submarines, ships, aircraft",
+   "weakAgainst": "Submarines that strike first, massed jets"
+  },
+  {
+   "key": "ss",
+   "name": "Submarine",
+   "domain": "sub",
+   "role": "combat",
+   "size": "1 boat + 50 crew",
+   "crew": 50,
+   "manpower": 120,
+   "funds": 19.2,
+   "materials": 15,
+   "buildTurns": 3,
+   "recruitAt": "port",
+   "upkeepFunds": 0.35,
+   "movement": 3,
+   "defence": 6,
+   "detection": 1,
+   "sonar": true,
+   "strikeRange": 0,
+   "fuelPerMove": 4,
+   "ammoPerFight": 25,
+   "attack": {
+    "land": 0,
+    "air": 0,
+    "ships": 14,
+    "subs": 6,
+    "structures": 0
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 24,
+   "description": "A hunter-killer submarine. Invisible without sonar, and its torpedoes sink almost anything that floats.",
+   "bestUsedFor": [
+    "Sinking transports and supply ships",
+    "Ambushing surface fleets",
+    "Escorting your own convoys from below"
+   ],
+   "strongAgainst": "Ships, transports",
+   "weakAgainst": "Frigates with sonar, helicopters"
+  },
+  {
+   "key": "rp",
+   "name": "Radar Picket",
+   "domain": "sea",
+   "role": "combat",
+   "size": "1 ship + 120 crew",
+   "crew": 120,
+   "manpower": 150,
+   "funds": 14.9,
+   "materials": 17,
+   "buildTurns": 3,
+   "recruitAt": "port",
+   "upkeepFunds": 0.3,
+   "movement": 4,
+   "defence": 7,
+   "detection": 3,
+   "sonar": false,
+   "strikeRange": 1,
+   "fuelPerMove": 4,
+   "ammoPerFight": 10,
+   "attack": {
+    "land": 1,
+    "air": 9,
+    "ships": 4,
+    "subs": 1,
+    "structures": 1
+   },
+   "carries": null,
+   "supplies": 0,
+   "startingArmyPoints": 19,
+   "description": "A radar picket ship bristling with anti-air missiles. Sees far and swats aircraft out of the sky one cell around it.",
+   "bestUsedFor": [
+    "Air defence for a fleet",
+    "Long-range eyes at sea",
+    "Shooting down air strikes on the coast"
+   ],
+   "strongAgainst": "Aircraft",
+   "weakAgainst": "Submarines, other warships"
+  },
+  {
+   "key": "tland",
+   "name": "Transport Truck",
+   "domain": "land",
+   "role": "transport",
+   "size": "1 truck + 2 crew",
+   "crew": 2,
+   "manpower": 20,
+   "funds": 3,
+   "materials": 3,
+   "buildTurns": 1,
+   "recruitAt": "city",
+   "upkeepFunds": 0.05,
+   "movement": 6,
+   "defence": 2,
+   "detection": 1,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 3,
+   "ammoPerFight": 0,
+   "attack": null,
+   "carries": {
+    "slots": 3,
+    "units": [
+     "inf",
+     "sf"
+    ]
+   },
+   "supplies": 0,
+   "startingArmyPoints": 4,
+   "description": "An army truck for moving foot soldiers fast along roads. Unarmed: lose it and the passengers spill out hurt.",
+   "bestUsedFor": [
+    "Moving infantry up to the front",
+    "Shuttling troops between cities"
+   ],
+   "strongAgainst": "Nothing",
+   "weakAgainst": "Anything armed"
+  },
+  {
+   "key": "tair",
+   "name": "Transport Aircraft",
+   "domain": "air",
+   "role": "transport",
+   "size": "1 airlifter + 4 crew",
+   "crew": 4,
+   "manpower": 40,
+   "funds": 12.8,
+   "materials": 10,
+   "buildTurns": 3,
+   "recruitAt": "air",
+   "upkeepFunds": 0.3,
+   "movement": 10,
+   "defence": 3,
+   "detection": 1,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 5,
+   "ammoPerFight": 0,
+   "attack": null,
+   "carries": {
+    "slots": 4,
+    "units": [
+     "inf",
+     "sf",
+     "scout",
+     "lrad",
+     "lt"
+    ]
+   },
+   "supplies": 0,
+   "startingArmyPoints": 16,
+   "description": "A heavy airlifter. Flies troops and light vehicles anywhere in range and drops paratroopers onto enemy ground.",
+   "bestUsedFor": [
+    "Airborne assaults",
+    "Rushing reinforcements to an island",
+    "Carrying light tanks and radar to airbases"
+   ],
+   "strongAgainst": "Nothing",
+   "weakAgainst": "Jets and air defence; cargo dies with it"
+  },
+  {
+   "key": "tsea",
+   "name": "Transport Ship",
+   "domain": "sea",
+   "role": "transport",
+   "size": "1 ship + 90 crew",
+   "crew": 90,
+   "manpower": 120,
+   "funds": 10.6,
+   "materials": 15,
+   "buildTurns": 2,
+   "recruitAt": "port",
+   "upkeepFunds": 0.25,
+   "movement": 7,
+   "defence": 5,
+   "detection": 1,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 3,
+   "ammoPerFight": 0,
+   "attack": null,
+   "carries": {
+    "slots": 8,
+    "units": [
+     "inf",
+     "sf",
+     "scout",
+     "lt",
+     "mbt",
+     "art",
+     "lrad",
+     "lland",
+     "tland"
+    ]
+   },
+   "supplies": 0,
+   "startingArmyPoints": 14,
+   "description": "A roll-on roll-off transport ship. Carries a small army, tanks included, across the water and lands it on a coast.",
+   "bestUsedFor": [
+    "Amphibious landings",
+    "Moving armour between islands",
+    "Ferrying supply trucks to a new front"
+   ],
+   "strongAgainst": "Nothing",
+   "weakAgainst": "Submarines above all; escort it"
+  },
+  {
+   "key": "lland",
+   "name": "Supply Truck",
+   "domain": "land",
+   "role": "logistics",
+   "size": "1 truck + 3 crew",
+   "crew": 3,
+   "manpower": 25,
+   "funds": 3,
+   "materials": 3,
+   "buildTurns": 1,
+   "recruitAt": "city",
+   "upkeepFunds": 0.08,
+   "movement": 4,
+   "defence": 2,
+   "detection": 1,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 3,
+   "ammoPerFight": 0,
+   "attack": null,
+   "carries": null,
+   "supplies": 240,
+   "startingArmyPoints": 5,
+   "description": "A fuel and ammunition truck. Refills every friendly unit in its own cell and the cells next door, running supplies forward to the front.",
+   "bestUsedFor": [
+    "Keeping tanks moving deep in enemy land",
+    "Resupplying a fight from one cell back",
+    "Topping up a stalled advance"
+   ],
+   "strongAgainst": "Nothing",
+   "weakAgainst": "Raiders; keep it attached or one cell back"
+  },
+  {
+   "key": "lair",
+   "name": "Supply Aircraft",
+   "domain": "air",
+   "role": "logistics",
+   "size": "1 tanker + 5 crew",
+   "crew": 5,
+   "manpower": 50,
+   "funds": 14.9,
+   "materials": 10,
+   "buildTurns": 3,
+   "recruitAt": "air",
+   "upkeepFunds": 0.35,
+   "movement": 7,
+   "defence": 3,
+   "detection": 1,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 5,
+   "ammoPerFight": 0,
+   "attack": null,
+   "carries": null,
+   "supplies": 200,
+   "startingArmyPoints": 18,
+   "description": "An aerial tanker and cargo plane. Resupplies units up to two cells away, over land or sea.",
+   "bestUsedFor": [
+    "Supplying an island garrison",
+    "Keeping a fast advance fuelled"
+   ],
+   "strongAgainst": "Nothing",
+   "weakAgainst": "Jets and air defence"
+  },
+  {
+   "key": "lsea",
+   "name": "Supply Ship",
+   "domain": "sea",
+   "role": "logistics",
+   "size": "1 oiler + 110 crew",
+   "crew": 110,
+   "manpower": 150,
+   "funds": 11.7,
+   "materials": 15,
+   "buildTurns": 2,
+   "recruitAt": "port",
+   "upkeepFunds": 0.3,
+   "movement": 4,
+   "defence": 5,
+   "detection": 1,
+   "sonar": false,
+   "strikeRange": 0,
+   "fuelPerMove": 3,
+   "ammoPerFight": 0,
+   "attack": null,
+   "carries": null,
+   "supplies": 400,
+   "startingArmyPoints": 15,
+   "description": "A fleet oiler. Refuels and rearms ships and coastal units in its own and neighbouring cells.",
+   "bestUsedFor": [
+    "Keeping a fleet at sea",
+    "Supplying island garrisons from offshore"
+   ],
+   "strongAgainst": "Nothing",
+   "weakAgainst": "Submarines; escort it"
+  }
+ ],
+ "battalions": [
+  {
+   "key": "armd",
+   "name": "Armoured Battalion",
+   "echelon": "II",
+   "arm": "land",
+   "requirement": "3+ tanks (main battle or light), at most 1 infantry",
+   "effect": "Hits 12% harder."
+  },
+  {
+   "key": "mech",
+   "name": "Mechanised Battalion",
+   "echelon": "II",
+   "arm": "land",
+   "requirement": "Infantry and tanks together, 3+ units",
+   "effect": "Combined arms: hits 10% harder and takes 8% less damage."
+  },
+  {
+   "key": "inf",
+   "name": "Infantry Battalion",
+   "echelon": "II",
+   "arm": "land",
+   "requirement": "3+ infantry, no tanks",
+   "effect": "Dug in: takes 15% less damage holding friendly ground."
+  },
+  {
+   "key": "arty",
+   "name": "Artillery Battery",
+   "echelon": "II",
+   "arm": "land",
+   "requirement": "2+ SP artillery",
+   "effect": "Massed guns: ranged fire 20% stronger."
+  },
+  {
+   "key": "sog",
+   "name": "Special Operations Group",
+   "echelon": "I",
+   "arm": "land",
+   "requirement": "Special forces plus scouts or more special forces",
+   "effect": "Raiders: 30% more damage to support units and structures."
+  },
+  {
+   "key": "wing",
+   "name": "Strike Wing",
+   "echelon": "III",
+   "arm": "air",
+   "requirement": "2+ jets or helicopters",
+   "effect": "Coordinated sorties: strikes 15% stronger, 20% less damage from air defence."
+  },
+  {
+   "key": "tf",
+   "name": "Naval Task Force",
+   "echelon": "II",
+   "arm": "sea",
+   "requirement": "2+ frigates or radar pickets",
+   "effect": "Layered defences: ships take 12% less damage."
+  },
+  {
+   "key": "pack",
+   "name": "Submarine Wolfpack",
+   "echelon": "II",
+   "arm": "sea",
+   "requirement": "2+ submarines",
+   "effect": "Hunting together: 15% more damage."
+  },
+  {
+   "key": "amph",
+   "name": "Amphibious Group",
+   "echelon": "II",
+   "arm": "sea",
+   "requirement": "A transport ship plus a warship",
+   "effect": "Escorted: transports take 30% less damage."
+  },
+  {
+   "key": "convoy",
+   "name": "Supply Convoy",
+   "echelon": "I",
+   "arm": "any",
+   "requirement": "A supply unit plus an escort or more supply",
+   "effect": "Supplies transfer in a single turn alongside."
+  }
+ ],
+ "buildings": [
+  {
+   "key": "air",
+   "name": "Airbase",
+   "category": "Military",
+   "maxLevel": 1,
+   "buildTurns": 2,
+   "citiesOnly": false,
+   "offshore": false,
+   "needs": null,
+   "purpose": "A runway with hangars and a control tower: the home of your air force.",
+   "placement": "Any land cell you hold. Aircraft can only be recruited at an airbase in a city or capital of your own country, not on captured ground.",
+   "howItWorks": "One level. Aircraft based here are fully refuelled and rearmed each turn (a logistics depot does the same). The airbase has no guns of its own: anti-air fire comes only from units in the cell.",
+   "tips": [
+    "Station anti-air capable units with your aircraft to defend the base.",
+    "Aircraft return to their home base when fuel runs low, so build bases near the fronts you'll fight over.",
+    "Airbases are prime strike targets: losing one strands the aircraft that use it."
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "funds": 6,
+     "materials": 6,
+     "turns": 2,
+     "effect": "Aircraft can be recruited here (home cities only); aircraft here are refuelled and rearmed"
+    }
+   ]
+  },
+  {
+   "key": "fort",
+   "name": "Defences",
+   "category": "Military",
+   "maxLevel": 5,
+   "buildTurns": 2,
+   "citiesOnly": false,
+   "offshore": false,
+   "needs": null,
+   "purpose": "Fortified positions: bunkers, trenches and wire that shield your land units from enemy fire.",
+   "placement": "Any land cell you hold. One construction at a time per cell.",
+   "howItWorks": "Protects land units friendly to the cell's owner, against both direct fire and bombardment. It doesn't protect ships, aircraft or attackers standing in the cell. Capturing the cell destroys one level, and strikes can wreck levels.",
+   "tips": [
+    "Fortify capitals and border cities first: they hold the most victory points.",
+    "Defences multiply with terrain cover, so jungle and urban cells become very hard to take.",
+    "Pair with artillery behind the line to punish attackers stuck in front of the wall."
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "funds": 4,
+     "materials": 6,
+     "turns": 2,
+     "effect": "Your land units here take 20% less damage"
+    },
+    {
+     "level": 2,
+     "funds": 6,
+     "materials": 10,
+     "turns": 2,
+     "effect": "Your land units here take 33% less damage"
+    },
+    {
+     "level": 3,
+     "funds": 9,
+     "materials": 13,
+     "turns": 2,
+     "effect": "Your land units here take 43% less damage"
+    },
+    {
+     "level": 4,
+     "funds": 11,
+     "materials": 17,
+     "turns": 2,
+     "effect": "Your land units here take 50% less damage"
+    },
+    {
+     "level": 5,
+     "funds": 14,
+     "materials": 20,
+     "turns": 2,
+     "effect": "Your land units here take 56% less damage"
+    }
+   ]
+  },
+  {
+   "key": "fac",
+   "name": "Factory",
+   "category": "Industrial",
+   "maxLevel": 5,
+   "buildTurns": 3,
+   "citiesOnly": false,
+   "offshore": false,
+   "needs": null,
+   "purpose": "An industrial complex producing both money and materials.",
+   "placement": "Any land cell you hold; best in cities you're unlikely to lose.",
+   "howItWorks": "Its output joins your economy each turn. Funds are scaled by your government and stability and halved on occupied land. Materials are only scaled by your economic policy (free market 90%, state-directed 120%) and aren't reduced on occupied land.",
+   "tips": [
+    "Factories are the main source of materials for most nations.",
+    "Upgrade a few factories deep rather than many shallow ones: the cost per level rises slowly.",
+    "Keep them behind the front: strikes and capture take levels away."
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "funds": 8,
+     "materials": 6,
+     "turns": 3,
+     "effect": "+1.5 funds and +2 materials a turn (funds before government and stability; funds halved if the cell is occupied)"
+    },
+    {
+     "level": 2,
+     "funds": 13,
+     "materials": 10,
+     "turns": 3,
+     "effect": "+3.0 funds and +4 materials a turn (funds before government and stability; funds halved if the cell is occupied)"
+    },
+    {
+     "level": 3,
+     "funds": 18,
+     "materials": 13,
+     "turns": 3,
+     "effect": "+4.5 funds and +6 materials a turn (funds before government and stability; funds halved if the cell is occupied)"
+    },
+    {
+     "level": 4,
+     "funds": 22,
+     "materials": 17,
+     "turns": 3,
+     "effect": "+6.0 funds and +8 materials a turn (funds before government and stability; funds halved if the cell is occupied)"
+    },
+    {
+     "level": 5,
+     "funds": 27,
+     "materials": 20,
+     "turns": 3,
+     "effect": "+7.5 funds and +10 materials a turn (funds before government and stability; funds halved if the cell is occupied)"
+    }
+   ]
+  },
+  {
+   "key": "depot",
+   "name": "Logistics depot",
+   "category": "Logistics",
+   "maxLevel": 5,
+   "buildTurns": 2,
+   "citiesOnly": false,
+   "offshore": false,
+   "needs": null,
+   "purpose": "Storage and supply infrastructure that keeps armies fuelled and armed.",
+   "placement": "Any land cell you hold.",
+   "howItWorks": "Gives full resupply of fuel and ammunition in its cell and the adjacent cells, two cells out from level 3. Supply columns (trucks, supply aircraft and supply ships) standing in the depot's own cell reload faster with each level. Resupply is paid from your national fuel and materials.",
+   "tips": [
+    "Build depots just behind the front so attacking units refill every turn.",
+    "Level 3 is the big step: the supply area grows to two cells.",
+    "Combine with supply trucks to reach units beyond the depot's area."
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "funds": 6,
+     "materials": 5,
+     "turns": 2,
+     "effect": "Full resupply here and next door; supply columns reload 63% of their cargo a turn here"
+    },
+    {
+     "level": 2,
+     "funds": 10,
+     "materials": 8,
+     "turns": 2,
+     "effect": "Full resupply here and next door; supply columns reload 71% of their cargo a turn here"
+    },
+    {
+     "level": 3,
+     "funds": 13,
+     "materials": 11,
+     "turns": 2,
+     "effect": "Full resupply here and next door, and two cells out; supply columns reload 79% of their cargo a turn here"
+    },
+    {
+     "level": 4,
+     "funds": 17,
+     "materials": 14,
+     "turns": 2,
+     "effect": "Full resupply here and next door, and two cells out; supply columns reload 87% of their cargo a turn here"
+    },
+    {
+     "level": 5,
+     "funds": 20,
+     "materials": 17,
+     "turns": 2,
+     "effect": "Full resupply here and next door, and two cells out; supply columns reload 95% of their cargo a turn here"
+    }
+   ]
+  },
+  {
+   "key": "mtc",
+   "name": "Military Training Centre",
+   "category": "Military",
+   "maxLevel": 5,
+   "buildTurns": 2,
+   "citiesOnly": true,
+   "offshore": false,
+   "needs": null,
+   "purpose": "Military training grounds that prepare recruits for deployment faster.",
+   "placement": "Cities and capitals you hold.",
+   "howItWorks": "Each level adds to national manpower growth, counted across all your centres up to the cap. It's added to the hospital bonus rather than multiplied, and it raises your reserve ceiling too.",
+   "tips": [
+    "Spread centres across your cities or concentrate them: only the total level counts, up to +25%.",
+    "Build them early in a long war: the extra manpower adds up over many turns.",
+    "A captured centre works for the enemy, so build them in secure cities."
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "funds": 6,
+     "materials": 5,
+     "turns": 2,
+     "effect": "National manpower growth +5% (all centres together cap at +25%)"
+    },
+    {
+     "level": 2,
+     "funds": 10,
+     "materials": 8,
+     "turns": 2,
+     "effect": "National manpower growth +10% (all centres together cap at +25%)"
+    },
+    {
+     "level": 3,
+     "funds": 13,
+     "materials": 11,
+     "turns": 2,
+     "effect": "National manpower growth +15% (all centres together cap at +25%)"
+    },
+    {
+     "level": 4,
+     "funds": 17,
+     "materials": 14,
+     "turns": 2,
+     "effect": "National manpower growth +20% (all centres together cap at +25%)"
+    },
+    {
+     "level": 5,
+     "funds": 20,
+     "materials": 17,
+     "turns": 2,
+     "effect": "National manpower growth +25% (all centres together cap at +25%)"
+    }
+   ]
+  },
+  {
+   "key": "hosp",
+   "name": "Hospital",
+   "category": "Infrastructure",
+   "maxLevel": 5,
+   "buildTurns": 2,
+   "citiesOnly": false,
+   "offshore": false,
+   "needs": null,
+   "purpose": "A military hospital that heals units in its cell and returns more of your people to service.",
+   "placement": "Any land cell you hold.",
+   "howItWorks": "Healing in the cell runs once a turn and draws manpower (1% of the unit's manpower cost per health point). The manpower bonus counts every hospital level across all land you hold, up to the cap.",
+   "tips": [
+    "Put hospitals where your armies regroup: a level-5 hospital heals 40 health a turn.",
+    "Several level-1 hospitals give the same manpower bonus as one big one, but healing only happens in the hospital's own cell.",
+    "Healing costs manpower, so watch your reserve during long wars."
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "funds": 5,
+     "materials": 3,
+     "turns": 2,
+     "effect": "Heals units here 20 health a turn; national manpower growth +5% (all hospitals together cap at +50%)"
+    },
+    {
+     "level": 2,
+     "funds": 8,
+     "materials": 5,
+     "turns": 2,
+     "effect": "Heals units here 25 health a turn; national manpower growth +10% (all hospitals together cap at +50%)"
+    },
+    {
+     "level": 3,
+     "funds": 11,
+     "materials": 7,
+     "turns": 2,
+     "effect": "Heals units here 30 health a turn; national manpower growth +15% (all hospitals together cap at +50%)"
+    },
+    {
+     "level": 4,
+     "funds": 14,
+     "materials": 8,
+     "turns": 2,
+     "effect": "Heals units here 35 health a turn; national manpower growth +20% (all hospitals together cap at +50%)"
+    },
+    {
+     "level": 5,
+     "funds": 17,
+     "materials": 10,
+     "turns": 2,
+     "effect": "Heals units here 40 health a turn; national manpower growth +25% (all hospitals together cap at +50%)"
+    }
+   ]
+  },
+  {
+   "key": "mine",
+   "name": "Mine",
+   "category": "Industrial",
+   "maxLevel": 5,
+   "buildTurns": 2,
+   "citiesOnly": false,
+   "offshore": false,
+   "needs": "ore deposit",
+   "purpose": "An extraction site that digs raw industrial materials from an ore deposit.",
+   "placement": "Only on a land cell with an ore deposit.",
+   "howItWorks": "An ore cell already gives +1.5 materials without a mine; the mine adds its own output on top. Like all materials, the total is scaled by your economic policy. Output isn't reduced if the cell is occupied, so a captured mine works for its new owner.",
+   "tips": [
+    "Develop every ore deposit you hold: it's the cheapest steady material supply.",
+    "Protect mining cells: they're prize targets for invaders.",
+    "Materials pay for heavy units and ships, so mines matter most for navies and armour."
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "funds": 6,
+     "materials": 3,
+     "turns": 2,
+     "effect": "+4 materials a turn"
+    },
+    {
+     "level": 2,
+     "funds": 10,
+     "materials": 5,
+     "turns": 2,
+     "effect": "+6 materials a turn"
+    },
+    {
+     "level": 3,
+     "funds": 13,
+     "materials": 7,
+     "turns": 2,
+     "effect": "+8 materials a turn"
+    },
+    {
+     "level": 4,
+     "funds": 17,
+     "materials": 8,
+     "turns": 2,
+     "effect": "+10 materials a turn"
+    },
+    {
+     "level": 5,
+     "funds": 20,
+     "materials": 10,
+     "turns": 2,
+     "effect": "+12 materials a turn"
+    }
+   ]
+  },
+  {
+   "key": "well",
+   "name": "Oil well",
+   "category": "Industrial",
+   "maxLevel": 5,
+   "buildTurns": 2,
+   "citiesOnly": false,
+   "offshore": false,
+   "needs": "oil deposit",
+   "purpose": "Extraction equipment pumping crude from an oil deposit to fuel your forces.",
+   "placement": "Only on a land cell with an oil deposit.",
+   "howItWorks": "An oil cell already gives +1.5 fuel without a well. Fuel keeps aircraft flying, ships sailing and tanks moving.",
+   "tips": [
+    "Air forces and navies burn fuel fast; wells keep them operating far from home.",
+    "Losing your wells mid-war grounds aircraft, so defend them.",
+    "Fuel can also be bought on the market, but wells are cheaper over time."
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "funds": 8,
+     "materials": 5,
+     "turns": 2,
+     "effect": "+4 fuel a turn"
+    },
+    {
+     "level": 2,
+     "funds": 13,
+     "materials": 8,
+     "turns": 2,
+     "effect": "+6 fuel a turn"
+    },
+    {
+     "level": 3,
+     "funds": 18,
+     "materials": 11,
+     "turns": 2,
+     "effect": "+8 fuel a turn"
+    },
+    {
+     "level": 4,
+     "funds": 22,
+     "materials": 14,
+     "turns": 2,
+     "effect": "+10 fuel a turn"
+    },
+    {
+     "level": 5,
+     "funds": 27,
+     "materials": 17,
+     "turns": 2,
+     "effect": "+12 fuel a turn"
+    }
+   ]
+  },
+  {
+   "key": "rig",
+   "name": "Offshore oil rig",
+   "category": "Industrial",
+   "maxLevel": 5,
+   "buildTurns": 3,
+   "citiesOnly": false,
+   "offshore": true,
+   "needs": "offshore oil field",
+   "purpose": "An offshore platform drilling an undersea oil field.",
+   "placement": "Only over an offshore oil field in your own territorial waters.",
+   "howItWorks": "Fuel goes to whoever owns the waters, so the rig changes hands if the coast does.",
+   "tips": [
+    "Rigs are the only fuel source for many island nations.",
+    "Keep warships nearby: an exposed rig is an easy target.",
+    "Holding the coastline keeps the rig's output."
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "funds": 10,
+     "materials": 8,
+     "turns": 3,
+     "effect": "+4 fuel a turn"
+    },
+    {
+     "level": 2,
+     "funds": 16,
+     "materials": 13,
+     "turns": 3,
+     "effect": "+6 fuel a turn"
+    },
+    {
+     "level": 3,
+     "funds": 22,
+     "materials": 18,
+     "turns": 3,
+     "effect": "+8 fuel a turn"
+    },
+    {
+     "level": 4,
+     "funds": 28,
+     "materials": 22,
+     "turns": 3,
+     "effect": "+10 fuel a turn"
+    },
+    {
+     "level": 5,
+     "funds": 34,
+     "materials": 27,
+     "turns": 3,
+     "effect": "+12 fuel a turn"
+    }
+   ]
+  },
+  {
+   "key": "road",
+   "name": "Roads",
+   "category": "Infrastructure",
+   "maxLevel": 5,
+   "buildTurns": 1,
+   "citiesOnly": false,
+   "offshore": false,
+   "needs": null,
+   "purpose": "Paved roads that speed up land movement and lift the cell's income.",
+   "placement": "Any land cell you hold. A road only speeds moves when both cells on the route have roads; the lower level counts.",
+   "howItWorks": "Movement uses the road rate for any unit travelling between two road cells, invaders included. The income bonus applies to the cell's own income.",
+   "tips": [
+    "Build chains of roads from your cities to the front so reinforcements arrive in fewer turns.",
+    "Battalions move at their slowest unit's pace, so roads matter most for tanks and artillery.",
+    "Remember the enemy can drive on your roads too once they break through."
+   ],
+   "levels": [
+    {
+     "level": 1,
+     "funds": 3,
+     "materials": 4,
+     "turns": 1,
+     "effect": "Land moves between two road cells cost ×0.62; this cell's income +6%"
+    },
+    {
+     "level": 2,
+     "funds": 5,
+     "materials": 6,
+     "turns": 1,
+     "effect": "Land moves between two road cells cost ×0.57; this cell's income +12%"
+    },
+    {
+     "level": 3,
+     "funds": 7,
+     "materials": 9,
+     "turns": 1,
+     "effect": "Land moves between two road cells cost ×0.52; this cell's income +18%"
+    },
+    {
+     "level": 4,
+     "funds": 8,
+     "materials": 11,
+     "turns": 1,
+     "effect": "Land moves between two road cells cost ×0.47; this cell's income +24%"
+    },
+    {
+     "level": 5,
+     "funds": 10,
+     "materials": 14,
+     "turns": 1,
+     "effect": "Land moves between two road cells cost ×0.42; this cell's income +30%"
+    }
+   ]
+  }
+ ],
+ "notes": {
+  "startingArmy": "Powers pick their own starting army with 240 points; minor nations' starting forces are fixed."
+ }
+}
