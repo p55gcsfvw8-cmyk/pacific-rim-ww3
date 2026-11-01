@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "version": "1.0.14 beta",
+ "version": "1.0.15 beta",
  "rules": {
   "winSharePct": 30,
   "recruitSlotsPerCity": 4,

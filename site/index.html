@@ -213,6 +213,12 @@ button.row { cursor: pointer; }
 .menu-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .menu a.btn { text-decoration: none; color: inherit; box-sizing: border-box; }
 .menu .btn.discord span { display: inline-flex; align-items: center; gap: 8px; }
+.codebox { display: flex; gap: 8px; margin-top: 8px; } .codebox input { flex: 1; min-width: 0; min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); padding: 0 12px; font: 500 14px var(--f-body); }
+.devtag { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 2px 6px 2px 5px; border-radius: 4px; vertical-align: 1px; font: 700 9.5px var(--f-display); letter-spacing: .14em; color: #1a1203; white-space: nowrap;
+  background: linear-gradient(115deg, #c9861a 0%, #f5b84a 30%, #fff1c2 48%, #f5b84a 66%, #c9861a 100%); background-size: 220% 100%; box-shadow: 0 0 0 1px rgba(255,226,154,.55), 0 0 10px rgba(245,184,74,.45); animation: devshine 3.6s linear infinite; }
+@keyframes devshine { from { background-position: 100% 0; } to { background-position: -120% 0; } }
+@media (prefers-reduced-motion: reduce) { .devtag { animation: none; background-position: 40% 0; } }
+.scores td small.camp { display: block; color: var(--muted); font-size: 11px; }
 .dc-dot { width: 9px; height: 9px; border-radius: 50%; background: #5865f2; box-shadow: 0 0 0 3px rgba(88,101,242,.25); flex: none; }
 .coach { position: fixed; left: 50%; transform: translateX(-50%); width: min(92vw, 460px); top: 200px; z-index: 46; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(245,184,74,.55); background: rgba(10,22,38,.96); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
 .coach[hidden] { display: none; }
@@ -2662,7 +2668,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.14 beta";
+const VERSION = "1.0.15 beta";
 const DISCORD_URL = "https://discord.gg/jv8T6Pxz3e"; // official community server (permanent invite) // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
@@ -5505,21 +5511,31 @@ const hiscoreURL = () => (typeof API !== "undefined" && API != null ? API + "/ap
 const POSTED = {}; // gid -> last turn sent
 const SCORES = {
   local() { try { const l = JSON.parse(localStorage.getItem(SCORE_KEY) || "[]"); return Array.isArray(l) ? l : []; } catch (e) { return []; } },
-  record(e) {
+  record(e, auth = {}) {
     const l = this.local().filter(x => x.gid !== e.gid); l.push(e); l.sort((a, b) => b.score - a.score);
     try { localStorage.setItem(SCORE_KEY, JSON.stringify(l.slice(0, 100))); } catch (er) {}
-    if (hiscoreURL() && (e.final || POSTED[e.gid] !== e.turn)) { POSTED[e.gid] = e.turn; fetch(hiscoreURL(), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(e), keepalive: true }).catch(() => {}); }
+    if (hiscoreURL() && (e.final || POSTED[e.gid] !== e.turn)) {
+      POSTED[e.gid] = e.turn; const slug = slugOf(e.name);
+      fetch(hiscoreURL(), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...e, ...auth }), keepalive: true }).then(async r => {
+        PROF.claim = PROF.claim || {};
+        if (r.ok) { if (PROF.claim[slug]) { delete PROF.claim[slug]; profStore(); } return; }
+        if (r.status === 403 || r.status === 409) { const j = await r.json().catch(() => ({})); PROF.claim[slug] = j.error === "reserved" ? "reserved" : "taken"; profStore(); delete POSTED[e.gid];
+          if (!UI.claimWarned) { UI.claimWarned = true; toast(PROF.claim[slug] === "reserved" ? `${e.name} is the developer's name, so this campaign isn't on the global leaderboard.` : `${e.name} is already registered to another player or device, so this campaign isn't on the global leaderboard. See Hi-scores.`); } }
+      }).catch(() => {});
+    }
   },
   async top(n = 20) {
     if (hiscoreURL()) { try { const r = await fetch(hiscoreURL() + "?top=" + n, { cache: "no-store" }); if (r.ok) { const j = await r.json(); if (Array.isArray(j)) return { list: j, online: true }; } } catch (e) {} }
-    return { list: this.local().slice(0, n), online: false };
+    const best = new Map(); for (const e of this.local()) { const k = slugOf(e.name), b = best.get(k); if (!b || e.score > b.score) best.set(k, { ...e, campaigns: (b ? b.campaigns || 1 : 0) + 1 }); else b.campaigns = (b.campaigns || 1) + 1; }
+    return { list: [...best.values()].sort((a, b) => b.score - a.score).slice(0, n), online: false };
   },
 };
 function recordScore() {
   if (!G || !USER || G.tutorial) return;
   G.gid = G.gid || Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const p = scoreParts();
-  SCORES.record({ gid: G.gid, name: USER, nation: C[G.player].code, score: p.total, turn: G.turn, result: G.over ? (G.over.win ? "Victory" : "Defeat") : "In progress", vp: Math.round(vp(G.player) / TOTAL_VP * 100), at: Date.now(), v: VERSION, final: !!G.over });
+  SCORES.record({ gid: G.gid, name: USER, nation: C[G.player].code, score: p.total, turn: G.turn, result: G.over ? (G.over.win ? "Victory" : "Defeat") : "In progress", vp: Math.round(vp(G.player) / TOTAL_VP * 100), at: Date.now(), v: VERSION, final: !!G.over },
+    { key: CLAIM_KEY || undefined, devCode: isDevName(USER) && PROF.devCode ? PROF.devCode : undefined, announce: PROF.announce === true });
 }
 // tally this turn's kills, losses and captures for the score
 function tallyTurn(ev, pre) {
@@ -5592,6 +5608,11 @@ function importSave(file, name) {
 // ---------- online services (web build only): leaderboard, players online, activity log ----------
 // The web build is served next to its own API (/api/...). Inside Claude there is no server, so everything stays on the device.
 const API = !window.claude && /^https?:$/.test(location.protocol) ? "" : null;
+// 1.0.15: this device's private key; it proves this device owns its commander names on the leaderboard (never shown or shared)
+const CLAIM_KEY = (() => { try { let k = localStorage.getItem("prww3-claim"); if (!k || !/^[a-z0-9]{32}$/.test(k)) { k = ""; const a = new Uint8Array(32); crypto.getRandomValues(a); for (const x of a) k += "abcdefghijklmnopqrstuvwxyz0123456789"[x % 36]; localStorage.setItem("prww3-claim", k); } return k; } catch (e) { return ""; } })();
+const RESERVED_NAMES = new Set(["mr-forbid-dev"]); // the developer's name: needs the developer code
+const isDevName = n => RESERVED_NAMES.has(slugOf(n));
+const devTag = () => `<span class="devtag" title="Developer of The Fractured Coasts: WW3">✦ DEV</span>`;
 const DEVICE_ID = (() => { try { let d = localStorage.getItem("prww3-did"); if (!d || !/^[a-z0-9]{12,32}$/.test(d)) { d = (Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 20); localStorage.setItem("prww3-did", d); } return d; } catch (e) { return "anon" + Math.random().toString(36).slice(2, 12); } })();
 const ONLINE = { list: null, feed: [], at: 0, ok: false };
 async function apiCall(path, body) {
@@ -5604,7 +5625,7 @@ async function apiCall(path, body) {
 }
 function heartbeat() {
   if (API == null || document.hidden) return;
-  apiCall("/api/presence", { did: DEVICE_ID, name: USER || PROF.last || "", nation: G && !G.tutorial ? C[G.player].code : null, turn: G && !G.tutorial ? G.turn : null, view: G ? "game" : "menu" });
+  apiCall("/api/presence", { did: DEVICE_ID, key: CLAIM_KEY || undefined, name: USER || PROF.last || "", nation: G && !G.tutorial ? C[G.player].code : null, turn: G && !G.tutorial ? G.turn : null, view: G ? "game" : "menu" });
 }
 async function refreshOnline() {
   const d = await apiCall("/api/presence");
@@ -5626,7 +5647,7 @@ async function showOnline() {
     if (!ONLINE.ok) return `<p class="note">Couldn't reach the game server. Check your connection and try again.</p>`;
     const L = ONLINE.list;
     return `<div class="section-title">Online now <small>${L.length}</small></div>` +
-      (L.length ? `<div class="rows">${L.map(p => { const ci = p.nation ? CODE[p.nation] : null; return `<div class="row"><div class="t"><span>${esc(p.name)}</span></div><div class="s">${ci != null ? `${swatch(ci)}${esc(shortName(ci))}${p.turn ? `, turn ${p.turn}` : ""}` : p.view === "game" ? "in a game" : "in the menus"} · ${agoText(p.at)}</div></div>`; }).join("")}</div>` : `<p class="note">Nobody else right now.</p>`) +
+      (L.length ? `<div class="rows">${L.map(p => { const ci = p.nation ? CODE[p.nation] : null; return `<div class="row"><div class="t"><span>${esc(p.name)}${p.dev ? devTag() : ""}</span></div><div class="s">${ci != null ? `${swatch(ci)}${esc(shortName(ci))}${p.turn ? `, turn ${p.turn}` : ""}` : p.view === "game" ? "in a game" : "in the menus"} · ${agoText(p.at)}</div></div>`; }).join("")}</div>` : `<p class="note">Nobody else right now.</p>`) +
       `<div class="section-title" style="margin-top:14px">Activity</div>` +
       (ONLINE.feed.length ? `<div class="feed">${ONLINE.feed.map(f => `<p><span>${agoText(f.at)}</span>${esc(f.text)}</p>`).join("")}</div>` : `<p class="note">No activity yet.</p>`);
   };
@@ -5637,6 +5658,24 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.15 beta", date: "1 Nov 2026", title: "Leaderboard: your best campaign", items: [
+    "## One row per commander",
+    "The global leaderboard now shows each commander once, with their best campaign, instead of every campaign they started. Starting a new game can't push your best score down, and a campaign that has a bad turn doesn't lower your record. Each row shows how many campaigns that commander has played.",
+    "Every campaign is still recorded. Existing scores were moved over: each commander's highest campaign is the one shown.",
+    "## Your name is yours",
+    "The first time a campaign posts from your device, your commander name is registered to that device, so nobody else can post scores under it. If a name is already taken, the game tells you and Hi-scores explains: pick another name to appear on the board.",
+    "Scores that the scoring rules can't produce (for example a huge total on turn 3) are kept out of the rankings.",
+    "## The developer's tag",
+    "The developer plays as MR FORBID.DEV and carries a gold ✦ DEV tag on the leaderboard and in Players online. The name is reserved: only the developer can use it.",
+    "## Discord announcements (opt-in)",
+    "Hi-scores has a new switch, Announce my milestones on the official Discord, off unless you turn it on. When it's on, our Discord bot can announce when your best campaign takes the lead, enters the top five or passes the developer.",
+    "Nothing in play changed: combat, the economy, units, buildings and saves are exactly as in 1.0.14.",
+    "## What's coming (after Thursday 5 November)",
+    "Further balancing and bug fixes, including anything you report on the Discord.",
+    "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+    "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+    "The first unit expansion: the first new unit types to join the current roster.",
+  ] },
   { v: "1.0.14 beta", date: "1 Nov 2026", title: "Official Discord", items: [
     "## Join the community",
     "The game now has an official Discord server: Official - Fractured Coasts WW3. Tap Join the official Discord on the start screen. It opens Discord in a new tab or the Discord app, and your game stays where it was.",
@@ -5943,6 +5982,11 @@ function showName(mode) {
   const go = () => {
     const n = cleanName(inp.value); MENU.typed = inp.value;
     if (n.length < 2) { MENU.err = "Enter a name of at least 2 letters or numbers."; showName(mode); return; }
+    if (isDevName(n) && !PROF.devCode) { // the developer's reserved name: ask for the code once on this device
+      MENU.typed = n; MENU.err = `${esc(n)} is the developer's name. Enter the developer code to use it on the leaderboard.<span class="codebox"><input id="mCode" type="password" autocomplete="off" maxlength="100" placeholder="Developer code"><button class="btn primary" id="mCodeGo">Use code</button></span>`;
+      showName(mode); const c = $("mCode"), ok = () => { const v = (c.value || "").trim(); if (!v) return; PROF.devCode = v; if (PROF.claim) delete PROF.claim[slugOf(n)]; profStore(); MENU.err = ""; go(); };
+      if (c) { c.focus(); c.onkeydown = e => { if (e.key === "Enter") ok(); }; $("mCodeGo").onclick = ok; } return;
+    }
     MENU.err = ""; MENU.typed = null; setUser(n);
     if (mode === "new") { startPick = null; showStart(); return; }
     if (!loadSave()) {
@@ -5971,15 +6015,24 @@ function loadAndPlay() {
 async function showScores() {
   MENU.view = "scores";
   const el = openMenu("hero");
-  const head = `<div class="start-in">${heroHead()}<div class="section-title">Hi-scores</div>`;
+  const head = `<div class="start-in">${heroHead()}<div class="section-title">Hi-scores <small>each commander's best campaign</small></div>`;
   el.innerHTML = head + `<p class="note">Loading…</p></div>`;
   const { list, online } = await SCORES.top(20);
   if (MENU.view !== "scores") return;
-  el.innerHTML = head + (list.length ? `<div class="scores"><table><thead><tr><th>#</th><th>Commander</th><th>Nation</th><th class="n">Score</th><th>Result</th></tr></thead><tbody>${list.map((e, i) => { const ci = CODE[e.nation]; return `<tr class="${USER && e.name === USER ? "me" : ""}"><td>${i + 1}</td><td>${esc(e.name)}</td><td>${ci != null ? `${swatch(ci)}${esc(shortName(ci))}` : esc(e.nation)}</td><td class="n">${Number(e.score).toLocaleString()}</td><td><small>${esc(e.result)}${e.result === "In progress" ? "" : ""}, turn ${e.turn}</small></td></tr>`; }).join("")}</tbody></table></div>`
+  const me = USER || PROF.last, mySlug = me ? slugOf(me) : null, issue = mySlug && PROF.claim && PROF.claim[mySlug];
+  const row = (e, i) => { const ci = CODE[e.nation], mine = mySlug && slugOf(e.name) === mySlug, n = e.campaigns || 1;
+    return `<tr class="${mine ? "me" : ""}"><td>${e.rank || i + 1}</td><td>${esc(e.name)}${e.dev ? devTag() : ""}<small class="camp">${n} campaign${n > 1 ? "s" : ""}</small></td><td>${ci != null ? `${swatch(ci)}${esc(shortName(ci))}` : esc(e.nation)}</td><td class="n">${Number(e.score).toLocaleString()}</td><td><small>${esc(e.result)}, turn ${e.turn}</small></td></tr>`; };
+  const claimNote = !issue ? "" : issue === "reserved"
+    ? `<p class="note" style="color:var(--signal)">${esc(me)} is the developer's name and the code on this device wasn't accepted, so its campaigns aren't on the global board. <button class="linkbtn" id="mReCode">Enter the code again</button></p>`
+    : `<p class="note" style="color:var(--signal)">${esc(me)} is registered to another player or device, so its campaigns aren't on the global board. Pick a different commander name to appear there.</p>`;
+  el.innerHTML = head + claimNote + (list.length ? `<div class="scores"><table><thead><tr><th>#</th><th>Commander</th><th>Nation</th><th class="n">Best</th><th>Result</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table></div>`
       : `<p class="note">No scores yet. Every campaign posts its score here as you play, and again when it ends.</p>`) +
-    `<p class="note" style="margin-top:10px">${online ? "Global leaderboard: every commander playing the web version. Campaigns update each turn and lock in on victory or defeat." : API != null ? "Couldn't reach the global leaderboard, so these are the scores on this device." : "Scores on this device. The global leaderboard is on the web version of the game."} Score = territory held (40 a victory-point %) + 25 a province taken + 250 a capital (75 for a minor nation's) + 15 an enemy unit destroyed − 5 a unit lost; a victory adds 2,000 plus a speed bonus.</p>
+    (online ? `<label class="toggle-row" style="margin-top:12px"><span><b>Announce my milestones on the official Discord</b> · when your best campaign takes the lead, enters the top five or passes the developer</span><input type="checkbox" id="mAnnounce" style="width:22px;height:22px;flex:none;accent-color:var(--signal)" ${PROF.announce ? "checked" : ""}></label>` : "") +
+    `<p class="note" style="margin-top:10px">${online ? "Global leaderboard: one row per commander, showing their best campaign. Your name is yours once your first campaign posts from this device." : API != null ? "Couldn't reach the global leaderboard, so these are the best scores on this device." : "Best scores on this device. The global leaderboard is on the web version of the game."} Score = territory held (40 a victory-point %) + 25 a province taken + 250 a capital (75 for a minor nation's) + 15 an enemy unit destroyed − 5 a unit lost; a victory adds 2,000 plus a speed bonus.</p>
     <div class="actions"><button class="btn" id="mBack">← Back</button></div></div>`;
   $("mBack").onclick = () => showTitle();
+  const an = $("mAnnounce"); if (an) an.onchange = () => { PROF.announce = an.checked; profStore(); toast(an.checked ? "Your milestones will be announced on the Discord from your next turn." : "Your milestones won't be announced."); };
+  const rc = $("mReCode"); if (rc) rc.onclick = () => { delete PROF.devCode; if (PROF.claim) delete PROF.claim[mySlug]; profStore(); MENU.typed = me; showName("load"); };
   MENU_FX.caption();
 }
 
@@ -5989,7 +6042,7 @@ function showStart() {
   MENU.view = "nations";
   const el = openMenu("slim"), nations = MAJORS.slice().sort((a, b) => C[a].name.localeCompare(C[b].name)), m = USER && profMeta(USER);
   const render = () => {
-    let html = `<div class="start-in"><div class="hero-pad"><div class="fxcap" id="fxCap"></div></div><div class="actions" style="margin-top:0"><button class="btn" id="natBack">← Menu</button><span class="pill" style="align-self:center">Commander ${esc(USER || "")}</span></div>
+    let html = `<div class="start-in"><div class="hero-pad"><div class="fxcap" id="fxCap"></div></div><div class="actions" style="margin-top:0"><button class="btn" id="natBack">← Menu</button><span class="pill" style="align-self:center">Commander ${esc(USER || "")}</span>${USER && isDevName(USER) && PROF.devCode ? devTag() : ""}</div>
       <h2 class="h2big">Choose your nation</h2><p class="lede" style="margin-top:4px">Every nation starts neutral with the same ${BUDGET} requisition points for its army. Big economies grow faster; small ones are harder to crack.</p>
       ${m ? `<p class="note" style="color:var(--signal);margin-top:8px">Beginning a new campaign replaces ${esc(USER)}'s saved game (${savedLine(USER)}).</p>` : ""}
       <div class="nation-grid">${nations.map(ci => `<button class="nation" data-pick="${ci}" aria-pressed="${startPick === ci}"><i style="background:${C[ci].color}"></i><span><b>${esc(shortName(ci))}</b><small>${fmtPop(C[ci].pop)} · $${fmt(estIncome(ci).funds, 0)}/t</small></span></button>`).join("")}</div>`;

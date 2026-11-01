@@ -2,18 +2,12 @@
 // Storage: Netlify Blobs, one key per record (no read-modify-write on shared keys).
 import { getStore } from "@netlify/blobs";
 
-export const NATIONS = ["CN", "JP", "KR", "KP", "TW", "PH", "VN", "TH", "MY", "SG", "ID", "PG", "AU", "NZ", "FJ", "US"];
-export const RESULTS = ["In progress", "Victory", "Defeat"];
+export { NATIONS, RESULTS } from "./board.mjs";
 export const ONLINE_MS = 150 * 1000;          // seen in the last 2.5 minutes = online
 export const store = () => getStore({ name: "prww3", consistency: "strong" });
 
-// commander names: letters, numbers, spaces and a little punctuation, 2-18 characters
-export function cleanName(n) {
-  const s = String(n ?? "").normalize("NFKC").replace(/[^\p{L}\p{N} _.'-]/gu, "").replace(/\s+/g, " ").trim().slice(0, 18);
-  return s.length >= 2 ? s : null;
-}
-export const cleanId = id => (/^[a-z0-9]{6,32}$/i.test(String(id ?? "")) ? String(id) : null);
-export const int = (v, lo, hi) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+// validation helpers live in board.mjs (pure, testable); re-exported here for the other functions
+export { cleanName, cleanId, cleanKey, int, slugOf } from "./board.mjs";
 
 export const json = (data, status = 200, extra = {}) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...extra } });

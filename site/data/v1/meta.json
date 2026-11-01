@@ -2,12 +2,55 @@
  "schema": 1,
  "game": "The Fractured Coasts: WW3",
  "inGameTitle": "Pacific Rim WW3",
- "version": "1.0.14 beta",
+ "version": "1.0.15 beta",
  "released": "1 Nov 2026",
  "discord": "https://discord.gg/jv8T6Pxz3e",
  "play": "https://pacific-rim-ww3.netlify.app/",
  "mode": "Single-player against AI nations",
  "patchNotes": [
+  {
+   "version": "1.0.15 beta",
+   "date": "1 Nov 2026",
+   "title": "Leaderboard: your best campaign",
+   "sections": [
+    {
+     "heading": "One row per commander",
+     "items": [
+      "The global leaderboard now shows each commander once, with their best campaign, instead of every campaign they started. Starting a new game can't push your best score down, and a campaign that has a bad turn doesn't lower your record. Each row shows how many campaigns that commander has played.",
+      "Every campaign is still recorded. Existing scores were moved over: each commander's highest campaign is the one shown."
+     ]
+    },
+    {
+     "heading": "Your name is yours",
+     "items": [
+      "The first time a campaign posts from your device, your commander name is registered to that device, so nobody else can post scores under it. If a name is already taken, the game tells you and Hi-scores explains: pick another name to appear on the board.",
+      "Scores that the scoring rules can't produce (for example a huge total on turn 3) are kept out of the rankings."
+     ]
+    },
+    {
+     "heading": "The developer's tag",
+     "items": [
+      "The developer plays as MR FORBID.DEV and carries a gold ✦ DEV tag on the leaderboard and in Players online. The name is reserved: only the developer can use it."
+     ]
+    },
+    {
+     "heading": "Discord announcements (opt-in)",
+     "items": [
+      "Hi-scores has a new switch, Announce my milestones on the official Discord, off unless you turn it on. When it's on, our Discord bot can announce when your best campaign takes the lead, enters the top five or passes the developer.",
+      "Nothing in play changed: combat, the economy, units, buildings and saves are exactly as in 1.0.14."
+     ]
+    },
+    {
+     "heading": "What's coming (after Thursday 5 November)",
+     "items": [
+      "Further balancing and bug fixes, including anything you report on the Discord.",
+      "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+      "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+      "The first unit expansion: the first new unit types to join the current roster."
+     ]
+    }
+   ]
+  },
   {
    "version": "1.0.14 beta",
    "date": "1 Nov 2026",
