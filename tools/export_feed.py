@@ -36,6 +36,7 @@ def main():
         (len(codex["buildings"]) == 10 and all(len(x["levels"]) == x["maxLevel"] for x in codex["buildings"]), "buildings"),
         (all(u["funds"] > 0 and u["materials"] >= 1 and u["manpower"] > 0 for u in codex["units"]), "unit costs"),
         (all(n["capital"] for n in codex["nations"]), "every nation has a capital"),
+        (len(codex.get("guide", [])) >= 10 and all(g["title"] and g["text"] for g in codex["guide"]), "guide sections"),
         (abs(sum(n["victoryPointsPct"] for n in codex["nations"]) - 100) < 1, "victory points add up to 100%"),
     ]
     bad = [m for ok, m in checks if not ok]

@@ -2134,6 +2134,64 @@
    ]
   }
  ],
+ "guide": [
+  {
+   "title": "Pick a nation and set it up",
+   "text": "Choose its government and rights, then buy a starting army. Every nation gets the same 240 requisition points to spend. Everyone starts neutral. Win by holding 30% of the Pacific's victory points: capitals 10, cities 3, provinces 1."
+  },
+  {
+   "title": "Give orders",
+   "text": "Tap a zone with your units, press Order, then tap a destination. Highlighted zones are reached this turn; anything further takes several turns. The dotted route stays until they arrive."
+  },
+  {
+   "title": "Hunt them down",
+   "text": "Order units onto an enemy you can see and they pursue it: if it moves they follow, ranged units stop as soon as it's in range and open fire, and the hunt ends when it's destroyed, slips into the fog, or your unit falls. Any new order calls the hunt off."
+  },
+  {
+   "title": "End the turn",
+   "text": "Your orders play out first, then every AI moves. Units that meet enemies fight; land units capture enemy provinces they enter. The camera then follows every significant move and fight: Next jumps to the next event, 2× doubles the speed, Skip ends the replay."
+  },
+  {
+   "title": "Build",
+   "text": "Tap your own province to add defences, roads, hospitals, factories, mines, oil wells, depots, airbases or (in cities) training centres, and upgrade most of them from level 1 to 5 (an airbase has one level). Recruit in cities: each city and capital can start 4 units a turn, and a unit ordered this turn can be cancelled for a full refund. Soldiers and crews come out of your manpower reserve, and so do reinforcements when damaged units heal."
+  },
+  {
+   "title": "Mind the economy",
+   "text": "Units cost upkeep in funds and fuel. Buy fuel and materials under Nation → Economy."
+  },
+  {
+   "title": "Use diplomacy",
+   "text": "Pacts, alliances, aid and envoys shape how leaders treat you. Their personalities shift as the war unfolds."
+  },
+  {
+   "title": "Keep them supplied",
+   "text": "Every unit carries fuel and ammo. Moving burns fuel, fighting burns ammo. Cities, logistics depots and supply trucks, aircraft and ships refill them. Cut the enemy's supply lines and their tanks stop."
+  },
+  {
+   "title": "Chain of command",
+   "text": "Attach support units (transports and supply) to a combat unit of the same arm. Order the commander and they follow; enemies must beat the commander before they can touch them. Unattached support can be destroyed, and a sunk or downed transport takes its cargo with it."
+  },
+  {
+   "title": "Fight",
+   "text": "Units that meet an enemy they're at war with become engaged. At the end of every turn each unit fires once at the best target on its priority list, using its attack values against land, air, ships, subs and structures, its health and ammo, and the target's armour, terrain and defences. Fighting goes on turn after turn until one side is destroyed or pulls out. A land cell with no defending troops left changes hands. Set what each unit shoots first with Targets; the forecast shows what to expect before you commit."
+  },
+  {
+   "title": "Fire from range",
+   "text": "Artillery (2 cells), jets (4), helicopters (2), frigates and radar pickets (1) can hit a cell without entering it: select them and press Attack. Aircraft draw fire from enemy air defences. Units keep firing every turn until the target is clear or you call them off."
+  },
+  {
+   "title": "Carry troops",
+   "text": "At a port (or airbase), press Embark to load units onto a transport. Nothing goes ashore by itself: sail into a friendly port and press Disembark, or sit offshore of an enemy coast and press Assault. Every island has at least one port."
+  },
+  {
+   "title": "The sea",
+   "text": "Lighter water is shallow: big ships move slower there and submarines are easy to find and kill. Deep ocean is where subs hide and hit hardest. Each nation owns the waters around its coast; your aircraft can't cross a neutral nation's airspace, and offshore oil fields in your waters can take a rig."
+  },
+  {
+   "title": "Read the reports",
+   "text": "After each turn the Pacific Rim Network covers what you saw clearly, plus rumours from places you can't see."
+  }
+ ],
  "notes": {
   "startingArmy": "Powers pick their own starting army with 240 points; minor nations' starting forces are fixed."
  }

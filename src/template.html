@@ -5179,7 +5179,7 @@ function howToHtml() {
 function showHowTo() { openSheet(`<div class="eyebrow"><span class="pill">Open beta · v${VERSION}</span></div><h2>How to play</h2>${howToHtml()}`, { type: "howto" }); }
 function showFeedback() {
   openSheet(`<div class="eyebrow"><span class="pill">Open beta · v${VERSION}</span></div><h2>Send feedback</h2>
-    <p class="note" style="margin-top:4px">Write what happened, copy it, and send it to whoever shared the game with you. Your nation, turn and device are added automatically.</p>
+    <p class="note" style="margin-top:4px">Write what happened, copy it, and post it on the <a href="${DISCORD_URL}" target="_blank" rel="noopener noreferrer" style="color:var(--signal)">official Discord</a>. Your nation, turn and device are added automatically.</p>
     <label for="fbText" class="section-title" style="display:block">Your notes</label><textarea id="fbText" class="textarea" placeholder="What did you try? What broke or felt off?"></textarea>
     <div class="actions"><button class="btn primary" data-fbcopy="1">Copy feedback</button></div>
     <pre id="fbOut" hidden style="white-space:pre-wrap;font-family:var(--f-mono);font-size:12px;background:var(--panel-2);padding:10px;border-radius:8px;margin-top:10px;user-select:all"></pre>`, { type: "feedback" });
@@ -6196,6 +6196,11 @@ setTimeout(() => { fontsReady = true; draw(); }, 1500);
 // ---------- public data feed (1.0.14) ----------
 // build.py loads the built game in a headless browser and calls this to write site/data/v1/*.json, the read-only feed
 // FORBID COMMAND and the website use. It reads the same tables the game plays with, so the feed can't drift from the game.
+// the in-game How to play, as plain sections: the bot's /guide reads exactly what the game tells players
+function howToGuide() {
+  const d = document.createElement("div"); d.innerHTML = howToHtml();
+  return [...d.querySelectorAll("li")].map(li => { const b = li.querySelector("b"), title = b ? b.textContent.replace(/\.$/, "") : ""; return { title, text: li.textContent.slice(b ? b.textContent.length : 0).trim() }; });
+}
 function exportFeed() {
   const prev = G, num = x => Math.round(x * 100) / 100, govName = k => GOV[k].name;
   const notes = PATCH_NOTES.map(n => { const sections = []; let cur = { heading: null, items: [] }; sections.push(cur);
@@ -6226,7 +6231,7 @@ function exportFeed() {
         startingArmy: isMinor(ci) ? army : null }); }
   } finally { G = prev; invalidate(); }
   const codex = { schema: 1, version: VERSION, rules: { winSharePct: WIN_SHARE * 100, recruitSlotsPerCity: RECRUIT_SLOTS, startingArmyPoints: BUDGET, powers: MAJORS.length, minorNations: MINORS.length, cells: NZ, landCells: LAND_IDS.length },
-    nations, governments, units, battalions, buildings, notes: { startingArmy: "Powers pick their own starting army with " + BUDGET + " points; minor nations' starting forces are fixed." } };
+    nations, governments, units, battalions, buildings, guide: howToGuide(), notes: { startingArmy: "Powers pick their own starting army with " + BUDGET + " points; minor nations' starting forces are fixed." } };
   return { meta, codex };
 }
 window.__prw = { get G() { return G; }, exportFeed, VERSION, PATCH_NOTES, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; }, BLD, BLD_INFO, BLD_CAT, bldEffect, bldCost, bldsAt, showBldCard, showBldAt, defMult, laneCost, supplyMap, cellFunds, recruitSites, fortDiv, roadCost, hospHeal, depotReload };
