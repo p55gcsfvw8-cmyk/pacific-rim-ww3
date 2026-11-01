@@ -284,7 +284,7 @@ button.row { cursor: pointer; }
 .start h1 b { color: var(--signal); }
 .start h1.brand { font-size: clamp(28px, 8.4vw, 46px); letter-spacing: .06em; line-height: .98; }
 .start h1.brand small { display: block; font-size: .36em; letter-spacing: .5em; color: var(--muted); margin: 0 0 6px 2px; }
-.start h1.brand b { display: inline-block; margin-left: .32em; }
+.start h1.brand b { white-space: nowrap; }
 .start .lede { margin: 12px 0 0; color: var(--muted); font-size: 15.5px; line-height: 1.5; max-width: 52ch; }
 
 /* ---------- nation setup ---------- */
@@ -2661,7 +2661,7 @@ function endTurn() {
 const SAVE_KEY = "prww3-save-v6";
 const VERSION = "1.0.16 beta"; // early access playtest build
 const DISCORD_URL = "https://discord.gg/jv8T6Pxz3e"; // official community server (permanent invite)
-const SITE_URL = "https://fractured-coasts.pages.dev/"; // 1.0.16: the game's home on Cloudflare Pages (was pacific-rim-ww3.netlify.app)
+const SITE_URL = "https://fractured-coasts.playgame.workers.dev/"; // 1.0.16: the game's home on Cloudflare (was pacific-rim-ww3.netlify.app)
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -5708,7 +5708,7 @@ const PATCH_NOTES = [
     "## A new name",
     "Pacific Rim WW3 is now The Fractured Coasts: WW3. The title screen, the news network (now the Fractured Coasts Network), bug reports and save files all carry the new name. Nothing about how the game plays has changed.",
     "## A new home",
-    "The game has moved to a new address: fractured-coasts.pages.dev. The new host has no monthly limit on updates, so patches can keep coming.",
+    "The game has moved to a new address: fractured-coasts.playgame.workers.dev. The new host has no monthly limit on updates, so patches can keep coming.",
     "The leaderboard moved with it: every commander's best score from the old site was copied across. Your name is yours again once your first campaign posts from your device.",
     "## Bringing your campaigns",
     "Your saved games live in your browser, under the old address. On the old site, a Move my campaigns button sends them here in one tap: each commander's newest save comes across, and nothing already here is overwritten by an older copy.",
@@ -5987,7 +5987,7 @@ const MENU = { view: "title", mode: "new", err: "" };
 function menuRefresh() { if (!G && !$("start").hidden) ({ title: showTitle, name: () => showName(MENU.mode), nations: showStart, scores: showScores }[MENU.view] || (() => {}))(); }
 function heroHead() {
   return `<div class="hero-pad"><div class="fxcap" id="fxCap" aria-live="off"></div></div>
-    <div class="beta"><span class="pill cap">Early access</span><span class="pill">v${VERSION}</span></div><h1 class="brand"><small>The</small>Fractured Coasts<b>WW3</b></h1>`;
+    <div class="beta"><span class="pill cap">Early access</span><span class="pill">v${VERSION}</span></div><h1 class="brand"><small>The</small>Fractured Coasts <b>WW3</b></h1>`;
 }
 function savedLine(name) {
   const m = profMeta(name); if (!m) return "";

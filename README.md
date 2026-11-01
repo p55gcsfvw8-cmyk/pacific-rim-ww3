@@ -5,7 +5,7 @@
 This is a turn-based grand strategy game across the Asia-Pacific, played in a phone browser. Sixteen powers and fifteen AI-run minor nations start neutral; you win by holding 30% of the region's victory points.
 
 - **Status:** 1.0 Beta, early access playtest
-- **Play:** https://fractured-coasts.pages.dev (Cloudflare Pages, free plan)
+- **Play:** https://fractured-coasts.playgame.workers.dev (Cloudflare Workers, free plan)
 - **Old address:** https://pacific-rim-ww3.netlify.app now only shows a "We've moved" page that carries saves across. It goes live with the first Netlify deploy after the team's credits reset on 29 Nov 2026.
 - **Community:** https://discord.gg/jv8T6Pxz3e. The bot, FORBID COMMAND, has its own repository: `forbid-command`.
 

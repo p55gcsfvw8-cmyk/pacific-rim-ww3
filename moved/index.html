@@ -15,7 +15,7 @@
   .pill { display: inline-block; padding: 4px 10px; border-radius: 6px; font: 700 11.5px "Chakra Petch", sans-serif; letter-spacing: .12em; text-transform: uppercase; background: var(--signal); color: #1a1203; }
   h1 { margin: 14px 0 0; font: 700 clamp(28px, 8.4vw, 44px)/1 "Chakra Petch", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
   h1 small { display: block; font-size: .36em; letter-spacing: .5em; color: var(--muted); margin-bottom: 6px; }
-  h1 b { color: var(--signal); margin-left: .3em; }
+  h1 b { color: var(--signal); white-space: nowrap; }
   p { color: var(--muted); }
   .card { margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
   .who { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
@@ -32,8 +32,8 @@
 <body>
 <main>
   <span class="pill">We've moved</span>
-  <h1><small>The</small>Fractured Coasts<b>WW3</b></h1>
-  <p>Pacific Rim WW3 has a new name and a new home: <a href="https://fractured-coasts.pages.dev/">fractured-coasts.pages.dev</a>. This old address now only helps you move.</p>
+  <h1><small>The</small>Fractured Coasts <b>WW3</b></h1>
+  <p>Pacific Rim WW3 has a new name and a new home: <a href="https://fractured-coasts.playgame.workers.dev/">fractured-coasts.playgame.workers.dev</a>. This old address now only helps you move.</p>
   <div id="have" hidden>
     <div class="card"><b>Campaigns saved in this browser</b><div id="list"></div></div>
     <button class="btn primary" id="move">Move my campaigns to the new site</button>
@@ -41,12 +41,12 @@
     <details><summary>Doesn't work? Download them instead</summary><p>Download a save, then on the new site choose Load game &gt; Open a save file.</p><div id="files"></div></details>
   </div>
   <div id="none" hidden><div class="card">No saved campaigns in this browser. Your progress may be on another device or browser: open this page there to move it.</div></div>
-  <a class="btn" href="https://fractured-coasts.pages.dev/">Go to the new site</a>
+  <a class="btn" href="https://fractured-coasts.playgame.workers.dev/">Go to the new site</a>
   <p style="font-size:14px">Join the community: <a href="https://discord.gg/jv8T6Pxz3e">official Discord</a>.</p>
 </main>
 <script>
 (() => {
-  const NEW = "https://fractured-coasts.pages.dev/".replace(/\/$/, ""), SAVE = "prww3-save-v6";
+  const NEW = "https://fractured-coasts.playgame.workers.dev/".replace(/\/$/, ""), SAVE = "prww3-save-v6";
   const keys = {}; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith("prww3")) keys[k] = localStorage.getItem(k); } } catch (e) {}
   const parse = v => { try { return JSON.parse(v); } catch (e) { return null; } };
   const prof = parse(keys["prww3-profiles"]) || {};
