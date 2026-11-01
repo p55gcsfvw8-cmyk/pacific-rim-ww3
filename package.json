@@ -4,7 +4,8 @@
   "type": "module",
   "description": "The Fractured Coasts: WW3 (formerly Pacific Rim WW3): the game (site/), its online services on Cloudflare Pages Functions (functions/, server/), and the old address's moved page (moved/).",
   "scripts": {
-    "build": "python3 build.py",
+    "build": "echo \"site/ is built and committed: run python3 build.py locally before pushing\"",
+    "build:local": "python3 build.py",
     "test": "node --test server/*.test.mjs"
   }
 }

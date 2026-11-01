@@ -1,0 +1,11 @@
+// Used only if the game is deployed as a Cloudflare Worker (Workers & Pages > Create > Import a repository).
+// Deploy command: npx wrangler deploy   Build command: leave empty (site/ is already built and committed).
+// The D1 database is created automatically on the first deploy (no database_id needed, Wrangler 4.45+).
+{
+  "name": "fractured-coasts",
+  "main": "worker.js",
+  "compatibility_date": "2025-09-01",
+  "assets": { "directory": "./site", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
+  "d1_databases": [{ "binding": "DB", "database_name": "fractured-coasts" }],
+  "observability": { "enabled": true }
+}

@@ -20,6 +20,7 @@ This is a turn-based grand strategy game across the Asia-Pacific, played in a ph
 | `site/` | What Cloudflare Pages publishes: `index.html`, `_headers`, `_redirects`, `data/v1/` (the public feed) |
 | `dist/claude-artifact.html` | The Claude artifact version of the game (no server) |
 | `moved/index.html` | What the old Netlify address publishes (see `netlify.toml`) |
+| `worker.js`, `wrangler.jsonc` | Cloudflare Workers entry and config (static files from `site/`, `/api/*` through the router) |
 | `functions/api/[[path]].js` | Cloudflare Pages Functions entry: every `/api/...` request |
 | `server/api.mjs` | The router for all online services |
 | `server/board.mjs` | Leaderboard rules: best campaign per commander, owned names, the developer's reserved name, plausibility, events |
@@ -27,7 +28,11 @@ This is a turn-based grand strategy game across the Asia-Pacific, played in a ph
 | `server/*.test.mjs` | Tests: `npm test` (Node 22.5+; uses `node:sqlite` as a stand-in for D1) |
 | `tools/export_feed.py` | Writes the public feed from the built game (run by `build.py`; needs Python Playwright) |
 
-## Cloudflare Pages setup
+## Cloudflare setup
+
+The game deploys either as a **Worker** (`wrangler.jsonc` + `worker.js`; Build command empty, Deploy command `npx wrangler deploy`; the D1 database is created on the first deploy) or as a **Pages** project (below). Both use the same router and storage.
+
+### As a Pages project
 
 | Setting | Value |
 | --- | --- |
