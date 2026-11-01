@@ -2674,7 +2674,7 @@ function endTurn() {
 const SAVE_KEY = "prww3-save-v6";
 const VERSION = "1.0.16 beta"; // early access playtest build
 const DISCORD_URL = "https://discord.gg/jv8T6Pxz3e"; // official community server (permanent invite)
-const SITE_URL = "https://fractured-coasts.playgame.workers.dev/"; // 1.0.16: the game's home on Cloudflare (was pacific-rim-ww3.netlify.app)
+const SITE_URL = "https://fractured-coasts.playfracturedcoast.workers.dev/"; // 1.0.16: the game's home on Cloudflare (was pacific-rim-ww3.netlify.app)
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -5721,7 +5721,7 @@ const PATCH_NOTES = [
     "## A new name",
     "Pacific Rim WW3 is now The Fractured Coasts: WW3. The title screen, the news network (now the Fractured Coasts Network), bug reports and save files all carry the new name. Nothing about how the game plays has changed.",
     "## A new home",
-    "The game has moved to a new address: fractured-coasts.playgame.workers.dev. The new host has no monthly limit on updates, so patches can keep coming.",
+    "The game has moved to a new address: fractured-coasts.playfracturedcoast.workers.dev. The new host has no monthly limit on updates, so patches can keep coming.",
     "The leaderboard moved with it: every commander's best score from the old site was copied across. Your name is yours again once your first campaign posts from your device.",
     "## Bringing your campaigns",
     "Your saved games live in your browser, under the old address. On the old site, a Move my campaigns button sends them here in one tap: each commander's newest save comes across, and nothing already here is overwritten by an older copy.",
