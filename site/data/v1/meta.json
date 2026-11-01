@@ -1,13 +1,50 @@
 {
  "schema": 1,
  "game": "The Fractured Coasts: WW3",
- "inGameTitle": "Pacific Rim WW3",
- "version": "1.0.15 beta",
+ "inGameTitle": "The Fractured Coasts: WW3",
+ "formerly": "Pacific Rim WW3",
+ "version": "1.0.16 beta",
  "released": "1 Nov 2026",
  "discord": "https://discord.gg/jv8T6Pxz3e",
- "play": "https://pacific-rim-ww3.netlify.app/",
+ "play": "https://fractured-coasts.pages.dev/",
  "mode": "Single-player against AI nations",
  "patchNotes": [
+  {
+   "version": "1.0.16 beta",
+   "date": "1 Nov 2026",
+   "title": "The Fractured Coasts",
+   "sections": [
+    {
+     "heading": "A new name",
+     "items": [
+      "Pacific Rim WW3 is now The Fractured Coasts: WW3. The title screen, the news network (now the Fractured Coasts Network), bug reports and save files all carry the new name. Nothing about how the game plays has changed."
+     ]
+    },
+    {
+     "heading": "A new home",
+     "items": [
+      "The game has moved to a new address: fractured-coasts.pages.dev. The new host has no monthly limit on updates, so patches can keep coming.",
+      "The leaderboard moved with it: every commander's best score from the old site was copied across. Your name is yours again once your first campaign posts from your device."
+     ]
+    },
+    {
+     "heading": "Bringing your campaigns",
+     "items": [
+      "Your saved games live in your browser, under the old address. On the old site, a Move my campaigns button sends them here in one tap: each commander's newest save comes across, and nothing already here is overwritten by an older copy.",
+      "Until then you can also move a campaign by hand: on the old site, Report a bug > Download save file, then here Load game > Open a save file."
+     ]
+    },
+    {
+     "heading": "What's coming (after Thursday 5 November)",
+     "items": [
+      "Further balancing and bug fixes, including anything you report on the Discord.",
+      "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+      "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+      "The first unit expansion: the first new unit types to join the current roster."
+     ]
+    }
+   ]
+  },
   {
    "version": "1.0.15 beta",
    "date": "1 Nov 2026",

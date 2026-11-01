@@ -1,9 +1,10 @@
 {
-  "name": "pacific-rim-ww3",
+  "name": "fractured-coasts",
   "private": true,
   "type": "module",
-  "description": "Pacific Rim WW3: the game (site/) and its online services (netlify/functions/).",
-  "dependencies": {
-    "@netlify/blobs": "^8.1.0"
+  "description": "The Fractured Coasts: WW3 (formerly Pacific Rim WW3): the game (site/), its online services on Cloudflare Pages Functions (functions/, server/), and the old address's moved page (moved/).",
+  "scripts": {
+    "build": "python3 build.py",
+    "test": "node --test server/*.test.mjs"
   }
 }

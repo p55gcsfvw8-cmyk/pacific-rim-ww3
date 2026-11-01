@@ -4,15 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#061120">
-<meta name="description" content="Pacific Rim WW3: turn-based war and diplomacy across the Asia-Pacific. Sixteen nations, one ocean.">
+<meta name="description" content="The Fractured Coasts: WW3. Turn-based war and diplomacy across the Asia-Pacific. Sixteen powers, fifteen minor nations, one ocean.">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Pacific Rim WW3">
+<meta name="apple-mobile-web-app-title" content="Fractured Coasts">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>html,body{margin:0;height:100%;background:#061120;overscroll-behavior:none}</style>
-<title>Pacific Rim WW3</title>
+<title>The Fractured Coasts: WW3</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -151,6 +151,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--signal
 
 /* rows */
 .rows { display: flex; flex-direction: column; gap: 6px; }
+.bugbox .row { box-sizing: border-box; } .bugbox .rows { margin-top: 10px; }
 .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); text-align: left; width: 100%; }
 .tpick .row { cursor: pointer; color: inherit; font: inherit; } .tpick .row.on { border-color: var(--signal); box-shadow: inset 0 0 0 1px var(--signal); }
 button.row { cursor: pointer; }
@@ -294,6 +295,9 @@ button.row { cursor: pointer; }
 .scores small { color: var(--muted); }
 .start h1 { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: clamp(30px, 8vw, 46px); letter-spacing: .08em; line-height: 1; text-transform: uppercase; }
 .start h1 b { color: var(--signal); }
+.start h1.brand { font-size: clamp(28px, 8.4vw, 46px); letter-spacing: .06em; line-height: .98; }
+.start h1.brand small { display: block; font-size: .36em; letter-spacing: .5em; color: var(--muted); margin: 0 0 6px 2px; }
+.start h1.brand b { display: inline-block; margin-left: .32em; }
 .start .lede { margin: 12px 0 0; color: var(--muted); font-size: 15.5px; line-height: 1.5; max-width: 52ch; }
 
 /* ---------- nation setup ---------- */
@@ -2668,8 +2672,9 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.15 beta";
-const DISCORD_URL = "https://discord.gg/jv8T6Pxz3e"; // official community server (permanent invite) // early access playtest build
+const VERSION = "1.0.16 beta"; // early access playtest build
+const DISCORD_URL = "https://discord.gg/jv8T6Pxz3e"; // official community server (permanent invite)
+const SITE_URL = "https://fractured-coasts.pages.dev/"; // 1.0.16: the game's home on Cloudflare Pages (was pacific-rim-ww3.netlify.app)
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -5192,7 +5197,7 @@ function howToHtml() {
     <li><b>Fire from range.</b> Artillery (2 cells), jets (4), helicopters (2), frigates and radar pickets (1) can hit a cell without entering it: select them and press <b>Attack</b>. Aircraft draw fire from enemy air defences. Units keep firing every turn until the target is clear or you call them off.</li>
     <li><b>Carry troops.</b> At a port (or airbase), press <b>Embark</b> to load units onto a transport. Nothing goes ashore by itself: sail into a friendly port and press <b>Disembark</b>, or sit offshore of an enemy coast and press <b>Assault</b>. Every island has at least one port.</li>
     <li><b>The sea.</b> Lighter water is shallow: big ships move slower there and submarines are easy to find and kill. Deep ocean is where subs hide and hit hardest. Each nation owns the waters around its coast; your aircraft can't cross a neutral nation's airspace, and offshore oil fields in your waters can take a rig.</li>
-    <li><b>Read the reports.</b> After each turn the Pacific Rim Network covers what you saw clearly, plus rumours from places you can't see.</li>
+    <li><b>Read the reports.</b> After each turn the Fractured Coasts Network covers what you saw clearly, plus rumours from places you can't see.</li>
   </ol></div>`;
 }
 function showHowTo() { openSheet(`<div class="eyebrow"><span class="pill">Open beta · v${VERSION}</span></div><h2>How to play</h2>${howToHtml()}`, { type: "howto" }); }
@@ -5206,7 +5211,7 @@ function showFeedback() {
 function copyFeedback() {
   const notes = ($("fbText").value || "").trim();
   const info = G ? `Nation: ${shortName(G.player)} · Turn ${G.turn} · Seed ${G.seed ?? "n/a"}` : "No game running";
-  const out = `Pacific Rim WW3 v${VERSION} beta feedback\n${info}\nScreen: ${innerWidth}×${innerHeight}\nDevice: ${navigator.userAgent}\n\n${notes || "(no notes)"}`;
+  const out = `The Fractured Coasts: WW3 v${VERSION} feedback\n${info}\nScreen: ${innerWidth}×${innerHeight}\nDevice: ${navigator.userAgent}\n\n${notes || "(no notes)"}`;
   const pre = $("fbOut");
   const fallback = () => { pre.hidden = false; pre.textContent = out; const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Couldn't copy automatically. The text below is selected; copy it from there."); };
   try { navigator.clipboard.writeText(out).then(() => toast("Feedback copied. Paste it into a message."), fallback); } catch (e) { fallback(); }
@@ -5220,7 +5225,7 @@ function showReports(tab) {
   UI.repTab = tab;
   G.lastSeenLog = G.log.length; updateHud();
   const last = G.turn > 1 ? G.turn - 1 : 1;
-  let html = `<div class="broadcast"><span class="live">● Live</span>Pacific Rim Network</div><h2>${tab === "last" ? (last === 1 && G.turn === 1 ? "The war begins" : `Turn ${last} in review`) : "Key moments"}</h2>`;
+  let html = `<div class="broadcast"><span class="live">● Live</span>Fractured Coasts Network</div><h2>${tab === "last" ? (last === 1 && G.turn === 1 ? "The war begins" : `Turn ${last} in review`) : "Key moments"}</h2>`;
   if (G.over) html += `<div class="confirm ${G.over.win ? "" : "danger"}" style="margin-top:10px"><p>${G.over.win ? "Victory. The Pacific is yours." : "Defeat. The war is lost."}</p><div class="fx">${esc(G.over.text)}</div>${(() => { const s = scoreParts(); return `<p style="margin-top:8px">Final score <b>${s.total.toLocaleString()}</b></p><div class="fx">Territory ${s.held} · ground taken ${s.taken} · enemies destroyed ${s.kills} · losses ${s.losses}${s.victory ? ` · victory ${s.victory}` : ""}</div>`; })()}<div class="actions" style="margin-top:10px"><button class="btn primary" data-newgame="1">New game</button></div></div>`;
   html += `<div class="tabs" role="tablist"><button role="tab" aria-selected="${tab === "last"}" data-rtab="last">Last turn</button><button role="tab" aria-selected="${tab === "key"}" data-rtab="key">Key moments</button></div>`;
   if (tab === "last") {
@@ -5556,7 +5561,7 @@ addEventListener("unhandledrejection", e => logErr((e.reason && e.reason.message
 function bugMeta() {
   const ua = navigator.userAgent, dev = /iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : /Mac/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "Other";
   const br = /CriOS|Chrome/.test(ua) ? "Chrome" : /FxiOS|Firefox/.test(ua) ? "Firefox" : /Safari/.test(ua) ? "Safari" : "Browser";
-  const L = [`Build: Pacific Rim WW3 v${VERSION}${window.claude ? " (Claude app)" : " (web)"}`, `Device: ${dev} · ${br} · screen ${innerWidth}×${innerHeight} @${(devicePixelRatio || 1).toFixed(1)}x`, `Commander: ${USER || "(none)"}`];
+  const L = [`Build: The Fractured Coasts: WW3 v${VERSION}${window.claude ? " (Claude app)" : " (web)"}`, `Device: ${dev} · ${br} · screen ${innerWidth}×${innerHeight} @${(devicePixelRatio || 1).toFixed(1)}x`, `Commander: ${USER || "(none)"}`];
   if (G) { const s = scoreParts(); L.push(`Game: ${shortName(G.player)} · turn ${G.turn} · score ${s.total} · ${G.units.filter(u => u.o === G.player).length} units · ${Object.values(G.st).filter(v => v === "W").length} wars · id ${G.gid || "-"}`); if (UI.sel >= 0 && Z[UI.sel]) L.push(`Selected cell: ${Z[UI.sel].n}`); }
   else L.push(`Screen: ${MENU.view}`);
   L.push(ERRLOG.length ? `Recent errors:\n  ${ERRLOG.join("\n  ")}` : "Recent errors: none");
@@ -5565,7 +5570,7 @@ function bugMeta() {
 // inside Claude the viewer's app hands the file over (downloads capability); on the web it's a plain download
 async function downloadSave() {
   if (!G) return false;
-  const filename = `prww3-${slugOf(USER || "save")}-${C[G.player].code}-t${G.turn}.json`;
+  const filename = `fractured-coasts-${slugOf(USER || "save")}-${C[G.player].code}-t${G.turn}.json`;
   if (window.claude && typeof window.claude.use === "function") {
     const dl = await window.claude.use("downloads").catch(() => null);
     if (dl) { try { await dl.save({ filename, data: saveJson() }); return true; } catch (e) { return false; } }
@@ -5586,10 +5591,10 @@ function showBugReport() {
     <details><summary>What gets attached</summary><pre class="bugpre">${esc(bugMeta())}</pre></details>
     <p class="note">Post the report (and the save file, if you can) in #bug-reports on the <a href="${DISCORD_URL}" target="_blank" rel="noopener noreferrer" style="color:var(--signal)">official Discord</a>. A save file lets us replay your exact game.</p></div>`;
   document.body.appendChild(m);
-  const txt = () => `PACIFIC RIM WW3 BUG REPORT\n\n${($("bugTxt").value || "(no description)").trim()}\n\n${bugMeta()}`;
+  const txt = () => `THE FRACTURED COASTS: WW3 BUG REPORT\n\n${($("bugTxt").value || "(no description)").trim()}\n\n${bugMeta()}`;
   const say = s => { $("bugMsg").textContent = s; };
   $("bugCopy").onclick = async () => { try { await navigator.clipboard.writeText(txt()); say("Copied. Paste it into a message to the team."); } catch (e) { const ta = $("bugTxt"); ta.value = txt(); ta.select(); say("Copy blocked by the browser: the full report is in the box, select it and copy."); } };
-  if ($("bugShare")) $("bugShare").onclick = () => navigator.share({ title: "Pacific Rim WW3 bug report", text: txt() }).catch(() => {});
+  if ($("bugShare")) $("bugShare").onclick = () => navigator.share({ title: "The Fractured Coasts: WW3 bug report", text: txt() }).catch(() => {});
   if ($("bugSave")) $("bugSave").onclick = async () => say(await downloadSave() ? "Save file ready. Attach it to your report." : "The save file wasn't downloaded.");
   $("bugClose").onclick = () => m.remove();
   m.onclick = e => { if (e.target === m) m.remove(); };
@@ -5600,7 +5605,7 @@ function importSave(file, name) {
   const rd = new FileReader();
   rd.onload = () => {
     let s = null; try { s = reviveSave(JSON.parse(rd.result)); } catch (e) {}
-    if (!s) { MENU.err = "That file isn't a Pacific Rim WW3 save."; showName("load"); return; }
+    if (!s) { MENU.err = "That file isn't a save from The Fractured Coasts: WW3."; showName("load"); return; }
     setUser(name); G = s; if (!G.gid) G.gid = Date.now().toString(36); invalidate(); save(); $("start").hidden = true; MENU_FX.stop(); afterStart();
   };
   rd.readAsText(file);
@@ -5634,7 +5639,61 @@ async function refreshOnline() {
   return ONLINE.ok;
 }
 const onlineChipHtml = () => ONLINE.ok ? `<i class="dot"></i>${ONLINE.list.length} commander${ONLINE.list.length === 1 ? "" : "s"} online` : `<i class="dot off"></i>Players online`;
+// ---------- 1.0.16: campaigns brought over from the old site (pacific-rim-ww3.netlify.app) ----------
+// The old site uploads its saves once, then opens this site with ?transfer=<code>. Nothing is overwritten
+// by an older copy: for each commander the newer save wins, and settings already set here are kept.
+function mergeTransfer(keys) {
+  const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set = (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } };
+  const parse = v => { try { return JSON.parse(v); } catch (e) { return null; } };
+  const moved = [], kept = [];
+  for (const [k, v] of Object.entries(keys || {})) {
+    if (typeof v !== "string" || !k.startsWith("prww3")) continue;
+    if (k === "prww3-claim" || k === "prww3-did") continue; // this device keeps its own identity
+    const mine = get(k);
+    if (k.startsWith(SAVE_KEY)) {
+      const a = parse(v), b = parse(mine); if (!a) continue;
+      const who = k.includes(":") ? k.split(":")[1] : "";
+      if (!b || (a.savedAt || 0) > (b.savedAt || 0)) { if (set(k, v)) moved.push({ slug: who, nation: C[a.player] ? shortName(a.player) : "", turn: a.turn }); } else kept.push(who);
+      continue;
+    }
+    if (k === PROF_KEY) {
+      const o = parse(v) || {}, n = parse(mine) || {};
+      const meta = { ...(o.meta || {}) }; for (const [slug, m] of Object.entries(n.meta || {})) if (!meta[slug] || (m.at || 0) >= (meta[slug].at || 0)) meta[slug] = m;
+      const list = [...(n.list || []), ...(o.list || [])].filter((x, i, l) => l.findIndex(y => slugOf(y) === slugOf(x)) === i).slice(0, 12);
+      set(k, JSON.stringify({ ...o, ...n, list, meta, last: n.last || o.last }));
+      continue;
+    }
+    if (k === SCORE_KEY) {
+      const all = [...(parse(mine) || []), ...(parse(v) || [])], by = new Map();
+      for (const e of all) if (e && e.gid && (!by.has(e.gid) || e.turn > by.get(e.gid).turn)) by.set(e.gid, e);
+      set(k, JSON.stringify([...by.values()].sort((x, y) => y.score - x.score).slice(0, 100)));
+      continue;
+    }
+    if (mine == null) set(k, v); // settings: sound, tips, tutorial, replay speed
+  }
+  return { moved, kept };
+}
+async function receiveTransfer() {
+  const code = new URLSearchParams(location.search).get("transfer"); if (!code || API == null) return;
+  try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
+  let data = null;
+  try { const r = await fetch(API + "/api/v1/transfer?code=" + encodeURIComponent(code), { cache: "no-store" }); if (r.ok) { const j = await r.json(); data = JSON.parse(String(j.data).startsWith("{") ? j.data : await ungz64(j.data)); } } catch (e) {}
+  const m = document.createElement("div"); m.className = "cardmodal";
+  if (!data || !data.keys) {
+    m.innerHTML = `<div class="bugbox"><h2>Transfer link expired</h2><p class="note">That link has already been used or is more than a day old. Open the old site again and tap <b>Move my campaigns</b> for a fresh one.</p><div class="actions"><button class="btn primary" id="trOk">OK</button></div></div>`;
+    document.body.appendChild(m); $("trOk").onclick = () => m.remove(); return;
+  }
+  const r = mergeTransfer(data.keys), prof = (() => { try { return JSON.parse(localStorage.getItem(PROF_KEY) || "{}"); } catch (e) { return {}; } })();
+  const nameOf = slug => (prof.list || []).find(n => slugOf(n) === slug) || slug || "Your campaign";
+  m.innerHTML = `<div class="bugbox"><div class="eyebrow"><span class="pill cap">Welcome</span><span class="pill">v${VERSION}</span></div><h2>Your campaigns are here</h2>
+    ${r.moved.length ? `<div class="rows">${r.moved.map(x => `<div class="row"><div class="t"><span>${esc(nameOf(x.slug))}</span></div><div class="s">${esc(x.nation)}${x.turn ? `, turn ${x.turn}` : ""}</div></div>`).join("")}</div>` : `<p class="note">Nothing new to bring over: this browser already had the latest version of each campaign.</p>`}
+    ${r.kept.length ? `<p class="note">Kept the newer copy already here for ${r.kept.map(x => esc(nameOf(x))).join(", ")}.</p>` : ""}
+    <p class="note">Pacific Rim WW3 is now <b>The Fractured Coasts: WW3</b>. Bookmark this address: the old one will only point here from now on.</p>
+    <div class="actions"><button class="btn primary" id="trOk">Continue</button></div></div>`;
+  document.body.appendChild(m); $("trOk").onclick = () => location.reload();
+}
 if (API != null) {
+  setTimeout(receiveTransfer, 300);
   setTimeout(() => { heartbeat(); refreshOnline(); }, 1500);
   setInterval(() => { heartbeat(); if (!G && !$("start").hidden) refreshOnline(); }, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) heartbeat(); });
@@ -5658,6 +5717,21 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.16 beta", date: "1 Nov 2026", title: "The Fractured Coasts", items: [
+    "## A new name",
+    "Pacific Rim WW3 is now The Fractured Coasts: WW3. The title screen, the news network (now the Fractured Coasts Network), bug reports and save files all carry the new name. Nothing about how the game plays has changed.",
+    "## A new home",
+    "The game has moved to a new address: fractured-coasts.pages.dev. The new host has no monthly limit on updates, so patches can keep coming.",
+    "The leaderboard moved with it: every commander's best score from the old site was copied across. Your name is yours again once your first campaign posts from your device.",
+    "## Bringing your campaigns",
+    "Your saved games live in your browser, under the old address. On the old site, a Move my campaigns button sends them here in one tap: each commander's newest save comes across, and nothing already here is overwritten by an older copy.",
+    "Until then you can also move a campaign by hand: on the old site, Report a bug > Download save file, then here Load game > Open a save file.",
+    "## What's coming (after Thursday 5 November)",
+    "Further balancing and bug fixes, including anything you report on the Discord.",
+    "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+    "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+    "The first unit expansion: the first new unit types to join the current roster.",
+  ] },
   { v: "1.0.15 beta", date: "1 Nov 2026", title: "Leaderboard: your best campaign", items: [
     "## One row per commander",
     "The global leaderboard now shows each commander once, with their best campaign, instead of every campaign they started. Starting a new game can't push your best score down, and a campaign that has a bad turn doesn't lower your record. Each row shows how many campaigns that commander has played.",
@@ -5926,7 +6000,7 @@ const MENU = { view: "title", mode: "new", err: "" };
 function menuRefresh() { if (!G && !$("start").hidden) ({ title: showTitle, name: () => showName(MENU.mode), nations: showStart, scores: showScores }[MENU.view] || (() => {}))(); }
 function heroHead() {
   return `<div class="hero-pad"><div class="fxcap" id="fxCap" aria-live="off"></div></div>
-    <div class="beta"><span class="pill cap">Early access</span><span class="pill">v${VERSION}</span></div><h1>Pacific Rim <b>WW3</b></h1>`;
+    <div class="beta"><span class="pill cap">Early access</span><span class="pill">v${VERSION}</span></div><h1 class="brand"><small>The</small>Fractured Coasts<b>WW3</b></h1>`;
 }
 function savedLine(name) {
   const m = profMeta(name); if (!m) return "";
@@ -6272,8 +6346,8 @@ function exportFeed() {
   const notes = PATCH_NOTES.map(n => { const sections = []; let cur = { heading: null, items: [] }; sections.push(cur);
     for (const it of n.items) { if (it.startsWith("## ")) { cur = { heading: it.slice(3), items: [] }; sections.push(cur); } else cur.items.push(it); }
     return { version: n.v, date: n.date, title: n.title, sections: sections.filter(x => x.items.length) }; });
-  const meta = { schema: 1, game: "The Fractured Coasts: WW3", inGameTitle: "Pacific Rim WW3", version: VERSION, released: PATCH_NOTES[0].date, discord: DISCORD_URL,
-    play: "https://pacific-rim-ww3.netlify.app/", mode: "Single-player against AI nations", patchNotes: notes };
+  const meta = { schema: 1, game: "The Fractured Coasts: WW3", inGameTitle: "The Fractured Coasts: WW3", formerly: "Pacific Rim WW3", version: VERSION, released: PATCH_NOTES[0].date, discord: DISCORD_URL,
+    play: SITE_URL, mode: "Single-player against AI nations", patchNotes: notes };
   const units = UT_KEYS.map(t => { const T = UT[t], I = UNIT_INFO[t] || {};
     return { key: t, name: T.name, domain: T.dom, role: T.role || "combat", size: T.size, crew: T.crew, manpower: manOf(t), funds: T.f, materials: T.m, buildTurns: T.turns,
       recruitAt: T.at, upkeepFunds: T.uf, movement: T.mp, defence: T.d, detection: T.det, sonar: !!T.sonar, strikeRange: T.rng || 0, fuelPerMove: T.fpm || 0, ammoPerFight: T.apb || 0,
@@ -6300,7 +6374,7 @@ function exportFeed() {
     nations, governments, units, battalions, buildings, guide: howToGuide(), notes: { startingArmy: "Powers pick their own starting army with " + BUDGET + " points; minor nations' starting forces are fixed." } };
   return { meta, codex };
 }
-window.__prw = { get G() { return G; }, exportFeed, VERSION, PATCH_NOTES, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; }, BLD, BLD_INFO, BLD_CAT, bldEffect, bldCost, bldsAt, showBldCard, showBldAt, defMult, laneCost, supplyMap, cellFunds, recruitSites, fortDiv, roadCost, hospHeal, depotReload };
+window.__prw = { get G() { return G; }, mergeTransfer, receiveTransfer, exportFeed, VERSION, PATCH_NOTES, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; }, BLD, BLD_INFO, BLD_CAT, bldEffect, bldCost, bldsAt, showBldCard, showBldAt, defMult, laneCost, supplyMap, cellFunds, recruitSites, fortDiv, roadCost, hospHeal, depotReload };
 })();
 </script>
 

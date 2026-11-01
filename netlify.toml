@@ -1,23 +1,25 @@
-# Netlify serves the finished game straight from site/. No build step: build.py is run before each push.
+# The old address (pacific-rim-ww3.netlify.app) after the move to Cloudflare Pages (1.0.16):
+# it only serves the "We've moved" page, which carries players' saves to the new site.
+# Netlify deploys are paused until the team's credits reset on 29 Nov 2026; the next deploy after that publishes this.
+# Once it's live, press "Lock to stop auto publishing" on Netlify so later pushes don't spend credits.
 [build]
-  publish = "site"
+  publish = "moved"
   command = ""
 
-# Always check for a fresh copy so playtesters get each patch on their next reload.
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
+[functions]
+  directory = "netlify/none"
 
-# Short link to the official Discord (the invite is permanent; change it here, not in the game, if it ever moves)
 [[redirects]]
   from = "/discord"
   to = "https://discord.gg/jv8T6Pxz3e"
   status = 302
 
-# The public data feed: read-only, readable from the website and other sites
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
 [[headers]]
-  for = "/data/*"
+  for = "/*"
   [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Cache-Control = "public, max-age=300"
+    Cache-Control = "public, max-age=0, must-revalidate"

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#061120">
+<title>The Fractured Coasts: WW3 has moved</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+  :root { --bg: #061120; --panel: #0c1a2a; --line: rgba(255,255,255,.12); --ink: #e6edf4; --muted: #94a3b4; --signal: #f5b84a; --bad: #ff8b7e; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font: 16px/1.5 Barlow, system-ui, sans-serif; }
+  main { max-width: 520px; margin: 0 auto; padding: max(28px, env(safe-area-inset-top)) 18px 40px; }
+  .pill { display: inline-block; padding: 4px 10px; border-radius: 6px; font: 700 11.5px "Chakra Petch", sans-serif; letter-spacing: .12em; text-transform: uppercase; background: var(--signal); color: #1a1203; }
+  h1 { margin: 14px 0 0; font: 700 clamp(28px, 8.4vw, 44px)/1 "Chakra Petch", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+  h1 small { display: block; font-size: .36em; letter-spacing: .5em; color: var(--muted); margin-bottom: 6px; }
+  h1 b { color: var(--signal); margin-left: .3em; }
+  p { color: var(--muted); }
+  .card { margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+  .who { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .who:last-child { border-bottom: 0; } .who span { color: var(--muted); font-size: 14px; }
+  .btn { display: block; width: 100%; min-height: 54px; margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; background: #13263a; color: var(--ink); font: 700 15px "Chakra Petch", sans-serif; letter-spacing: .08em; text-transform: uppercase; text-align: center; text-decoration: none; line-height: 52px; cursor: pointer; }
+  .btn.primary { background: var(--signal); color: #1a1203; border-color: var(--signal); }
+  .btn.small { min-height: 40px; line-height: 38px; font-size: 12.5px; }
+  .btn:disabled { opacity: .6; }
+  #msg { margin-top: 12px; color: var(--signal); min-height: 1.5em; }
+  #msg.bad { color: var(--bad); }
+  a { color: var(--signal); }
+</style>
+</head>
+<body>
+<main>
+  <span class="pill">We've moved</span>
+  <h1><small>The</small>Fractured Coasts<b>WW3</b></h1>
+  <p>Pacific Rim WW3 has a new name and a new home: <a href="https://fractured-coasts.pages.dev/">fractured-coasts.pages.dev</a>. This old address now only helps you move.</p>
+  <div id="have" hidden>
+    <div class="card"><b>Campaigns saved in this browser</b><div id="list"></div></div>
+    <button class="btn primary" id="move">Move my campaigns to the new site</button>
+    <p id="msg" role="status"></p>
+    <details><summary>Doesn't work? Download them instead</summary><p>Download a save, then on the new site choose Load game &gt; Open a save file.</p><div id="files"></div></details>
+  </div>
+  <div id="none" hidden><div class="card">No saved campaigns in this browser. Your progress may be on another device or browser: open this page there to move it.</div></div>
+  <a class="btn" href="https://fractured-coasts.pages.dev/">Go to the new site</a>
+  <p style="font-size:14px">Join the community: <a href="https://discord.gg/jv8T6Pxz3e">official Discord</a>.</p>
+</main>
+<script>
+(() => {
+  const NEW = "https://fractured-coasts.pages.dev/".replace(/\/$/, ""), SAVE = "prww3-save-v6";
+  const keys = {}; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith("prww3")) keys[k] = localStorage.getItem(k); } } catch (e) {}
+  const parse = v => { try { return JSON.parse(v); } catch (e) { return null; } };
+  const prof = parse(keys["prww3-profiles"]) || {};
+  const saves = Object.keys(keys).filter(k => k === SAVE || k.startsWith(SAVE + ":")).map(k => ({ k, slug: k.split(":")[1] || "", s: parse(keys[k]) })).filter(x => x.s);
+  const nameOf = slug => (prof.list || []).find(n => String(n).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") === slug) || slug || "Your campaign";
+  const $ = id => document.getElementById(id), say = (t, bad) => { $("msg").textContent = t; $("msg").className = bad ? "bad" : ""; };
+  if (!saves.length) { $("none").hidden = false; return; }
+  $("have").hidden = false;
+  $("list").innerHTML = saves.map(x => `<div class="who"><b></b><span>turn ${x.s.turn || "?"}</span></div>`).join("");
+  [...$("list").querySelectorAll("b")].forEach((b, i) => b.textContent = nameOf(saves[i].slug));
+  $("files").innerHTML = saves.map((x, i) => `<button class="btn small" data-i="${i}"></button>`).join("");
+  [...$("files").querySelectorAll("button")].forEach(b => { const x = saves[+b.dataset.i]; b.textContent = "Download " + nameOf(x.slug); b.onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([keys[x.k]], { type: "application/json" })); a.download = `fractured-coasts-${x.slug || "save"}-t${x.s.turn || 0}.json`; document.body.appendChild(a); a.click(); a.remove(); }; });
+  async function pack() {
+    const text = JSON.stringify({ v: 1, from: location.origin, at: Date.now(), keys });
+    if (typeof CompressionStream === "undefined") return text; // older browsers: plain JSON, the new site accepts both
+    const buf = new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer());
+    let bin = ""; for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  $("move").onclick = async () => {
+    const b = $("move"); b.disabled = true; say("Packing your campaigns…");
+    try {
+      const data = await pack(); say("Sending them to the new site…");
+      const r = await fetch(NEW + "/api/v1/transfer", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.code) throw new Error(j.error || "HTTP " + r.status);
+      say("Done. Opening the new site…"); location.href = NEW + "/?transfer=" + encodeURIComponent(j.code);
+    } catch (e) { b.disabled = false; say("The move didn't go through (" + (e.message || e) + "). Check your connection and try again, or use the download option below.", true); }
+  };
+})();
+</script>
+</body>
+</html>

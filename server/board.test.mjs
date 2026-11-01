@@ -1,7 +1,7 @@
-// Leaderboard rules, tested against an in-memory stand-in for Netlify Blobs:  node --test netlify/test/
+// Leaderboard rules, tested against an in-memory stand-in for Netlify Blobs:  node --test server/
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { submitScore, topBoard, ensureBest, recentEvents, checkClaim, plausible, isDev } from "../lib/board.mjs";
+import { submitScore, topBoard, ensureBest, recentEvents, checkClaim, plausible, isDev } from "./board.mjs";
 
 class Mem {
   constructor() { this.m = new Map(); }

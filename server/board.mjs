@@ -1,7 +1,7 @@
 // Leaderboard logic (1.0.15): one row per commander (their best campaign), owned names, the developer's
 // reserved name, a plausibility check, and a log of verified, opt-in events for FORBID COMMAND.
 // Pure logic over a store with get/setJSON/list/delete, so it can be tested without Netlify.
-import { createHash, timingSafeEqual } from "node:crypto";
+// Web Crypto only, so the same file runs on Cloudflare (Pages Functions), Netlify Functions and Node 20+.
 
 export const NATIONS = ["CN", "JP", "KR", "KP", "TW", "PH", "VN", "TH", "MY", "SG", "ID", "PG", "AU", "NZ", "FJ", "US"];
 export const RESULTS = ["In progress", "Victory", "Defeat"];
@@ -17,8 +17,8 @@ export const slugOf = n => String(n || "").trim().toLowerCase().replace(/[^a-z0-
 export const cleanId = id => (/^[a-z0-9]{6,32}$/i.test(String(id ?? "")) ? String(id) : null);
 export const cleanKey = k => (/^[a-z0-9]{20,64}$/i.test(String(k ?? "")) ? String(k) : null);
 export const int = (v, lo, hi) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
-const sha = s => createHash("sha256").update(String(s)).digest("hex");
-const same = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
+async function sha(s) { const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(s))); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, "0")).join(""); }
+const same = (a, b) => { a = String(a); b = String(b); if (a.length !== b.length) return false; let x = 0; for (let i = 0; i < a.length; i++) x |= a.charCodeAt(i) ^ b.charCodeAt(i); return x === 0; }; // constant time
 
 // Generous ceiling from the scoring formula (territory up to 4,000, captures, kills, capitals, victory bonus up to 3,800):
 // real campaigns stay far below it; a hand-made 60,000 on turn 3 does not.
@@ -28,6 +28,7 @@ const pub = b => ({ name: b.name, nation: b.nation, score: b.score, turn: b.turn
 export const rankSort = (a, b) => b.score - a.score || a.at - b.at;
 
 async function readAll(s, prefix) {
+  if (s.values) return s.values(prefix); // stores that can read a whole prefix in one query (D1)
   const { blobs } = await s.list({ prefix });
   const rows = await Promise.all(blobs.map(b => s.get(b.key, { type: "json" }).catch(() => null)));
   return rows.filter(Boolean);
@@ -56,10 +57,10 @@ export async function topBoard(s, n = 20) {
 // who owns a name: a device key (hashed), or the developer code for reserved names
 export async function checkClaim(s, env, name, key, devCode) {
   const slug = slugOf(name), reserved = RESERVED[slug], rec = await s.get(`names/${slug}`, { type: "json" }).catch(() => null);
-  const kh = key ? sha(key) : null;
+  const kh = key ? await sha(key) : null;
   if (reserved) {
     const code = env.DEV_CODE || "";
-    const okCode = !!(code && devCode && same(sha(devCode), sha(code)));
+    const okCode = !!(code && devCode && same(await sha(devCode), await sha(code)));
     if (rec && kh && rec.hashes.includes(kh)) return { ok: true, slug, claimed: true, dev: true };
     if (!okCode) return { ok: false, status: 403, error: "reserved", slug };
     const hashes = [...new Set([kh, ...((rec && rec.hashes) || [])].filter(Boolean))].slice(0, 6); // the developer may play on several devices
@@ -152,5 +153,5 @@ export async function isDev(s, name, key) {
   const slug = slugOf(name), k = cleanKey(key);
   if (!RESERVED[slug] || !k) return false;
   const rec = await s.get(`names/${slug}`, { type: "json" }).catch(() => null);
-  return !!(rec && rec.dev && rec.hashes.includes(sha(k)));
+  return !!(rec && rec.dev && rec.hashes.includes(await sha(k)));
 }
