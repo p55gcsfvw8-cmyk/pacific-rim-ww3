@@ -59,7 +59,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--signal
 
 /* ---------- dock ---------- */
 .dock-wrap { position: fixed; left: 0; right: 0; bottom: 0; pointer-events: none;
-  padding: 0 calc(env(safe-area-inset-right, 0px) + 10px) calc(env(safe-area-inset-bottom, 0px) + 10px) calc(env(safe-area-inset-left, 0px) + 10px);
+  padding: 0 calc(env(safe-area-inset-right, 0px) + 10px) calc(env(safe-area-inset-bottom, 0px) + 10px + var(--badge-gap, 0px)) calc(env(safe-area-inset-left, 0px) + 10px);
   transform: translateY(calc(-1 * var(--sheet-h, 0px))); transition: transform .28s cubic-bezier(.2,.8,.2,1); }
 .dock-wrap > * { pointer-events: auto; }
 .zoomrow { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; margin-bottom: 8px; max-width: 560px; margin-inline: auto; transition: opacity .2s; }
@@ -86,7 +86,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--signal
   font-size: 13.5px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .mode-banner span { flex: 1; min-width: 0; line-height: 1.3; }
 .mode-banner button { flex: none; border: 0; background: rgba(0,0,0,.15); border-radius: 8px; min-height: 34px; padding: 0 12px; font-family: var(--f-display); font-weight: 700; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
-.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px + var(--sheet-h, 0px)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px);
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px + var(--sheet-h, 0px) + var(--badge-gap, 0px)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px);
   background: #22364b; color: var(--ink); border: 1px solid #36506b; border-radius: 10px; padding: 9px 13px; font-size: 13.5px; line-height: 1.35; box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 30; }
 
 /* ---------- sheet ---------- */
@@ -98,7 +98,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--signal
 .sheet-head .handle { flex: 1; display: flex; justify-content: center; padding-left: 44px; }
 .sheet-head .handle i { width: 40px; height: 4px; border-radius: 2px; background: #3a5874; }
 .sheet-head .close { flex: none; width: 44px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; display: grid; place-items: center; }
-.sheet .body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 20px) max(16px, env(safe-area-inset-left, 0px)); }
+.sheet .body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 20px + var(--badge-gap, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
 .eyebrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 6px; }
 .pill { font-family: var(--f-display); font-weight: 700; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; padding: 3px 8px; border-radius: 5px; background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; }
 .pill.cap { background: var(--signal); color: var(--signal-ink); border-color: var(--signal); }
@@ -207,6 +207,13 @@ button.row { cursor: pointer; }
 .vol { display: grid; grid-template-columns: 84px minmax(0, 1fr) 30px; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; color: var(--muted); }
 .vol input { width: 100%; accent-color: var(--signal); }
 .vol b { font: 600 12px var(--f-body); color: var(--ink); text-align: right; }
+.lvtab { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
+.lvtab th { text-align: left; font: 600 11px var(--f-display); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 4px 6px 6px 0; }
+.lvtab td { padding: 6px 6px 6px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.lvtab td:first-child { color: var(--signal); font-weight: 700; white-space: nowrap; }
+.lvtab td:nth-child(2), .lvtab td:nth-child(3) { white-space: nowrap; color: var(--muted); }
+.bthumb { width: 64px; height: 32px; border-radius: 6px; flex: none; }
+.bldrow { grid-template-columns: 64px minmax(0, 1fr) !important; }
 .cmdbar.tabsonly { padding-top: 6px; padding-bottom: 8px; }
 .ztabs { display: flex; gap: 4px; margin-top: 9px; }
 .cmdbar.tabsonly .ztabs { margin-top: 0; }
@@ -623,8 +630,14 @@ const BLD = {
   mtc:  { name: "Military Training Centre", max: 5, f: 6, m: 5, turns: 2, city: true, desc: "Trains recruits for deployment: +5% manpower growth per level, counted across all your centres up to +25%. Cities only." },
   rig:  { name: "Offshore oil rig", max: 5, f: 10, m: 8, turns: 3, need: "oil", sea: true, desc: "+4 fuel at level 1, +2 more per level. Built over an offshore oil field in your own waters." },
 };
-const fortF = z => 1 + .25 * (B(z).fort || 0);           // damage divisor for defenders
-const roadMul = (a, b) => { const l = Math.min(B(a).road || 0, B(b).road || 0); return l ? .62 - .05 * (l - 1) : 1; };
+// building effects, one formula each: the game and the building cards both read these (1.0.13)
+const FORT_PER = .25, ROAD_INC = .06, FAC_FUNDS = 1.5, FAC_MAT = 2, HOSP_MAN = .05, HOSP_CAP = .5, MTC_MAN = .05, MTC_CAP = .25;
+const fortDiv = l => 1 + FORT_PER * l;                       // damage divisor for defenders at defence level l
+const roadCost = l => l ? .62 - .05 * (l - 1) : 1;            // land move cost multiplier between two road cells
+const hospHeal = l => 15 + 5 * l;                             // health a hospital restores to a unit in its cell each turn
+const depotReload = l => .55 + .08 * l;                       // share of a supply column's cargo reloaded a turn at a depot
+const fortF = z => fortDiv(B(z).fort || 0);
+const roadMul = (a, b) => roadCost(Math.min(B(a).road || 0, B(b).road || 0));
 const yieldOf = l => l ? 4 + 2 * (l - 1) : 0;
 
 const GOV = {
@@ -901,9 +914,9 @@ function econ(ci) {
     if (G.owner[i] !== ci) continue;
     prov++;
     const P = PROV[i], b = B(i), occ = Z[i].c !== ci ? .5 : 1;
-    funds += (P.inc * (1 + .06 * (b.road || 0)) + (b.fac || 0) * 1.5) * occ;
+    funds += (P.inc * (1 + ROAD_INC * (b.road || 0)) + (b.fac || 0) * FAC_FUNDS) * occ;
     man += P.man * (Z[i].c !== ci ? .2 : 1);
-    mat += .06 + (P.dep === "ore" ? 1.5 : 0) + yieldOf(b.mine || 0) + (b.fac || 0) * 2;
+    mat += .06 + (P.dep === "ore" ? 1.5 : 0) + yieldOf(b.mine || 0) + (b.fac || 0) * FAC_MAT;
     fuel += (P.dep === "oil" ? 1.5 : 0) + yieldOf(b.well || 0);
     hosp += b.hosp || 0; trn += b.mtc || 0;
   }
@@ -912,12 +925,12 @@ function econ(ci) {
   const stabF = .55 + .45 * N.stab / 100;
   funds *= gm.funds * stabF;
   // hospitals +5% a level (to +50%) and 1.0.12 training centres +5% a level (to +25%), added together, not compounded
-  man *= gm.man * (1 + Math.min(.5, hosp * .05) + Math.min(.25, trn * .05)) * MAN_RATE;
+  man *= gm.man * (1 + Math.min(HOSP_CAP, hosp * HOSP_MAN) + Math.min(MTC_CAP, trn * MTC_MAN)) * MAN_RATE;
   mat *= gm.mat;
   let upF = 0, upFu = 0;
   for (const u of G.units) if (u.o === ci) upF += UT[u.t].uf * gm.cost;
   upFu = N.lastFuel || 0; // fuel spent resupplying units last turn (already paid)
-  return { funds, man, mat, fuel, upF, upFu, netF: funds - upF, netFu: fuel - upFu, prov, hospB: Math.min(.5, hosp * .05), trnB: Math.min(.25, trn * .05), manCap: Math.round(man * MAN_CAP_TURNS + MAN_CAP_BASE) };
+  return { funds, man, mat, fuel, upF, upFu, netF: funds - upF, netFu: fuel - upFu, prov, hospB: Math.min(HOSP_CAP, hosp * HOSP_MAN), trnB: Math.min(MTC_CAP, trn * MTC_MAN), manCap: Math.round(man * MAN_CAP_TURNS + MAN_CAP_BASE) };
 }
 let PWR = null; // per-turn cache while the AIs decide (31 nations asking about each other)
 function power(ci) {
@@ -970,7 +983,7 @@ function cancelRecruit(ci, q) {
 function cellFunds(i) {
   const o = G.owner[i]; if (o < 0) return 0;
   const P = PROV[i], b = B(i), occ = Z[i].c !== o ? .5 : 1, N = G.nations[o];
-  return (P.inc * (1 + .06 * (b.road || 0)) + (b.fac || 0) * 1.5) * occ * govMods(o).funds * (.55 + .45 * N.stab / 100);
+  return (P.inc * (1 + ROAD_INC * (b.road || 0)) + (b.fac || 0) * FAC_FUNDS) * occ * govMods(o).funds * (.55 + .45 * N.stab / 100);
 }
 function buildingOptions(ci, z) {
   const b = B(z), dep = depOf(z);
@@ -2007,7 +2020,7 @@ function supplyPhase() {
     for (const L of mine) {
       const T = UT[L.t]; if (T.role !== "logistics") continue;
       if (fullAt(L) && L.cg < T.cargo) { // reloading a supply column takes a couple of turns
-        const rate = T.cargo * (isLand(L.z) && B(L.z).depot ? .55 + .08 * B(L.z).depot : .45);
+        const rate = T.cargo * (isLand(L.z) && B(L.z).depot ? depotReload(B(L.z).depot) : .45);
         const need = Math.min(T.cargo - L.cg, rate); const [df, da] = draw(L, need / 2, need / 2); L.cg += df + da;
       }
     }
@@ -2570,7 +2583,7 @@ function endTurn() {
     const T = UT[u.t]; u.mp = u.ord && u.ord.rtb ? T.mp : Math.max(0, Math.min(T.mp, Math.floor(fuelMp(u) * 2) / 2));
     const o = isLand(u.z) ? G.owner[u.z] : -1;
     const home = o === u.o || (o >= 0 && friendly(u.o, o));
-    let h = Math.min(100 - u.hp, home ? (B(u.z).hosp ? 15 + 5 * B(u.z).hosp : 6) : 2);
+    let h = Math.min(100 - u.hp, home ? (B(u.z).hosp ? hospHeal(B(u.z).hosp) : 6) : 2);
     if (h > 0) { const N = G.nations[u.o], per = manOf(u.t) / 100; if (N && per > 0) { h = Math.min(h, Math.max(0, N.man) / per); N.man -= h * per; } u.hp = Math.min(100, u.hp + h); }
   }
   // relations drift
@@ -2633,7 +2646,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.12 beta"; // early access playtest build
+const VERSION = "1.0.13 beta"; // early access playtest build
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
 // Two copies of every save: this browser (instant, but phones and in-app viewers can lose it)
 // and the player's own Claude account (private to them; needs a signed-in viewer who may write).
@@ -3003,6 +3016,7 @@ function renderBase() {
   }
   if (G && UI.supplyLayer) drawSupplyOverlay(vb);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (UI.infra) drawRoads(vb);
   drawLabels(vb);
   if (UI.infra) drawInfra(vb);
 }
@@ -3467,8 +3481,28 @@ function drawInfraIcon(k, x, y, sz, on, lvl) {
   }
   ctx.restore();
 }
+// roads: a road between two adjacent road cells is drawn as a road, wider for higher levels (the lower level counts, as for movement)
+function drawRoads(vb) {
+  const s = cam.s; if (!G || s < 14) return;
+  const V = UI.fog ? playerVis().vis : null, P = G.player, segs = [];
+  for (const a of LAND_IDS) {
+    const la = B(a).road; if (!la) continue;
+    const za = Z[a]; if (za.x < vb[0] - 2 || za.x > vb[2] + 2 || za.y < vb[1] - 2 || za.y > vb[3] + 2) continue;
+    for (const [b2, f] of ADJ[a]) { if (b2 < a || !(f & 1) || !isLand(b2)) continue; const lb = B(b2).road; if (!lb) continue; if (V && !(friendly(P, G.owner[a]) || V[a]) && !(friendly(P, G.owner[b2]) || V[b2])) continue; segs.push([a, b2, Math.min(la, lb)]); }
+  }
+  if (!segs.length) return;
+  for (const pass of [0, 1, 2]) for (const [a, b2, l] of segs) {
+    const [x0, y0] = toScreen(Z[a].x, Z[a].y), [x1, y1] = toScreen(Z[b2].x, Z[b2].y), w = (1.6 + l * .5) * Math.min(1.4, s / 24);
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+    if (pass === 0) { ctx.lineWidth = w + 2.2; ctx.strokeStyle = "rgba(11,22,34,.55)"; ctx.setLineDash([]); }
+    else if (pass === 1) { ctx.lineWidth = w; ctx.strokeStyle = "#7f8a94"; }
+    else { if (s < 24) continue; ctx.lineWidth = .9; ctx.strokeStyle = "rgba(245,184,74,.8)"; ctx.setLineDash([3, 4]); }
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
 function drawInfra(vb) {
-  const s = cam.s; if (s < 6) return;
+  const s = cam.s; UI.bldHits = []; if (s < 6) return;
   const V = G && UI.fog ? playerVis() : null;
   for (const i of LAND_IDS) {
     const z = Z[i]; if (z.x < vb[0] || z.x > vb[2] || z.y < vb[1] || z.y > vb[3]) continue;
@@ -3476,24 +3510,35 @@ function drawInfra(vb) {
     const known = !G || !V || friendly(G.player, G.owner[i]) || V.vis[i];
     const [x, y] = toScreen(z.x, z.y);
     if (s < 18) {
+      // far zoom: deposits as dots, and one small amber pip for a cell with buildings
+      if (G && known && bldsAt(i).length && s >= 10) { ctx.fillStyle = "#f5b84a"; ctx.strokeStyle = "#0b1622"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x + 9, y + 5); ctx.lineTo(x + 13, y + 9); ctx.lineTo(x + 9, y + 13); ctx.lineTo(x + 5, y + 9); ctx.closePath(); ctx.fill(); ctx.stroke(); }
       if (!P.dep) continue;
       const dev = known && (P.dep === "oil" ? b.well : b.mine);
       ctx.fillStyle = P.dep === "oil" ? "#1b1f24" : "#aab7c5"; ctx.strokeStyle = dev ? COL.signal : "#0b1622"; ctx.lineWidth = dev ? 2 : 1.2;
       ctx.beginPath(); ctx.arc(x - 9, y + 9, 4.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       continue;
     }
+    // deposits not yet developed keep their small dashed markers
     const icons = [];
-    if (P.dep === "oil") icons.push(["oil", known && !!b.well]);
-    if (P.dep === "ore") icons.push(["ore", known && !!b.mine]);
-    if (G && known) {
-      if (b.well) icons.push(["well", true]);
-      if (b.mine) icons.push(["mine", true]);
-      for (const k of (s >= 30 ? ["fac", "depot", "air", "fort", "hosp", "mtc"] : ["depot", "air", "fort"])) if (b[k]) icons.push([k, true, b[k]]);
+    if (P.dep === "oil" && !(known && b.well)) icons.push(["oil", false]);
+    if (P.dep === "ore" && !(known && b.mine)) icons.push(["ore", false]);
+    const list = G && known ? bldsAt(i) : [];
+    if (list.length) {
+      // mid zoom: one compact chip (the most important building) and a count; close zoom: each building's artwork, up to 4 and a count.
+      // The row sits just above the cell's name, clear of the unit markers and unit cards that grow from the cell's centre.
+      const close = s >= BLD_CLOSE, cw = close ? 34 : 24, ch = close ? 19 : 14, iy = y - (z.t === "cap" ? 25 : 21) - ch / 2, show = close ? list.slice(0, list.length > 4 ? 3 : 4) : list.slice(0, 1), more = list.length - show.length;
+      const n = show.length + (more ? 1 : 0), gap = 2, tot = n * (cw + gap) - gap + icons.length * 17;
+      let ix = x - tot / 2;
+      for (const [k, l] of show) { ctx.drawImage(bldSprite(k, cw, ch, close ? l : 0), ix, iy - ch / 2, cw, ch); ix += cw + gap; }
+      if (more) { ctx.fillStyle = "rgba(11,22,34,.94)"; ctx.strokeStyle = "rgba(245,184,74,.85)"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(ix, iy - ch / 2, cw, ch, 4) : ctx.rect(ix, iy - ch / 2, cw, ch); ctx.fill(); ctx.stroke(); ctx.font = `700 ${Math.round(ch * .55)}px ${FONT_D}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = "#f5b84a"; ctx.fillText("+" + more, ix + cw / 2, iy + .5); ix += cw + gap; }
+      UI.bldHits.push([x - tot / 2 - 3, iy - ch / 2 - 3, x - tot / 2 + tot + 3, iy + ch / 2 + 3, i]);
+      for (const [k, on] of icons) { drawInfraIcon(k, ix + 7.5, iy, 15, on, 0); ix += 17; }
+      continue;
     }
     if (!icons.length) continue;
+    const iy = y + (z.t !== "prov" ? 40 : 24);
     const sz = 15, gap = 2, tot = icons.length * (sz + gap) - gap;
     let ix = x - tot / 2 + sz / 2;
-    const iy = y + (z.t !== "prov" ? 40 : 24);
     for (const [k, on, lvl] of icons) { drawInfraIcon(k, ix, iy, sz, on, lvl); ix += sz + gap; }
   }
   for (const i of SEA_IDS) {
@@ -3501,7 +3546,8 @@ function drawInfra(vb) {
     const z = Z[i]; if (z.x < vb[0] || z.x > vb[2] || z.y < vb[1] || z.y > vb[3]) continue;
     const [x, y] = toScreen(z.x, z.y), rig = G ? B(i).rig || 0 : 0;
     if (s < 18) { ctx.fillStyle = "#1b1f24"; ctx.strokeStyle = rig ? COL.signal : "#4cc3ff"; ctx.lineWidth = rig ? 2 : 1.2; ctx.beginPath(); ctx.arc(x, y + 12, 4.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); continue; }
-    drawInfraIcon(rig ? "rig" : "oil", x, y + 18, 15, !!rig, rig);
+    if (rig && (!G || !UI.fog || friendly(G.player, waters()[i]) || playerVis().vis[i])) { const close = s >= BLD_CLOSE, cw = close ? 34 : 24, ch = close ? 19 : 14; ctx.drawImage(bldSprite("rig", cw, ch, close ? rig : 0), x - cw / 2, y + 18 - ch / 2, cw, ch); UI.bldHits.push([x - cw / 2 - 3, y + 18 - ch / 2 - 3, x + cw / 2 + 3, y + 18 + ch / 2 + 3, i]); }
+    else drawInfraIcon("oil", x, y + 18, 15, false, 0);
   }
 }
 // ---------- turn playback ----------
@@ -4020,7 +4066,7 @@ function closeSheet() {
   if (!UI.move) UI.sel = -1;
   draw();
 }
-function refreshSheet() { if (!sheetView) return; const v = sheetView; ({ zone: showZone, nation: showNation, dip: showDiplomacy, army: showArmy, gov: showGov, report: showReports, layers: showLayers, econ: showEcon, howto: showHowTo, feedback: showFeedback, codex: showCodex, batcard: showBatCard, targets: showTargets, strikeprev: (a) => showStrikePreview(a.z, a.ids), atkprev: (a) => showAttackPreview(a.z, a.ids) }[v.type] || (() => {}))(v.arg, true); }
+function refreshSheet() { if (!sheetView) return; const v = sheetView; ({ zone: showZone, nation: showNation, dip: showDiplomacy, army: showArmy, gov: showGov, report: showReports, layers: showLayers, econ: showEcon, howto: showHowTo, feedback: showFeedback, codex: showCodex, batcard: showBatCard, bcard: showBldCard, bldat: showBldAt, targets: showTargets, strikeprev: (a) => showStrikePreview(a.z, a.ids), atkprev: (a) => showAttackPreview(a.z, a.ids) }[v.type] || (() => {}))(v.arg, true); }
 $("sheetClose").addEventListener("click", closeSheet);
 { // drag the sheet header down to close
   let y0 = null;
@@ -4191,7 +4237,13 @@ function showCodex(t) {
   if (t && BAT_BY[t]) { showBatCard(t); return; }
   if (t) { openSheet(`<div class="eyebrow"><button class="btn" data-codex="">← All units</button></div>${unitCardHtml(t)}`, { type: "codex", arg: t }); return; }
   const groups = [["Land", x => UT[x].dom === "land" && !UT[x].role], ["Air", x => UT[x].dom === "air" && !UT[x].role], ["Sea", x => (UT[x].dom === "sea" || UT[x].dom === "sub") && !UT[x].role], ["Transport & supply", x => !!UT[x].role]];
-  let h = `<div class="eyebrow"><span class="pill">Intel</span></div><h2>Unit cards</h2><p class="note" style="margin-top:4px">Every nation fields the same units. Tap one for its stats, strengths and best uses.</p>`;
+  const tabs = `<div class="tabs" role="tablist"><button role="tab" data-cxtab="u" aria-selected="${UI.cxTab !== "b"}">Units</button><button role="tab" data-cxtab="b" aria-selected="${UI.cxTab === "b"}">Buildings</button></div>`;
+  if (UI.cxTab === "b") {
+    let hb = `<div class="eyebrow"><span class="pill">Intel</span></div><h2>Building cards</h2>${tabs}<p class="note" style="margin-top:4px">Every building, what each level does and what it costs. Build and upgrade them from a cell's Build tab.</p>`;
+    for (const cat of ["Military", "Industrial", "Infrastructure", "Logistics"]) hb += `<div class="section-title">${cat}</div><div class="codex">${BLD_ORDER.filter(k => BLD_CAT[k] === cat).map(k => `<button class="cx" data-bcard="${k}"><canvas class="thumb" width="240" height="120" data-bart="${k}" aria-hidden="true"></canvas><span>${esc(BLD[k].name)}</span></button>`).join("")}</div>`;
+    openSheet(hb, { type: "codex", arg: null }); return;
+  }
+  let h = `<div class="eyebrow"><span class="pill">Intel</span></div><h2>Unit cards</h2>${tabs}<p class="note" style="margin-top:4px">Every nation fields the same units. Tap one for its stats, strengths and best uses.</p>`;
   for (const [n, f] of groups) h += `<div class="section-title">${n}</div><div class="codex">${UT_KEYS.filter(f).map(x => `<button class="cx" data-codex="${x}">${artCanvas(x, 240, "thumb")}<span>${UT[x].name}</span></button>`).join("")}</div>`;
   h += `<div class="section-title">Battalions <small>formations with a bonus</small></div><div class="codex">${BAT_TYPES.map(b => `<button class="cx" data-codex="${b.k}"><canvas class="thumb" width="240" height="120" data-batart="${b.k}" aria-hidden="true"></canvas><span>${b.name}</span></button>`).join("")}</div>`;
   openSheet(h, { type: "codex", arg: null });
@@ -4201,6 +4253,7 @@ function hydrateArt(root) {
   root.querySelectorAll("canvas[data-fig]").forEach(c => { const g = c.getContext("2d"); g.clearRect(0, 0, c.width, c.height); g.drawImage(unitSprite(c.dataset.fig, c.dataset.aff || "friendly"), 0, 0, c.width, c.height); });
   root.querySelectorAll("canvas[data-batfig]").forEach(c => { const g = c.getContext("2d"); g.clearRect(0, 0, c.width, c.height); const ts = c.dataset.batfig.split(","); g.drawImage(ts.length > 1 ? groupSprite(ts, c.dataset.aff || "friendly") : unitSprite(ts[0], c.dataset.aff || "friendly"), 0, 0, c.width, c.height); });
   root.querySelectorAll("canvas[data-batart]").forEach(c => drawBatArt(c, c.dataset.batart));
+  root.querySelectorAll("canvas[data-bart]").forEach(c => { const g = c.getContext("2d"); g.setTransform(c.width / 200, 0, 0, c.height / 100, 0, 0); drawBldArt(g, c.dataset.bart); });
 }
 // battalion card art: the unit-card backdrop with the formation's units drawn together
 function drawBatArt(c, k) {
@@ -4225,6 +4278,136 @@ function batCardHtml(k) {
     <div class="section-title">Typical make-up</div><div class="codex">${b.ex.map(t => `<button class="cx" data-codex="${t}">${artCanvas(t, 240, "thumb")}<span>${UT[t].name}</span></button>`).join("")}</div></div>`;
 }
 function showBatCard(k) { openSheet(`<div class="eyebrow"><button class="btn" data-codex="">← All units</button></div>${batCardHtml(k)}`, { type: "batcard", arg: k }); }
+// ---------- buildings: artwork, map chips and information cards (1.0.13) ----------
+// Every building is drawn in the unit-card style in a 200 x 100 space: a scene backdrop and dark silhouettes for cards,
+// light silhouettes on a dark chip for the map.
+const BLD_CLOSE = 60; // zoom (pixels per map unit) from which every building in a cell gets its own chip
+const BLD_ORDER = ["air", "fort", "fac", "depot", "mtc", "hosp", "mine", "well", "rig", "road"];
+function drawBldArt(g, k, map = false) {
+  const lin = (y0, y1, a, b) => { const gr = g.createLinearGradient(0, y0, 0, y1); gr.addColorStop(0, a); gr.addColorStop(1, b); return gr; };
+  const ink = map ? "#dce6f0" : lin(10, 95, "#22364c", "#09121c"), rim = map ? "rgba(4,10,18,.65)" : "rgba(200,225,255,.28)";
+  const acc = "#f5b84a", glass = map ? "#5f86a8" : "rgba(160,210,255,.45)", dark = map ? "#0b1622" : "#050b12";
+  if (!map) {
+    if (k === "rig") { g.fillStyle = lin(0, 60, "#1b3a58", "#3b6a8e"); g.fillRect(0, 0, 200, 60); g.fillStyle = lin(60, 100, "#134062", "#08243b"); g.fillRect(0, 60, 200, 40); g.strokeStyle = "rgba(255,255,255,.12)"; g.lineWidth = 1; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(i * 45, 78 + (i % 2) * 8); g.quadraticCurveTo(i * 45 + 20, 74 + (i % 2) * 8, i * 45 + 40, 78 + (i % 2) * 8); g.stroke(); } }
+    else { g.fillStyle = lin(0, 78, "#1b3550", "#4a6a82"); g.fillRect(0, 0, 200, 78); g.fillStyle = lin(78, 100, "#5b6a3d", "#2f3a22"); g.fillRect(0, 78, 200, 22); }
+  }
+  g.lineJoin = "round"; g.lineCap = "round";
+  const poly = (pts, col = ink) => { g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.closePath(); g.fillStyle = col; g.fill(); g.strokeStyle = rim; g.lineWidth = 1; g.stroke(); };
+  const box = (x, y, w, h, col = ink) => { g.fillStyle = col; g.fillRect(x, y, w, h); g.strokeStyle = rim; g.lineWidth = 1; g.strokeRect(x, y, w, h); };
+  const ell = (x, y, rx, ry, col = ink) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fillStyle = col; g.fill(); g.strokeStyle = rim; g.lineWidth = 1; g.stroke(); };
+  const line = (x0, y0, x1, y1, w, col = ink) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
+  const windows = (x, y, n, rows, w = 7, h = 5, dx = 11, dy = 9) => { g.fillStyle = glass; for (let r = 0; r < rows; r++) for (let i = 0; i < n; i++) g.fillRect(x + i * dx, y + r * dy, w, h); };
+  switch (k) {
+    case "fort": // a concrete pillbox behind sandbags, wire in front
+      for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) { ell(22 + i * 11 + (r % 2) * 5, 74 - r * 6, 6, 3.4); ell(142 + i * 11 + (r % 2) * 5, 74 - r * 6, 6, 3.4); }
+      poly([58, 78, 66, 46, 134, 44, 142, 78]); poly([64, 46, 72, 36, 128, 35, 136, 44]);
+      g.fillStyle = dark; g.fillRect(76, 56, 48, 6); line(124, 59, 150, 57, 3); g.fillStyle = acc; g.fillRect(96, 38, 8, 3);
+      g.strokeStyle = map ? "#9fb1c4" : "rgba(210,220,230,.7)"; g.lineWidth = 1; g.beginPath(); for (let x = 8; x <= 192; x += 6) g.lineTo(x, x % 12 ? 90 : 84); g.stroke(); break;
+    case "road": // a highway running into the distance, lane markings and a road sign
+      poly([30, 100, 170, 100, 112, 34, 88, 34], map ? "#8a99a8" : "#3c4855"); g.strokeStyle = map ? "#0b1622" : "rgba(10,18,28,.6)"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(30, 100); g.lineTo(88, 34); g.moveTo(170, 100); g.lineTo(112, 34); g.stroke();
+      g.fillStyle = acc; for (let i = 0; i < 5; i++) { const t = i / 5, y = 98 - t * 60, w = 4 - t * 3, h = 9 - t * 7; g.fillRect(100 - w / 2, y - h, w, h); }
+      line(160, 78, 160, 42, 2.5); box(146, 30, 30, 14, map ? "#4a8f5c" : "#2f6b45"); g.fillStyle = "#e6edf4"; g.fillRect(151, 36, 20, 2); break;
+    case "hosp": // a hospital block with a red cross and an ambulance at the door
+      box(34, 44, 112, 34); box(30, 40, 120, 6); windows(42, 52, 8, 2, 7, 6, 12, 11);
+      g.fillStyle = "#e6edf4"; g.fillRect(78, 26, 24, 16); g.fillStyle = "#d9443a"; g.fillRect(87, 28, 6, 12); g.fillRect(84, 31, 12, 6);
+      box(150, 62, 34, 16, "#e6edf4"); poly([184, 78, 184, 66, 192, 70, 192, 78], "#e6edf4"); g.fillStyle = "#d9443a"; g.fillRect(162, 68, 10, 3); g.fillRect(165.5, 64.5, 3, 10); ell(158, 80, 4, 4, dark); ell(182, 80, 4, 4, dark); break;
+    case "fac": // a saw-tooth factory with chimneys and smoke
+      g.fillStyle = map ? "rgba(220,230,240,.35)" : "rgba(220,230,240,.25)"; [[146, 16, 10], [160, 8, 13], [176, 3, 15]].forEach(([x, y, r]) => { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); });
+      poly([24, 78, 24, 52, 44, 36, 44, 52, 64, 36, 64, 52, 84, 36, 84, 52, 104, 36, 104, 52, 124, 36, 124, 78]); box(124, 50, 30, 28);
+      box(134, 18, 8, 32); box(146, 26, 7, 24); g.fillStyle = acc; g.fillRect(134, 22, 8, 2); windows(30, 60, 8, 1, 8, 6, 12, 0); g.fillStyle = dark; g.fillRect(130, 60, 16, 18); break;
+    case "mine": // a pithead frame with its winding wheel, an ore heap and a conveyor
+      poly([120, 78, 196, 78, 168, 52, 148, 56], map ? "#9aa6b2" : "#6c6157"); line(62, 78, 92, 20, 3); line(122, 78, 92, 20, 3); line(72, 58, 112, 58, 2); line(80, 42, 104, 42, 2); line(68, 66, 104, 42, 1.5); line(116, 66, 80, 42, 1.5);
+      g.strokeStyle = ink; g.lineWidth = 2.5; g.beginPath(); g.arc(92, 20, 9, 0, Math.PI * 2); g.stroke(); line(92, 20, 92, 78, 1); box(28, 56, 34, 22); poly([28, 56, 45, 46, 62, 56]);
+      line(118, 70, 160, 54, 3); box(70, 72, 18, 6); ell(73, 80, 2.5, 2.5, dark); ell(85, 80, 2.5, 2.5, dark); g.fillStyle = acc; g.fillRect(88, 17, 8, 3); break;
+    case "well": // a pumpjack nodding over the wellhead, with a storage tank
+      box(52, 72, 104, 6); poly([96, 72, 106, 30, 116, 72]); line(42, 34, 160, 26, 5); poly([36, 24, 46, 24, 50, 50, 40, 50]); line(43, 50, 43, 72, 1.5);
+      ell(146, 52, 12, 12); line(146, 52, 160, 28, 3); box(38, 64, 10, 14); box(164, 50, 24, 28); g.fillStyle = acc; g.fillRect(164, 56, 24, 3); break;
+    case "air": // a runway with a hangar, a control tower and a parked jet
+      poly([0, 100, 200, 100, 186, 80, 14, 80], map ? "#7d8b99" : "#353f4a"); g.fillStyle = acc; for (let x = 20; x < 190; x += 22) g.fillRect(x, 88, 12, 2.5);
+      g.beginPath(); g.moveTo(14, 78); g.ellipse(52, 78, 38, 30, 0, Math.PI, 0); g.closePath(); g.fillStyle = ink; g.fill(); g.strokeStyle = rim; g.stroke(); g.fillStyle = dark; g.fillRect(38, 60, 28, 18);
+      box(162, 30, 6, 48); box(152, 20, 26, 12); g.fillStyle = glass; g.fillRect(155, 23, 20, 5); g.fillStyle = acc; g.fillRect(163, 15, 4, 5);
+      poly([96, 70, 140, 69, 150, 72, 140, 75, 96, 74]); poly([112, 73, 128, 73, 106, 84]); poly([98, 70, 106, 70, 98, 62]); break;
+    case "depot": // a supply warehouse, stacked containers and fuel tanks
+      box(18, 46, 70, 32); poly([14, 48, 53, 30, 92, 48]); g.fillStyle = dark; g.fillRect(40, 58, 26, 20); g.fillStyle = acc; g.fillRect(40, 56, 26, 2);
+      const cc = map ? ["#c08a5a", "#6aa0c8", "#9cbf6a", "#d0b45a"] : ["#8b5a3c", "#3c6e8b", "#6e8b3c", "#8b7a3c"];
+      for (let r = 0; r < 2; r++) for (let i = 0; i < 3 - r; i++) box(96 + i * 22 + r * 11, 68 - r * 10, 21, 10, cc[(i + r * 2) % 4]);
+      [[168, 58], [186, 58]].forEach(([x, y]) => { box(x - 8, y, 16, 20); ell(x, y, 8, 3); }); break;
+    case "rig": // an offshore platform on legs, with a derrick, a crane and a gas flare
+      [40, 70, 130, 160].forEach(x => line(x, 50, x - (x < 100 ? 6 : -6), 92, 4)); line(40, 70, 160, 70, 2); box(28, 44, 144, 8);
+      poly([70, 44, 86, 6, 102, 44]); line(75, 32, 97, 32, 1.5); line(79, 20, 93, 20, 1.5); box(112, 30, 34, 14); g.fillStyle = glass; g.fillRect(116, 34, 26, 4);
+      line(150, 44, 186, 18, 2.5); g.fillStyle = "#ffb347"; g.beginPath(); g.ellipse(190, 13, 4, 7, .5, 0, Math.PI * 2); g.fill(); g.fillStyle = "#ff7a3c"; g.beginPath(); g.ellipse(190, 14, 2, 4, .5, 0, Math.PI * 2); g.fill();
+      line(44, 44, 34, 18, 2); line(34, 18, 60, 22, 1.5); g.strokeStyle = acc; g.lineWidth = 1.5; g.beginPath(); g.ellipse(160, 41, 9, 2, 0, 0, Math.PI * 2); g.stroke(); break;
+    case "mtc": // barracks, a flag, an obstacle course and a firing range
+      box(14, 54, 60, 24); poly([10, 56, 44, 42, 78, 56]); windows(20, 62, 4, 1, 8, 6, 14, 0); line(88, 78, 88, 22, 2); poly([88, 22, 110, 26, 88, 32], acc);
+      box(100, 58, 6, 20); box(116, 50, 6, 28); line(100, 60, 122, 52, 2); line(100, 68, 122, 60, 2); box(130, 66, 22, 12);
+      [[166, 60], [184, 60]].forEach(([x, y]) => { line(x, y + 8, x, 78, 2); g.fillStyle = "#e6edf4"; g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.fill(); g.strokeStyle = "#d9443a"; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 4.5, 0, Math.PI * 2); g.stroke(); g.fillStyle = "#d9443a"; g.beginPath(); g.arc(x, y, 1.6, 0, Math.PI * 2); g.fill(); }); break;
+  }
+}
+// map chips: the building's artwork in a small dark frame, cached per size
+const _bldSprite = new Map();
+function bldSprite(k, w, h, lvl) {
+  const key = k + ":" + w + ":" + h + ":" + (lvl || 0) + ":" + DPR; let c = _bldSprite.get(key); if (c) return c;
+  c = document.createElement("canvas"); c.width = Math.ceil(w * DPR); c.height = Math.ceil(h * DPR); const g = c.getContext("2d"); g.scale(DPR, DPR);
+  g.fillStyle = "rgba(11,22,34,.94)"; g.strokeStyle = "rgba(245,184,74,.85)"; g.lineWidth = 1.2; g.beginPath(); g.roundRect ? g.roundRect(.6, .6, w - 1.2, h - 1.2, Math.min(5, h / 3)) : g.rect(.6, .6, w - 1.2, h - 1.2); g.fill(); g.stroke();
+  g.save(); g.beginPath(); g.rect(2, 2, w - 4, h - 4); g.clip(); const pad = 2.5, sc = Math.min((w - pad * 2) / 200, (h - pad * 2) / 100); g.translate((w - 200 * sc) / 2, (h - 100 * sc) / 2); g.scale(sc, sc); drawBldArt(g, k, true); g.restore();
+  if (lvl && BLD[k] && BLD[k].max > 1) { const fs = Math.max(7, h * .42); g.font = `700 ${fs}px ${FONT_D}`; g.textAlign = "right"; g.textBaseline = "top"; g.lineWidth = 2.5; g.strokeStyle = "#0b1622"; g.strokeText(lvl, w - 2.5, 1.5); g.fillStyle = "#f5b84a"; g.fillText(lvl, w - 2.5, 1.5); }
+  _bldSprite.set(key, c); return c;
+}
+const bldsAt = i => { const b = B(i); return BLD_ORDER.filter(k => k !== "road" && b[k] > 0).map(k => [k, b[k]]); };
+const BLD_CAT = { fort: "Military", air: "Military", mtc: "Military", fac: "Industrial", mine: "Industrial", well: "Industrial", rig: "Industrial", road: "Infrastructure", hosp: "Infrastructure", depot: "Logistics" };
+// what each level does, read from the same formulas the game runs on
+function bldEffect(k, l) {
+  const pc = x => Math.round(x * 100);
+  switch (k) {
+    case "fort": return `Your land units here take ${pc(1 - 1 / fortDiv(l))}% less damage`;
+    case "road": return `Land moves between two road cells cost ×${roadCost(l).toFixed(2)}; this cell's income +${pc(ROAD_INC * l)}%`;
+    case "hosp": return `Heals units here ${hospHeal(l)} health a turn; national manpower growth +${pc(HOSP_MAN * l)}% (all hospitals together cap at +${pc(HOSP_CAP)}%)`;
+    case "fac": return `+${fmt(FAC_FUNDS * l, 1)} funds and +${FAC_MAT * l} materials a turn (funds before government and stability; funds halved if the cell is occupied)`;
+    case "mine": return `+${yieldOf(l)} materials a turn`;
+    case "well": case "rig": return `+${yieldOf(l)} fuel a turn`;
+    case "air": return "Aircraft can be recruited here (home cities only); aircraft here are refuelled and rearmed";
+    case "depot": return `Full resupply here and next door${l >= 3 ? ", and two cells out" : ""}; supply columns reload ${pc(depotReload(l))}% of their cargo a turn here`;
+    case "mtc": return `National manpower growth +${pc(MTC_MAN * l)}% (all centres together cap at +${pc(MTC_CAP)}%)`;
+  }
+  return "";
+}
+const bldCost = (k, l) => { const d = BLD[k], mult = 1 + (l - 1) * .6; return { f: Math.round(d.f * mult), m: Math.round(d.m * mult) }; };
+const BLD_INFO = {
+  fort: { purpose: "Fortified positions: bunkers, trenches and wire that shield your land units from enemy fire.", place: "Any land cell you hold. One construction at a time per cell.", how: "Protects land units friendly to the cell's owner, against both direct fire and bombardment. It doesn't protect ships, aircraft or attackers standing in the cell. Capturing the cell destroys one level, and strikes can wreck levels.", tips: ["Fortify capitals and border cities first: they hold the most victory points.", "Defences multiply with terrain cover, so jungle and urban cells become very hard to take.", "Pair with artillery behind the line to punish attackers stuck in front of the wall."] },
+  road: { purpose: "Paved roads that speed up land movement and lift the cell's income.", place: "Any land cell you hold. A road only speeds moves when both cells on the route have roads; the lower level counts.", how: "Movement uses the road rate for any unit travelling between two road cells, invaders included. The income bonus applies to the cell's own income.", tips: ["Build chains of roads from your cities to the front so reinforcements arrive in fewer turns.", "Battalions move at their slowest unit's pace, so roads matter most for tanks and artillery.", "Remember the enemy can drive on your roads too once they break through."] },
+  hosp: { purpose: "A military hospital that heals units in its cell and returns more of your people to service.", place: "Any land cell you hold.", how: "Healing in the cell runs once a turn and draws manpower (1% of the unit's manpower cost per health point). The manpower bonus counts every hospital level across all land you hold, up to the cap.", tips: ["Put hospitals where your armies regroup: a level-5 hospital heals 40 health a turn.", "Several level-1 hospitals give the same manpower bonus as one big one, but healing only happens in the hospital's own cell.", "Healing costs manpower, so watch your reserve during long wars."] },
+  fac: { purpose: "An industrial complex producing both money and materials.", place: "Any land cell you hold; best in cities you're unlikely to lose.", how: "Its output joins your economy each turn. Funds are scaled by your government and stability and halved on occupied land. Materials are only scaled by your economic policy (free market 90%, state-directed 120%) and aren't reduced on occupied land.", tips: ["Factories are the main source of materials for most nations.", "Upgrade a few factories deep rather than many shallow ones: the cost per level rises slowly.", "Keep them behind the front: strikes and capture take levels away."] },
+  mine: { purpose: "An extraction site that digs raw industrial materials from an ore deposit.", place: "Only on a land cell with an ore deposit.", how: "An ore cell already gives +1.5 materials without a mine; the mine adds its own output on top. Like all materials, the total is scaled by your economic policy. Output isn't reduced if the cell is occupied, so a captured mine works for its new owner.", tips: ["Develop every ore deposit you hold: it's the cheapest steady material supply.", "Protect mining cells: they're prize targets for invaders.", "Materials pay for heavy units and ships, so mines matter most for navies and armour."] },
+  well: { purpose: "Extraction equipment pumping crude from an oil deposit to fuel your forces.", place: "Only on a land cell with an oil deposit.", how: "An oil cell already gives +1.5 fuel without a well. Fuel keeps aircraft flying, ships sailing and tanks moving.", tips: ["Air forces and navies burn fuel fast; wells keep them operating far from home.", "Losing your wells mid-war grounds aircraft, so defend them.", "Fuel can also be bought on the market, but wells are cheaper over time."] },
+  air: { purpose: "A runway with hangars and a control tower: the home of your air force.", place: "Any land cell you hold. Aircraft can only be recruited at an airbase in a city or capital of your own country, not on captured ground.", how: "One level. Aircraft based here are fully refuelled and rearmed each turn (a logistics depot does the same). The airbase has no guns of its own: anti-air fire comes only from units in the cell.", tips: ["Station anti-air capable units with your aircraft to defend the base.", "Aircraft return to their home base when fuel runs low, so build bases near the fronts you'll fight over.", "Airbases are prime strike targets: losing one strands the aircraft that use it."] },
+  depot: { purpose: "Storage and supply infrastructure that keeps armies fuelled and armed.", place: "Any land cell you hold.", how: "Gives full resupply of fuel and ammunition in its cell and the adjacent cells, two cells out from level 3. Supply columns (trucks, supply aircraft and supply ships) standing in the depot's own cell reload faster with each level. Resupply is paid from your national fuel and materials.", tips: ["Build depots just behind the front so attacking units refill every turn.", "Level 3 is the big step: the supply area grows to two cells.", "Combine with supply trucks to reach units beyond the depot's area."] },
+  rig: { purpose: "An offshore platform drilling an undersea oil field.", place: "Only over an offshore oil field in your own territorial waters.", how: "Fuel goes to whoever owns the waters, so the rig changes hands if the coast does.", tips: ["Rigs are the only fuel source for many island nations.", "Keep warships nearby: an exposed rig is an easy target.", "Holding the coastline keeps the rig's output."] },
+  mtc: { purpose: "Military training grounds that prepare recruits for deployment faster.", place: "Cities and capitals you hold.", how: "Each level adds to national manpower growth, counted across all your centres up to the cap. It's added to the hospital bonus rather than multiplied, and it raises your reserve ceiling too.", tips: ["Spread centres across your cities or concentrate them: only the total level counts, up to +25%.", "Build them early in a long war: the extra manpower adds up over many turns.", "A captured centre works for the enemy, so build them in secure cities."] },
+};
+function bldCardHtml(k) {
+  const d = BLD[k], I = BLD_INFO[k];
+  let rows = ""; for (let l = 1; l <= d.max; l++) { const c = bldCost(k, l); rows += `<tr><td>L${l}</td><td>$${c.f} · ${c.m} mat</td><td>${d.turns}t</td><td>${esc(bldEffect(k, l))}</td></tr>`; }
+  return `<div class="ucard"><canvas class="art" width="400" height="200" data-bart="${k}" aria-hidden="true"></canvas><div class="eyebrow" style="margin-top:10px"><span class="pill">${BLD_CAT[k]}</span><span class="pill cap">${d.max > 1 ? `Levels 1 to ${d.max}` : "One level"}</span>${d.need ? `<span class="pill">Needs ${d.need === "oil" ? (d.sea ? "an offshore oil field" : "an oil deposit") : "an ore deposit"}</span>` : ""}${d.city ? `<span class="pill">Cities only</span>` : ""}</div>
+    <h3 class="uname">${esc(d.name)}</h3><p class="udesc">${esc(I.purpose)}</p>
+    <dl class="stats"><div><dt>Level 1</dt><dd>$${d.f}<small> · ${d.m} mat</small></dd></div><div><dt>Build time</dt><dd>${d.turns}<small> turn${d.turns > 1 ? "s" : ""} a level</small></dd></div><div><dt>Max level</dt><dd>${d.max}</dd></div></dl>
+    <div class="section-title">Each level</div><table class="lvtab"><thead><tr><th>Level</th><th>Cost</th><th>Time</th><th>Effect</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="section-title">Where it can go</div><p class="note" style="margin-top:0">${esc(I.place)}</p>
+    <div class="section-title">How it works</div><p class="note" style="margin-top:0">${esc(I.how)}</p>
+    <div class="section-title">Tips</div><ul class="uses">${I.tips.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+    <p class="note">Build and upgrade from a cell's Build tab.</p></div>`;
+}
+function showBldCard(k, back) { if (typeof back !== "number") back = UI.bcardBack != null && sheetView && sheetView.type === "bcard" && sheetView.arg === k ? UI.bcardBack : null; UI.bcardBack = back; openSheet(`<div class="eyebrow"><button class="btn" ${back != null ? `data-bldcell="${back}"` : `data-cxtab="b"`}>← ${back != null ? esc(Z[back].n) : "All buildings"}</button></div>${bldCardHtml(k)}`, { type: "bcard", arg: k }); }
+// tapping a cell's building chips on the map: what stands there, without touching any orders
+function showBldAt(i) {
+  const list = bldsAt(i), b = B(i), mine = G && ownerOf(i) === G.player;
+  let h = `<div class="eyebrow"><span class="pill">Buildings</span>${isLand(i) ? `<span class="pill">${esc(shortName(G.owner[i]))}</span>` : ""}</div><h2>${esc(Z[i].n)}</h2>`;
+  const all = list.concat(b.road ? [["road", b.road]] : []);
+  if (!all.length) h += `<p class="note">Nothing built here.</p>`;
+  h += `<div class="rows">${all.map(([k, l]) => `<button class="row unit bldrow" data-bcard="${k}" data-bfrom="${i}"><canvas class="bthumb" width="96" height="48" data-bart="${k}" aria-hidden="true"></canvas><div class="t"><span>${esc(BLD[k].name)}</span></div><div class="s">${BLD[k].max > 1 ? `Level ${l} of ${BLD[k].max}` : "Built"} · ${esc(bldEffect(k, l))}</div></button>`).join("")}</div>`;
+  h += `<div class="actions">${mine && isLand(i) ? `<button class="btn primary" data-bldopen="${i}">Open Build tab</button>` : ""}<button class="btn" data-bldcell="${i}">Cell details</button></div>`;
+  openSheet(h, { type: "bldat", arg: i });
+}
+
 
 // ---------- zone panel ----------
 function showZone(i, refresh) {
@@ -4251,8 +4434,9 @@ function showZone(i, refresh) {
     const Pv = PROV[i], b = B(i);
     T.info += `<dl class="stats"><div><dt>Population</dt><dd>${fmtPop(z.p)}</dd></div><div><dt>Income</dt><dd>$${fmt(cellFunds(i), 1)}<small>/t</small></dd></div><div><dt>Deposit</dt><dd>${Pv.dep === "oil" ? `Oil<small>${b.well ? " · tapped" : " · untapped"}</small>` : Pv.dep === "ore" ? `Ore<small>${b.mine ? " · mined" : " · untapped"}</small>` : "—"}</dd></div></dl>`;
     if (vis || owner === P) {
-      const blist = Object.entries(b).filter(([, v]) => v > 0).map(([k, v]) => `${BLD[k].name} L${v}`);
-      T.info += `<p class="note" style="margin-top:8px">${blist.length ? "Built: " + blist.join(" · ") : "No infrastructure."} · Worth ${vpOf(i)} VP</p>`;
+      const all = bldsAt(i).concat(b.road ? [["road", b.road]] : []);
+      T.info += `<p class="note" style="margin-top:8px">${all.length ? "" : "No infrastructure. "}Worth ${vpOf(i)} VP</p>`;
+      if (all.length) T.info += `<div class="section-title">Buildings here <small>tap one for its card</small></div><div class="rows">${all.map(([k, l]) => `<button class="row unit bldrow" data-bcard="${k}" data-bfrom="${i}"><canvas class="bthumb" width="96" height="48" data-bart="${k}" aria-hidden="true"></canvas><div class="t"><span>${esc(BLD[k].name)}</span></div><div class="s">${BLD[k].max > 1 ? `Level ${l} of ${BLD[k].max}` : "Built"} · ${esc(bldEffect(k, l))}</div></button>`).join("")}</div>`;
     }
   } else {
     const wo = waters()[i];
@@ -4603,7 +4787,12 @@ body.addEventListener("click", e => {
   if (b.dataset.unit) { UI.pick = UI.pick || new Set(); const id = +b.dataset.unit; UI.pick.has(id) ? UI.pick.delete(id) : UI.pick.add(id); refreshSheet(); return; }
   if (b.dataset.ztab) { UI.ztab = { z: sheetView.arg, k: b.dataset.ztab }; UI.ztabMem = UI.ztabMem || {}; refreshSheet(); if (UI.ztab.kind) UI.ztabMem[UI.ztab.kind] = b.dataset.ztab; body.scrollTop = 0; return; }
   if (b.dataset.act === "move") { startMove(sheetView.arg, b.dataset.grp || "combat"); return; }
-  if (b.dataset.codex != null) { showCodex(b.dataset.codex || null); return; }
+  if (b.dataset.codex != null) { if (!b.dataset.codex) UI.cxTab = "u"; showCodex(b.dataset.codex || null); return; }
+  if (b.dataset.cxtab) { UI.cxTab = b.dataset.cxtab; showCodex(null); body.scrollTop = 0; return; }
+  if (b.dataset.bcard) { showBldCard(b.dataset.bcard, b.dataset.bfrom != null ? +b.dataset.bfrom : null); return; }
+  if (b.dataset.bldat != null) { showBldAt(+b.dataset.bldat); return; }
+  if (b.dataset.bldopen != null) { const z = +b.dataset.bldopen; UI.ztab = { z, k: "build" }; showZone(z); return; }
+  if (b.dataset.bldcell != null) { showZone(+b.dataset.bldcell); return; }
   if (b.dataset.batsel) { const id = +b.dataset.batsel, ids = unitsAt(sheetView.arg).filter(u => u.o === P && u.bat === id).map(u => u.id); const all = UI.pick && ids.every(i => UI.pick.has(i)); UI.pick = all ? null : new Set(ids); refreshSheet(); return; }
   if (b.dataset.batdis) { disbandBattalion(+b.dataset.batdis); toast("Battalion disbanded. Its units carry on on their own."); UI.pick = null; refreshSheet(); draw(); save(); return; }
   if (b.dataset.act === "formbat" || b.dataset.formarm) {
@@ -4951,7 +5140,7 @@ function showLayers() {
     <div class="toggle-row"><span><b style="color:var(--sea-lane)">Sea lanes</b> · shipping and landings</span>${sw(UI.lanes.sea, 'data-lane="sea" aria-label="Sea lanes"')}</div>
     <div class="toggle-row"><span><b>Air lanes</b> · every connection</span>${sw(UI.lanes.air, 'data-lane="air" aria-label="Air lanes"')}</div>
         <div class="toggle-row"><span><b>Fog of war</b> · hide what you can't see</span>${sw(UI.fog, 'data-fogt="1" aria-label="Fog of war"')}</div>
-    <div class="toggle-row"><span><b>Resources & infrastructure</b> · deposits, mines, wells, depots</span>${sw(UI.infra, 'data-infra="1" aria-label="Resources and infrastructure"')}</div>
+    <div class="toggle-row"><span><b>Resources & infrastructure</b> · deposits, roads, building pictures</span>${sw(UI.infra, 'data-infra="1" aria-label="Resources and infrastructure"')}</div>
     <div class="toggle-row"><span><b>Radar & sonar</b> · always on (otherwise only while air or naval units are selected)</span>${sw(!!UI.sensors, 'data-sens="1" aria-label="Radar and sonar"')}</div>
     <div class="toggle-row"><span><b>Supply network</b> · where units get fuel and ammo</span>${sw(UI.supplyLayer, 'data-supl="1" aria-label="Supply network"')}</div>
     <div class="legend"><i style="background:#1b1f24;border:2px dashed #7d93ab"></i><span>Untapped deposit (dark = oil, grey = ore). Zoom in for building icons.</span>
@@ -5431,6 +5620,28 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.13 beta", date: "1 Nov 2026", title: "Graphics update: building visuals and interface access", items: [
+    "A visual overhaul of the map is underway. Buildings now have their own artwork and detailed information cards, while interface improvements make important controls easier to access during gameplay.",
+    "## Controls stay clear",
+    "Some players saw a \"Powered by Weblify\" badge over End Turn, the Units and Nation buttons and the Assault button. It isn't part of the game or its hosting: it's added by a page wrapper or the browser. The game now hides any badge or small frame of this kind that gets added to its page, and if the game is shown inside a Weblify page (where it can't reach the badge) the bottom controls move up clear of the corner.",
+    "Checked at phone width with a badge forced on top: End Turn, the command bar, the cell panel and its tabs, Assault and Disembark, unit cards, country information and battle replay controls all take taps normally.",
+    "## Buildings on the map",
+    "The yellow-and-black building tags are replaced by artwork for all ten buildings: defences, roads, hospital, factory, mine, oil well, airbase, logistics depot, offshore oil rig and Military Training Centre. Each one looks different, not one shape in ten colours.",
+    "Roads are drawn as roads: a road connects two neighbouring cells that both have one, wider at higher levels, the same rule movement uses.",
+    "The art scales with zoom. Zoomed out, a cell with buildings shows a small amber dot. At mid zoom it shows one small building picture plus a \"+N\" count. Zoomed in, up to four pictures with their levels. They sit above the cell name, clear of unit tags.",
+    "Tap the building pictures to see what stands in the cell and open any building's card. When you're giving a move or strike order, a tap is an order as before: building pictures never get in the way of orders.",
+    "## Building cards",
+    "Unit cards now have a Buildings tab, grouped into Military, Industrial, Infrastructure and Logistics. Each card shows the artwork, purpose, cost and materials, build time, maximum level, what every level does with its upgrade cost, where it can be built, how it works, and tips.",
+    "Every number on the cards comes from the same formulas the game runs on, and each one was measured against the game itself. Building, upgrading and costs are unchanged and still happen in a cell's Build tab.",
+    "A cell's Info tab lists its buildings with their pictures; tap one for its card.",
+    "## Nothing else changed",
+    "Combat, unit statistics, building effects and prices, the economy, recruitment and cells are untouched: eight full AI games play out identically to 1.0.12, and the building checks give the same numbers. Old saves load as they are and the save file is the same size.",
+    "## What's coming (after Thursday 5 November)",
+    "Further balancing and bug fixes, including anything you report through Send feedback.",
+    "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+    "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+    "The first unit expansion: the first new unit types to join the current roster.",
+  ] },
   { v: "1.0.12 beta", date: "1 Nov 2026", title: "Economic development", items: [
     "## Military Training Centre",
     "A new building for cities and capitals: each level adds +5% to your manpower growth, counted across all your centres up to +25%. It stacks with hospitals (still +5% a level up to +50%), added together rather than multiplied, so infrastructure can now lift manpower growth by up to 75%. Your reserve ceiling rises with it. Cost: $6 and 5 materials at level 1, up to $20 and 17 at level 5, 2 turns each.",
@@ -5822,6 +6033,7 @@ function onTap(sx, sy) {
   if (!G) return;
   const [x, y] = toWorld(sx, sy);
   const tag = PB ? null : plateAt(sx, sy);
+  if (!tag && !PB && !UI.move && !UI.strike && UI.infra && UI.bldHits) { const hb = UI.bldHits.find(r => sx >= r[0] && sx <= r[2] && sy >= r[1] && sy <= r[3]); if (hb) { showBldAt(hb[4]); draw(); return; } }
   let hit = zoneAt(x, y);
   if (tag && (!UI.move || tag.o !== G.player)) hit = { kind: "zone", id: tag.z }; // a unit's tag counts as its cell
   if (tag && UI.move && atWar(G.player, tag.o)) { // tapping an enemy's tag while giving orders: hunt that nation's best unit there
@@ -5899,6 +6111,23 @@ $("zoomIn").onclick = () => zoomAt(W / 2, H / 2, 2);
 $("zoomOut").onclick = () => zoomAt(W / 2, H / 2, .5);
 $("zoomHome").onclick = () => { if (G && G.nations[G.player].cap >= 0) { const z = Z[G.nations[G.player].cap]; flyTo({ x: z.x, y: z.y, s: Math.max(cam.s, 14) }); } else homeView(true); };
 $("zLayers").onclick = () => showLayers();
+// 1.0.13: nothing from outside the game may sit over its controls. Third-party badges or frames that a host,
+// wrapper or extension slips into the page ("Powered by ..." and the like) are hidden and can't take taps.
+const FOREIGN_BADGE = /powered by|weblify|netlify/i;
+function clearForeignOverlays(root = document.body) {
+  if (!root) return 0; let n = 0;
+  for (const el of [...root.children, ...document.documentElement.children]) {
+    if (el === document.body || el === document.head || el.id === "app" || el.closest("#app")) continue;
+    let floating = false; try { const cs = getComputedStyle(el), r = el.getBoundingClientRect(); floating = (cs.position === "fixed" || cs.position === "absolute") && r.width > 0 && r.width < 420 && r.height < 220; } catch (e) {}
+    const foreign = floating && (el.tagName === "IFRAME" || /^(NETLIFY|WEBLIFY)/i.test(el.tagName) || (el.textContent && el.textContent.length < 120 && FOREIGN_BADGE.test(el.textContent) && !el.querySelector("canvas")));
+    if (foreign && el.dataset.hiddenOverlay !== "1") { el.dataset.hiddenOverlay = "1"; el.style.setProperty("display", "none", "important"); el.style.setProperty("pointer-events", "none", "important"); n++; }
+  }
+  return n;
+}
+try { new MutationObserver(() => clearForeignOverlays()).observe(document.documentElement, { childList: true, subtree: false }); new MutationObserver(() => clearForeignOverlays()).observe(document.body, { childList: true }); } catch (e) {}
+setTimeout(clearForeignOverlays, 1500); setTimeout(clearForeignOverlays, 5000);
+// if a site wrapper frames the game and draws its badge over the frame, the page can't remove it: lift the bottom controls clear of the corner instead
+try { const anc = [...(location.ancestorOrigins || [])].join(" ") + " " + (window.self !== window.top ? document.referrer : ""); if (window.self !== window.top && /weblify/i.test(anc)) document.documentElement.style.setProperty("--badge-gap", "56px"); } catch (e) {}
 $("zSound").onclick = () => { SND.set.on = !SND.set.on; SND.apply(); SND.save(); updateSoundBtn(); if (SND.set.on) sfx("ui.confirm"); toast(SND.set.on ? "Sound on." : "Sound off. Volume levels are under Map & settings."); if (sheetView && sheetView.type === "layers") showLayers(); };
 updateSoundBtn();
 // interface sounds: every button press, tabs, confirms and cancels
@@ -5943,6 +6172,6 @@ const fontsP = document.fonts && document.fonts.load ? Promise.all([document.fon
 fontsP.catch(() => {}).finally(() => { fontsReady = true; draw(); });
 setTimeout(() => { fontsReady = true; draw(); }, 1500);
 // test hook (harmless in play)
-window.__prw = { get G() { return G; }, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; } };
+window.__prw = { get G() { return G; }, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; }, BLD, BLD_INFO, BLD_CAT, bldEffect, bldCost, bldsAt, showBldCard, showBldAt, defMult, laneCost, supplyMap, cellFunds, recruitSites, fortDiv, roadCost, hospHeal, depotReload };
 })();
 </script>
