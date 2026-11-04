@@ -85,6 +85,9 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--signal
   max-width: 540px; margin: 0 auto; background: var(--signal); color: var(--signal-ink); border-radius: 11px; padding: 8px 8px 8px 12px; display: flex; align-items: center; gap: 10px;
   font-size: 13.5px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .mode-banner span { flex: 1; min-width: 0; line-height: 1.3; }
+.pbcap { position: fixed; left: calc(env(safe-area-inset-left, 0px) + 10px); right: calc(env(safe-area-inset-right, 0px) + 10px); z-index: 40; max-width: 460px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(10,22,38,.9); color: var(--ink); font-size: 12.5px; line-height: 1.35; pointer-events: none; }
+.pbcap[hidden] { display: none; }
+.pbcap b { color: #9fd8ff; font-weight: 600; } .pbcap b.foe { color: #ff9c8a; } .pbcap .dmg { color: var(--signal); font-weight: 600; } .pbcap .lost { color: #ff8b7e; }
 .mode-banner button { flex: none; border: 0; background: rgba(0,0,0,.15); border-radius: 8px; min-height: 34px; padding: 0 12px; font-family: var(--f-display); font-weight: 700; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
 .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px + var(--sheet-h, 0px) + var(--badge-gap, 0px)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px);
   background: #22364b; color: var(--ink); border: 1px solid #36506b; border-radius: 10px; padding: 9px 13px; font-size: 13.5px; line-height: 1.35; box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 30; }
@@ -347,6 +350,8 @@ button.row { cursor: pointer; }
 .fcbox { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); font-size: 13.5px; line-height: 1.45; }
 .fcbox p { margin: 0; } .fcbox p + p { margin-top: 6px; }
 .fcbox .good { color: var(--good); } .fcbox .bad { color: var(--bad); }
+.row .s b.bad { color: var(--bad); font-weight: 600; }
+.blipdot { flex: none; width: 12px; height: 12px; margin: 0 8px 0 4px; border-radius: 50%; background: #ff5a4a; box-shadow: 0 0 0 4px rgba(255,90,74,.2); }
 .row.tgt .rank { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--panel-3); font-family: var(--f-mono); font-size: 12px; margin-right: 8px; }
 .row.tgt:first-child .rank { background: var(--signal); color: var(--signal-ink); }
 .ucard canvas.art { width: 100%; aspect-ratio: 2 / 1; border-radius: 12px; display: block; border: 1px solid var(--line); }
@@ -493,6 +498,7 @@ canvas.fig { width: 52px; height: 26px; flex: none; margin-left: auto; }
   <div class="objbar glass" id="objBar" hidden role="region" aria-label="Your next objective"></div>
   <div class="mode-banner" id="modeBanner" hidden><span id="modeText"></span><button id="modeExit">Done</button></div>
   <div class="mode-banner" id="pbBanner" hidden><span id="pbText">Resolving turn…</span><span class="pbbar"><i id="pbBar"></i></span><button id="pbNext" aria-label="Next event">Next</button><button id="pbRate" aria-label="Playback speed">1×</button><button id="pbSkip">Skip</button></div>
+  <div class="pbcap glass" id="pbCap" hidden aria-live="polite"></div>
   <div class="ticker" id="ticker" hidden role="button" aria-label="Open the turn report"><span class="tag">PRN LIVE</span><div class="track"><div class="run" id="tickerRun"></div></div></div>
   <div class="toast" id="toast" role="status" hidden></div>
 
@@ -662,7 +668,7 @@ const EXTRA_ARMY = ["ss", "mbt", "inf", "jet", "ff", "inf", "lt", "heli", "mbt",
 const BLD = {
   fort: { name: "Defences", max: 5, f: 4, m: 6, turns: 2, desc: "Bunkers and trenches. Your land units here take 20% less damage at level 1, rising to 56% less at level 5. Loses a level when the cell is captured." },
   road: { name: "Roads", max: 5, f: 3, m: 4, turns: 1, desc: "Faster land moves between road provinces (more with each level) and +6% income per level." },
-  hosp: { name: "Hospital", max: 5, f: 5, m: 3, turns: 2, desc: "Units here heal 15 + 5 per level each turn. +5% manpower growth per level, counted across all your hospitals up to +50%." },
+  hosp: { name: "Hospital", max: 5, f: 5, m: 3, turns: 2, desc: "Units here heal 7.5 + 2.5 per level each turn. +5% manpower growth per level, counted across all your hospitals up to +50%." },
   fac:  { name: "Factory", max: 5, f: 8, m: 6, turns: 3, desc: "+2 materials and +1.5 funds per level." },
   mine: { name: "Mine", max: 5, f: 6, m: 3, turns: 2, need: "ore", desc: "+4 materials at level 1, +2 more per level. Needs an ore deposit." },
   well: { name: "Oil well", max: 5, f: 8, m: 5, turns: 2, need: "oil", desc: "+4 fuel at level 1, +2 more per level. Needs an oil deposit." },
@@ -675,7 +681,10 @@ const BLD = {
 const FORT_PER = .25, ROAD_INC = .06, FAC_FUNDS = 1.5, FAC_MAT = 2, HOSP_MAN = .05, HOSP_CAP = .5, MTC_MAN = .05, MTC_CAP = .25;
 const fortDiv = l => 1 + FORT_PER * l;                       // damage divisor for defenders at defence level l
 const roadCost = l => l ? .62 - .05 * (l - 1) : 1;            // land move cost multiplier between two road cells
-const hospHeal = l => 15 + 5 * l;                             // health a hospital restores to a unit in its cell each turn
+// 1.0.18: all healing halved (approved): hospitals 15 + 5/level -> 7.5 + 2.5/level, home 6 -> 3, elsewhere 2 -> 1
+const HEAL_MULT = 0.5;
+const hospHeal = l => (15 + 5 * l) * HEAL_MULT;                // health a hospital restores to a unit in its cell each turn
+const HEAL_HOME = 6 * HEAL_MULT, HEAL_AWAY = 2 * HEAL_MULT;  // in your own or an ally's land without a hospital / anywhere else
 const depotReload = l => .55 + .08 * l;                       // share of a supply column's cargo reloaded a turn at a depot
 const fortF = z => fortDiv(B(z).fort || 0);
 const roadMul = (a, b) => roadCost(Math.min(B(a).road || 0, B(b).road || 0));
@@ -993,6 +1002,8 @@ const RECRUIT_SLOTS = 4;
 const slotsOf = z => isLand(z) && Z[z].t !== "prov" ? RECRUIT_SLOTS : 0; // a future building can add to this
 const slotsUsed = z => G.queue.reduce((n, q) => n + (q.kind === "u" && q.z === z && q.at === G.turn ? 1 : 0), 0);
 const slotsLeft = z => Math.max(0, slotsOf(z) - slotsUsed(z));
+const RIVER_BUILT = new Set(["tsea", "lsea"]); // transports and supply ships work the rivers; warships come from sea ports
+const RIVER_CELLS = new Set((M.rivers || []).flatMap(([, cs]) => cs)); // every port along a navigable river, its mouth included
 function recruitSites(ci, t) {
   const at = UT[t].at;
   const out = [];
@@ -1000,7 +1011,7 @@ function recruitSites(ci, t) {
     if (G.owner[i] !== ci || Z[i].c !== ci || !slotsOf(i)) continue;
     if (at === "city" && Z[i].t !== "prov") out.push(i);
     if (at === "air" && B(i).air) out.push(i);
-    if (at === "port" && Z[i].port) out.push(i);
+    if (at === "port" && Z[i].port && (!Z[i].river || RIVER_BUILT.has(t))) out.push(i); // 1.0.18: river ports build river craft only
   }
   return out;
 }
@@ -1089,7 +1100,7 @@ function reach(u, mp = u.mp) {
   while (heap.length) {
     const [d, i] = pop();
     if (d > dist.get(i)) continue;
-    if (i !== u.z && (hostilesAt(u.o, i).length || (ship && isLand(i)))) continue;
+    if (i !== u.z && (hostilesAt(u.o, i).length || (ship && isLand(i) && !RIVER_CELLS.has(i)))) continue;
     if (i !== u.z && isLand(i) && atWar(u.o, G.owner[i]) && UT[u.t].dom === "land") continue; // stop on entering enemy land
     for (const [j, f] of ADJ[i]) {
       const c = laneCost(u.t, f, i, j);
@@ -1338,13 +1349,21 @@ function strikePreview(u, z, foes, blds, pick) {
   if (UT[u.t].dom === "air") for (const e of foes) if (UT[e.t].a > 0 && e.hp > 0) out.aa += UT[e.t].a * K_DMG * .35 * hpF(e) * ammoF(e) * (12 / (12 + UT[u.t].d));
   return out;
 }
-// A target the player picked by hand: used while it's still in that cell and can be hit, otherwise the Hit first order takes over.
-function chosenTarget(u, z, foes) {
+// 1.0.18: a target picked by hand stays the target. It's tracked to a new cell while it can still be seen; if it's
+// destroyed or lost from sight the strike is called off. The unit never quietly switches to another enemy.
+function pickedTarget(u) {
   if (u.stgt == null) return null;
-  const v = foes.find(x => x.id === u.stgt);
-  if (v && v.hp > 0 && hitValue(u, v) > 0 && !screened(v, unitsAt(z))) return v;
-  if (!v || v.hp <= 0) u.stgt = null; // gone or destroyed: back to the category order
-  return null;
+  const v = G.units.find(x => x.id === u.stgt);
+  if (!v || v.hp <= 0) return { state: "gone" };
+  const w = v.in != null ? G.units.find(x => x.id === v.in) || v : v; // aboard a transport: it's where the carrier is
+  if (!atWar(u.o, w.o) && !atWar(u.o, v.o)) return { state: "peace", v };
+  if (!chaseSeen(u.o, w)) return { state: "hidden", v };
+  return { state: "ok", v, z: w.z };
+}
+function dropPicked(u, why) {
+  const v = G.units.find(x => x.id === u.stgt), name = v ? UT[v.t].name : "target";
+  if (u.o === G.player) news("home", 1, `${UT[u.t].name} called off its strike: the ${name} it was ordered to hit ${why}. It holds fire until you give a new order.`, { z: u.z });
+  u.stgt = null; u.strike = null; u.tz = null;
 }
 const AA_SAT = { t: -1, g: null, n: {} };
 let STRIKE_REP = null; // strikes fired during movement report with the turn's combat
@@ -1354,7 +1373,8 @@ function fireOnDeparture(u) {
   for (const v of G.units) {
     if (v.hp <= 0 || v.strike !== u.z || v.fired === G.turn || !atWar(v.o, u.o) || strikeBlock(v, u.z)) continue;
     if (!hitValue(v, u)) continue;
-    if (v.stgt != null && v.stgt !== u.id && G.units.some(x => x.id === v.stgt && x.z === u.z && x.hp > 0)) continue; // keeps its fire on the unit you picked
+    if (v.stgt != null && v.stgt !== u.id) continue; // keeps its fire for the unit you picked
+    if (v.chase != null && v.chase !== u.id) continue; // a hunter only shoots its quarry
     STRIKE_REP = STRIKE_REP || { z: {}, strikes: {}, hitBy: {}, killedP: [], killsP: 0 };
     doStrike(v, REC ? REC.now || REC.base || 0 : 0, STRIKE_REP, u);
     if (u.hp <= 0) return;
@@ -1362,10 +1382,22 @@ function fireOnDeparture(u) {
 }
 function doStrike(u, tAt, rep, forced) {
   if (u.fired === G.turn) return; // already fired this turn (at a target pulling out)
+  let quarry = null, picked = null;
   if (forced) u.strike = forced.z;
   else if (u.chase != null) { // a hunter re-aims at wherever its quarry is now; out of reach, it holds fire and closes in next turn
     const q = chaseTgt(u);
-    if (q && !strikeBlock(u, q.z)) u.strike = q.z; else if (q) { u.strike = null; return; }
+    if (!q) { endChase(u, "target destroyed"); u.strike = null; return; } // 1.0.18: never fire on the empty cell it left
+    if (!chaseSeen(u.o, q)) { u.strike = null; return; } // lost in the fog this turn: hold fire
+    if (!strikeBlock(u, q.z)) u.strike = q.z; else { u.strike = null; return; }
+    quarry = q;
+  } else if (u.stgt != null) {
+    const pk = pickedTarget(u);
+    if (pk.state === "gone") { dropPicked(u, "was destroyed"); return; }
+    if (pk.state === "peace") { dropPicked(u, "is no longer at war with you"); return; }
+    if (pk.state === "hidden") { if (u.o === G.player) news("home", 1, `${UT[u.t].name} held fire: it lost sight of its target.`, { z: u.z }); return; }
+    if (pk.z !== u.strike) { if (strikeBlock(u, pk.z)) return; u.strike = pk.z; if (u.tz != null) u.tz = pk.z; } // it moved: follow it if still in range
+    picked = pk.v.in != null ? null : pk.v;
+    if (!picked) return; // aboard a transport: can't be singled out this turn
   }
   const z = u.strike;
   const why = strikeBlock(u, z);
@@ -1375,34 +1407,51 @@ function doStrike(u, tAt, rep, forced) {
   }
   const { foes, blds } = strikeTargets(u.o, z);
   if (!foes.length && !blds) { if (u.o === G.player) news("home", 1, `${UT[u.t].name} ceased fire: nothing left to hit at ${Z[z].n}.`, { z }); u.strike = null; return; }
-  const tg = forced || chosenTarget(u, z, foes) || pickTarget(u, foes, unitsAt(z), new Map(), blds, strikePri(u));
+  const only = quarry || picked; // a unit ordered onto one enemy shoots only that enemy
+  if (only && (hitValue(u, only) <= 0 || screened(only, unitsAt(z)))) { if (u.o === G.player) news("home", 1, `${UT[u.t].name} held fire at ${Z[z].n}: it can't get a shot at the ${UT[only.t].name}${screened(only, unitsAt(z)) ? " behind the units shielding it" : ""}.`, { z }); return; }
+  const tg = forced || only || pickTarget(u, foes, unitsAt(z), new Map(), blds, strikePri(u));
   if (!tg) { if (u.o === G.player) news("home", 1, `${UT[u.t].name} has nothing it can hit at ${Z[z].n}.`, { z }); u.strike = null; return; }
   u.fired = G.turn;
+  if (isLand(z) && Z[z].t !== "prov" && atWar(u.o, ownerOf(z))) markBombarded(z);
+  warActivity(u.o, tg.bld ? ownerOf(z) : tg.o);
   const T = UT[u.t], hops = strikeZones(u).get(z), r = .85 + .3 * rng();
   let d, what;
   let wrecked = false;
   if (tg.bld) { d = structDmg(u, z, true) * r; wrecked = hitBuilding(z, tg.bld.k, d); what = BLD[tg.bld.k].name; }
   else { d = rawDamage(u, tg, z, true) * r; tg.hp -= d; what = UT[tg.t].name; }
   if (T.apb) u.am = Math.max(0, (u.am ?? 100) - T.apb * .6);
+  const aaBy = [];
   if (T.dom === "air") {
     u.fu = Math.max(0, (u.fu ?? 100) - T.fpm * hops * 2);
     // air defences saturate: each further aircraft hitting the same cell this turn faces less fire (1, 2/3, 1/2, 2/5...)
     if (AA_SAT.t !== G.turn || AA_SAT.g !== G) { AA_SAT.t = G.turn; AA_SAT.g = G; AA_SAT.n = {}; }
     const kth = AA_SAT.n[z] = (AA_SAT.n[z] || 0) + 1, sat = 1 / (1 + .5 * (kth - 1));
-    for (const e of foes) if (UT[e.t].a > 0 && e.hp > 0) u.hp -= sat * ((batBonus(u) || {}).aa || 1) * UT[e.t].a * K_DMG * .35 * hpF(e) * ammoF(e) * (12 / (12 + T.d)) * (.85 + .3 * rng());
+    for (const e of foes) if (UT[e.t].a > 0 && e.hp > 0) { const dd = sat * ((batBonus(u) || {}).aa || 1) * UT[e.t].a * K_DMG * .35 * hpF(e) * ammoF(e) * (12 / (12 + T.d)) * (.85 + .3 * rng()); u.hp -= dd; aaBy.push({ id: e.id, t: e.t, o: e.o, d: Math.round(dd) }); } // 1.0.18: who fired back, and how hard
   }
   u.spotted = G.turn; u.spotBy = foes.length ? foes[0].o : ownerOf(z);
-  rec("strike", { from: u.z, to: z, t: tAt + rng() * .3, o: u.o, air: T.dom === "air", ut: u.t, uid: u.id, vid: tg.bld ? -1 : tg.id, vo: tg.bld ? ownerOf(z) : tg.o, d: Math.round(d), kill: !tg.bld && tg.hp <= 0, aa: T.dom === "air" && foes.some(e => UT[e.t].a > 0 && e.hp > 0), lost: u.hp <= 0 });
-  if (u.o === G.player) (rep.strikes[z] = rep.strikes[z] || []).push(`${T.name}: ${Math.round(d)} damage to ${what}${(!tg.bld && tg.hp <= 0) || wrecked ? " (destroyed)" : ""}${u.hp <= 0 ? ", but it was shot down" : ""}`);
-  else if (foes.some(v => v.o === G.player)) {
-    const k = `${shortName(u.o)} ${T.dom === "air" ? "air strikes" : T.dom === "sea" ? "naval gunfire" : "artillery"}`, h = (rep.hitBy[z] = rep.hitBy[z] || {});
+  rec("strike", { from: u.z, to: z, t: tAt + rng() * .3, o: u.o, air: T.dom === "air", ut: u.t, uid: u.id, vid: tg.bld ? -1 : tg.id, vt: tg.bld ? null : tg.t, vb: tg.bld ? tg.bld.k : null, vo: tg.bld ? ownerOf(z) : tg.o, d: Math.round(d), kill: !tg.bld && tg.hp <= 0, aa: T.dom === "air" && foes.some(e => UT[e.t].a > 0 && e.hp > 0), aaBy: aaBy.length ? aaBy : undefined, lost: u.hp <= 0 });
+  if (u.o === G.player) (rep.strikes[z] = rep.strikes[z] || []).push(`${T.name}: ${Math.round(d)} damage to ${what}${(!tg.bld && tg.hp <= 0) || wrecked ? " (destroyed)" : ""}${aaBy.length ? `; air defence hit back: ${aaSummary(aaBy)}${u.hp <= 0 ? ", and shot it down" : ""}` : u.hp <= 0 ? ", but it was shot down" : ""}`);
+  else if (foes.some(v => v.o === G.player)) { // it fired on your units, so it was seen firing: name it
+    const k = `${shortName(u.o)} ${T.name} (${T.dom === "air" ? "air strike" : T.dom === "sea" ? "naval gunfire" : "artillery"})`, h = (rep.hitBy[z] = rep.hitBy[z] || {});
     const e = h[k] = h[k] || { n: 0, d: 0, kills: [], hit: new Set() }; e.n++; e.d += d; e.hit.add(what); if (!tg.bld && tg.hp <= 0) e.kills.push(what);
   }
   if (!tg.bld && tg.hp <= 0 && tg.o === G.player) rep.killedP.push(tg);
   if (!tg.bld && tg.hp <= 0 && u.o === G.player) rep.killsP++;
 }
+// "2 Radar Pickets 31, Frigate 9": the units whose air defence fired on an aircraft
+function aaSummary(list) { const by = new Map(); for (const a of list) { const e = by.get(a.t) || { n: 0, d: 0 }; e.n++; e.d += a.d; by.set(a.t, e); } return [...by].map(([t, e]) => `${e.n > 1 ? e.n + " " : ""}${UT[t].name}${e.n > 1 ? "s" : ""} (${e.d})`).join(", "); }
+// 1.0.18: a bombarded city's recruitment pauses. Bombardment = a ranged strike (naval gunfire, air strike, artillery)
+// fired on the city itself. Training resumes only after one complete turn without one; nothing is cancelled or refunded.
+function markBombarded(z) {
+  G.bomb = G.bomb || {};
+  const o = ownerOf(z), first = G.bomb[z] !== G.turn;
+  G.bomb[z] = G.turn;
+  if (first && o === G.player && G.queue.some(q => q.kind === "u" && q.z === z && q.n === o)) news("home", 2, `${Z[z].n} is under bombardment: recruitment there is paused until the city goes a full turn without attack.`, { z });
+}
+const recruitPaused = z => !!(G.bomb && G.bomb[z] != null && G.bomb[z] >= G.turn - 1); // attacked this turn or the last
 // ---------- the combat phase ----------
 function book(rep, z, from, to, dmg, killed) {
+  warActivity(from, to);
   const r = rep.z[z] = rep.z[z] || { dealt: new Map(), killed: new Map(), bld: [] };
   r.dealt.set(from, (r.dealt.get(from) || 0) + dmg);
   if (killed) (r.killed.get(to) || r.killed.set(to, []).get(to)).push(killed.t);
@@ -1536,6 +1585,7 @@ function evacuate(u, z, tAt) {
 function capture(n, z, tAt = REC ? REC.now + .5 : 0) {
   const prev = G.owner[z];
   if (prev === n) return;
+  if (prev >= 0) warActivity(n, prev, true);
   G.owner[z] = n; G.ov = (G.ov || 0) + 1;
   if (n === G.player) GUIDE_HIT.captured = { z }; // 1.0.17 guidance only
   rec("cap", { z, o: n, prev, t: tAt });
@@ -1667,7 +1717,7 @@ function fullPath(u, dest) {
     const [d, i] = pop();
     if (i === dest) break;
     if (d > dist.get(i)) continue;
-    if (i !== u.z && ship && isLand(i)) continue;
+    if (i !== u.z && ship && isLand(i) && !RIVER_CELLS.has(i)) continue; // 1.0.18: ships pass through river ports
     for (const [j, f] of ADJ[i]) {
       const c = laneCost(u.t, f, i, j);
       if (!isFinite(c) || !canEnter(u.o, u.t, j)) continue;
@@ -1851,7 +1901,7 @@ function chaseTgt(u) {
 let _chaseVis = null;
 function chaseSeen(n, t) { if (n === G.player) return unitVisible(t); if (!_chaseVis || _chaseVis.n !== n || _chaseVis.v !== stateVer) _chaseVis = { n, v: stateVer, vis: visibility(n).vis }; return !!_chaseVis.vis[t.z]; }
 function endChase(u, why, said) {
-  u.chase = null;
+  u.chase = null; u.strike = null; // 1.0.18: the fire order the hunt set goes with it (it never lingers on the cell the quarry was in)
   if (u.o === G.player && why) { const k = u.chaseName + why; if (!said || !said.has(k)) { said && said.add(k); news("home", 1, `Pursuit of the ${u.chaseName || "enemy"} ended: ${why}.`, { z: u.z }); } }
   u.chaseName = null;
 }
@@ -1896,8 +1946,16 @@ function endMission(u, why, said) {
 }
 function missionLive(u) { const z = u.tz, { foes, blds } = strikeTargets(u.o, z); return foes.length > 0 || !!blds; }
 function planMission(u, said) {
-  const z = u.tz, T = UT[u.t];
+  const T = UT[u.t];
   if (u.ord && u.ord.rtb) return "rtb";
+  if (u.stgt != null) { // 1.0.18: a mission on one picked enemy follows it, and ends when it's gone
+    const pk = pickedTarget(u);
+    if (pk.state === "gone") { dropPicked(u, "was destroyed"); return null; }
+    if (pk.state === "peace") { dropPicked(u, "is no longer at war with you"); return null; }
+    if (pk.state === "hidden") { dropPicked(u, "was lost in the fog of war"); return null; }
+    if (pk.z !== u.tz) u.tz = pk.z;
+  }
+  const z = u.tz;
   if (!missionLive(u)) { endMission(u, "nothing left there to hit", said); u.strike = null; return null; }
   const why = strikeBlock(u, z);
   if (!why) { u.ord = null; u.strike = z; return "fire"; }
@@ -2079,10 +2137,10 @@ function supplyPhase() {
       if (gf || ga) { const [df, da] = draw(u, gf, ga); u.fu += df; u.am += da; }
     }
     // 3) mobile supply from logistics units
+    for (const L of mine) if (UT[L.t].role === "logistics") { L.ran = []; L.ranZ = L.z; } // 1.0.18: last turn's runs never outlive the turn (an empty or embarked column ran nothing)
     for (const L of mine) {
       const T = UT[L.t]; if (T.role !== "logistics" || L.cg <= 0) continue;
-      const inRange = new Set([L.z]); let fr = [L.z];
-      for (let k = 0; k < T.range; k++) { const nx = []; for (const i of fr) for (const [j, f] of ADJ[i]) if (!inRange.has(j) && (T.dom !== "land" || (f & 9))) { inRange.add(j); nx.push(j); } fr = nx; }
+      const inRange = supplyReach(L);
       const ran = new Set();
       for (const u of mine) {
         if (u === L || !inRange.has(u.z) || L.cg <= 0) continue;
@@ -2095,7 +2153,7 @@ function supplyPhase() {
         if ((U.fpm && u.fu < 99.5) || (U.apb && u.am < 99.5) || !held) u.lk = { id: L.id, t: G.turn };
         if (gf + ga > 0 && u.z !== L.z) ran.add(u.z);
       }
-      L.ran = [...ran];
+      L.ran = [...ran]; L.ranZ = L.z;
       // running supplies into a contested cell exposes the column: it gets seen and sometimes hit
       for (const z of ran) if (hostilesAt(ci, z).some(v => isCombatT(v.t) && hitValue(v, L) > 0) && rng() < .3) {
         const d = 5 + rng() * 10; L.hp -= d; L.spotted = G.turn; L.spotBy = hostilesAt(ci, z)[0].o;
@@ -2110,22 +2168,39 @@ function supplyPhase() {
 // =====================================================================
 // FOG OF WAR
 // =====================================================================
+// 1.0.18: radar is passive and always on: detection (vis) comes from every unit's own range, whatever the map layer
+// shows. Identification (ident) is shorter for ships: their radar picks up contacts out to its full range, but a
+// ship identifies what it sees only within 1 cell. Land radar, aircraft and land units identify what they detect.
+const identRange = t => UT[t].dom === "sea" ? Math.min(UT[t].det, 1) : UT[t].det;
+const SPREAD_SEEN = new Int32Array(NZ); let SPREAD_STAMP = 0;
 function visibility(n) {
-  const vis = new Uint8Array(NZ), sonar = new Uint8Array(NZ);
+  const vis = new Uint8Array(NZ), sonar = new Uint8Array(NZ), ident = new Uint8Array(NZ);
   const team = PLAY.filter(c => c === n || stance(n, c) === "A");
+  // 1.0.18 fix: each sensor spreads on its own. Before, a spread stopped at any cell already seen by something else
+  // (your coast, another unit), so a radar picket's 3-cell reach often ended one cell past your coastal band.
   const spread = (src, r, arr) => {
-    let frontier = [src]; arr[src] = 1;
-    for (let k = 0; k < r; k++) { const nx = []; for (const i of frontier) for (const [j] of ADJ[i]) if (!arr[j]) { arr[j] = 1; nx.push(j); } frontier = nx; }
+    arr[src] = 1; if (r <= 0) return;
+    const st = ++SPREAD_STAMP; SPREAD_SEEN[src] = st;
+    let frontier = [src];
+    for (let k = 0; k < r; k++) { const nx = []; for (const i of frontier) for (const [j] of ADJ[i]) if (SPREAD_SEEN[j] !== st) { SPREAD_SEEN[j] = st; arr[j] = 1; nx.push(j); } frontier = nx; }
   };
-  for (const i of LAND_IDS) if (team.includes(G.owner[i])) spread(i, 1, vis);
+  for (const i of LAND_IDS) if (team.includes(G.owner[i])) { spread(i, 1, vis); spread(i, 1, ident); }
   for (const u of G.units) if (team.includes(u.o) && !u.in) {
-    spread(u.z, UT[u.t].det, vis);
+    spread(u.z, UT[u.t].det, vis); spread(u.z, identRange(u.t), ident);
     if (UT[u.t].sonar != null) spread(u.z, UT[u.t].sonar, sonar);
   }
-  return { vis, sonar };
+  return { vis, sonar, ident };
 }
 function playerVis() { if (!_vis) _vis = visibility(G.player); return _vis; }
 const visibleTo = (n, z) => n === G.player ? !!playerVis().vis[z] : true;
+// detected AND identified: what the player may be told about this unit (its type, owner's unit name)
+function unitIdentified(u) {
+  if (!unitVisible(u)) return false;
+  if (friendly(G.player, u.o) || !atWar(G.player, u.o)) return true; // neutral units keep their usual display
+  if ((u.spotted ?? -9) >= G.turn - 1 && u.spotBy != null && friendly(G.player, u.spotBy)) return true; // seen firing
+  if (u.t === "ss") return true; // a sonar contact is a submarine contact
+  return !!playerVis().ident[u.z];
+}
 function unitVisible(u) {
   if (!G || u.in) return false;
   if (friendly(G.player, u.o)) return true;
@@ -2169,7 +2244,7 @@ function declareWar(a, b, quiet) {
   if (stance(a, b) === "W" || a === b) return;
   if (truceLeft(a, b)) return; // bound by a ceasefire
   const wasPact = stance(a, b) === "P";
-  setStance(a, b, "W"); addRel(a, b, -40);
+  setStance(a, b, "W"); addRel(a, b, -40); warBegin(a, b);
   if (G.player === a || G.player === b) sfx("strategic.war");
   const A = G.nations[a], gt = A.gov.type;
   if ((gt === "dem" || gt === "cmon") && A.ws < 60) A.stab = Math.max(0, A.stab - 12);
@@ -2187,7 +2262,39 @@ function declareWar(a, b, quiet) {
   // an alliance cannot hold enemies: break alliances between belligerents
   invalidate();
 }
-function declareWarRaw(a, b) { setStance(a, b, "W"); addRel(a, b, -30); }
+function declareWarRaw(a, b) { setStance(a, b, "W"); addRel(a, b, -30); warBegin(a, b); }
+// ---------- 1.0.18: what a war has actually involved, for peace decisions ----------
+const MIN_WAR = 8; // turns a war runs before either side normally considers peace
+function warBegin(a, b) { G.warAct = G.warAct || {}; G.warHist = G.warHist || {}; const k = key2(a, b); G.warAct[k] = { t0: G.turn, f: 0, c: 0, last: null, la: G.nations[a].lostUnits || 0, lb: G.nations[b].lostUnits || 0, a, b }; (G.warHist[k] = G.warHist[k] || []).push(G.turn); }
+function warActivity(x, y, captured) { if (x == null || y == null || x < 0 || y < 0 || x === y || !atWar(x, y)) return; const w = warRec(x, y); w.f++; w.last = G.turn; if (captured) w.c++; }
+function warRec(x, y) { G.warAct = G.warAct || {}; const k = key2(x, y); return G.warAct[k] || (G.warAct[k] = { t0: G.since[k] ?? G.turn, f: 0, c: 0, last: null, la: 0, lb: 0, a: Math.min(x, y), b: Math.max(x, y), old: 1 }); } // wars from older saves start counting now
+const warTurns = (x, y) => G.turn - (warRec(x, y).t0 ?? G.turn);
+const cellsHeld = c => { let n = 0; for (const i of LAND_IDS) if (G.owner[i] === c) n++; return n; };
+const homeCells = c => (zonesByCountry[c] || []).filter(isLand).length || 1;
+// a nation in real trouble itself: lost 30% of its own land, or fighting a neighbour more than 1.5 times its strength
+function inDanger(c, except) {
+  if (cellsHeld(c) / homeCells(c) < .7) return true;
+  return PLAY.some(x => x !== except && x !== c && G.nations[x].alive && atWar(c, x) && areNeighbours(c, x) && power(x) > power(c) * 1.5);
+}
+const nearlyBeaten = c => { const h = cellsHeld(c); return h / homeCells(c) < .35 || h <= 4; };
+// Would `acc` accept peace from `ask`? Strategy, not a coin flip: spare a beaten enemy almost never, keep
+// competing for a prize other nations are also fighting over, settle wars of attrition between equals,
+// and stop wars that have gone quiet or that tie the acceptor down while a bigger threat looms.
+function aiAcceptsPeace(acc, ask) {
+  const r = power(acc) / Math.max(1, power(ask)), w = warRec(acc, ask), T = G.nations[acc].t;
+  const held = cellsHeld(ask), left = held / homeCells(ask);
+  const doomed = (left < .35 || held <= 4 || r > 4) && G.nations[ask].alive;
+  const pressed = PLAY.some(c => c !== ask && c !== acc && G.nations[c].alive && atWar(acc, c) && power(c) > power(acc) * .8);
+  const rival = PLAY.some(c => c !== acc && c !== ask && G.nations[c].alive && atWar(c, ask) && !friendly(acc, c));
+  const quiet = G.turn - (w.last ?? w.t0) >= 6;
+  const lostA = (G.nations[acc].lostUnits || 0) - (w.a === acc ? w.la : w.lb), lostB = (G.nations[ask].lostUnits || 0) - (w.a === ask ? w.la : w.lb);
+  const costly = lostA >= 6 && lostB >= 6;
+  if (r < .8) return true;                                   // outmatched itself: peace is welcome
+  if (doomed && !inDanger(acc, ask)) return rng() < .03;    // a nearly beaten enemy is finished off, not spared
+  if (rival && r > 1.2 && !pressed) return rng() < .1;      // others are after the same prize: keep competing for it
+  if (r <= 1.5) return quiet || costly || pressed || T.cau > .55 || rng() < .25; // equals: attrition, stalemate or caution end it
+  return pressed || (quiet && rng() < .5) || (T.cau > .6 && costly && rng() < .5); // the stronger side settles only when it pays
+}
 function makePeace(a, b) {
   setStance(a, b, "N"); addRel(a, b, 10); peaceWithdraw(a, b);
   G.truce = G.truce || {}; G.truce[key2(a, b)] = G.turn + TRUCE_TURNS;
@@ -2201,7 +2308,9 @@ function aiAnswer(ai, kind) {
   if (kind === "nap") { const s = r + t.dip * 40 - t.agg * 30 + sameGov; return s > 8 ? [true, "accepts a non-aggression pact."] : [false, s > -10 ? "isn't ready to commit. Improve relations first." : "rejects your proposal."]; }
   if (kind === "ally") { if (stance(ai, G.player) !== "P") return [false, "wants a non-aggression pact first."]; const why = allianceBlock(ai, G.player); if (why) return [false, `declines: ${why}.`]; const s = r + t.dip * 45 - t.agg * 20 + sameGov; return s > 42 ? [true, "agrees to a full military alliance."] : [false, "declines. Relations aren't strong enough yet."]; }
   if (kind === "peace") {
-    const ratio = power(G.player) / Math.max(1, power(ai)), turns = G.turn - (G.since[key2(ai, G.player)] || G.turn);
+    const ratio = power(G.player) / Math.max(1, power(ai)), turns = warTurns(ai, G.player);
+    if (turns < MIN_WAR && ratio < 1.5) return [false, `refuses to talk so soon: the war is only ${turns} turn${turns === 1 ? "" : "s"} old.`];
+    if (nearlyBeaten(G.player) && !inDanger(ai, G.player)) return [false, "refuses. It means to finish this war."]; // the same rule the AI applies to other nations
     const s = ratio * 28 + t.cau * 30 + turns * 2.5 - t.agg * 35 + (N.lost > N.gained ? 10 : 0);
     return s > 30 ? [true, "accepts peace."] : [false, "refuses. It still thinks it can win."];
   }
@@ -2339,11 +2448,13 @@ function aiDiplomacy(ci) {
       else if (s === "P" && r > 15 && t.dip + T2.dip > .8 && G.turn - (G.since[key2(ci, o)] || 0) > 3 && rng() < .2 && !allianceBlock(ci, o) && allianceWorth(ci, o)) { setStance(ci, o, "A"); news("world", 2, `${shortName(ci)} and ${shortName(o)} formed an alliance.`, { key: true, n: [ci, o] }); }
     }
     if (s === "W") {
-      const ratio = power(ci) / Math.max(1, power(o)), turns = G.turn - (G.since[key2(ci, o)] || G.turn);
-      const want = (ratio < .6 ? .3 : 0) + t.cau * .15 + turns * .01 - t.agg * .15;
+      const ratio = power(ci) / Math.max(1, power(o)), turns = warTurns(ci, o);
+      if (turns < MIN_WAR) continue; // 1.0.18: a war runs its course a while before anyone talks peace
+      let want = (ratio < .6 ? .3 : 0) + t.cau * .15 + (turns - MIN_WAR) * .01 - t.agg * .15;
+      if (ratio > 1.2 && nearlyBeaten(o) && !inDanger(ci, o)) want = 0; // about to win: no reason to offer the enemy a way out
       if (want > .2 && rng() < want) {
         if (o === G.player) { G.pendingOffer = { from: ci, kind: "peace", turn: G.turn }; news("world", 3, `${shortName(ci)} sues for peace. Answer in Diplomacy.`, { n: [ci] }); }
-        else { const T2 = G.nations[o].t, r2 = power(o) / Math.max(1, power(ci)); if (r2 < 1.6 || T2.cau > .55 || rng() < .3) makePeace(ci, o); }
+        else if (aiAcceptsPeace(o, ci)) makePeace(ci, o);
       }
     }
   }
@@ -2361,6 +2472,7 @@ function aiDiplomacy(ci) {
     let allyP = 0; for (const c of PLAY) if (stance(o, c) === "A") allyP += power(c);
     const ratio = power(ci) / Math.max(1, power(o) + allyP * .7);
     let score = t.agg * 1.3 + (1 - t.cau) * .35 - t.dip * .45 - relOf(ci, o) / 100 * .9 + Math.log(ratio) * .55 - (s === "P" ? .5 : 0) + (G.turn > 15 ? .1 : 0);
+    const recent = ((G.warHist || {})[key2(ci, o)] || []).filter(t0 => G.turn - t0 < 40).length; score -= recent * .3; // 1.0.18: a war that ended in peace isn't restarted on a whim
     if (isMinor(o)) score += Math.min(Math.log(ratio), .5) * .55 - Math.log(ratio) * .55 - .45; // easy prey, but invading a small neutral costs standing: only hawks do it
     if (score > bestS) { bestS = score; best = o; }
   }
@@ -2507,7 +2619,7 @@ function aiAmphibious(ci, wars, keepHome) {
     if (cargo.length) {
       if (tr.aiTgt == null || !isLand(tr.aiTgt) || !wars.includes(G.owner[tr.aiTgt])) tr.aiTgt = amphibTarget(ci, tr, wars);
       const tgt = tr.aiTgt;
-      if (tgt == null) { if (isLand(tr.z) && friendly(ci, G.owner[tr.z])) { cargo.forEach(c => { c.in = null; c.z = tr.z; }); invalidate(); } continue; }
+      if (tgt == null) { if (isLand(tr.z) && friendly(ci, G.owner[tr.z])) { cargo.forEach(c => { c.in = null; c.z = tr.z; }); invalidate(); if (ci !== G.player && atWar(G.player, ci) && cargo.length && playerVis().vis[tr.z]) news("front", 2, `${shortName(ci)} put ${cargo.length} unit${cargo.length > 1 ? "s" : ""} ashore at ${Z[tr.z].n} from a ${UT[tr.t].name}.`, { z: tr.z }); } continue; }
       if (!isLand(tr.z) && ADJ[tr.z].some(([j]) => j === tgt)) { // in position: decide whether to storm the beach
         const defs = hostilesAt(ci, tgt);
         const fc = forecast(tgt, cargo, defs, 5);
@@ -2557,6 +2669,12 @@ function fuelHome(u, z) {
   const h = hopsFromBase(base).get(z); if (h == null) return Infinity;
   const T = UT[u.t]; return h * T.fpm + Math.max(0, Math.ceil(h / T.mp) - 1) * T.fpm * 1.5 + T.fpm;
 }
+// the cells a supply column reaches this turn: its range in steps, land columns only by land (or a fixed crossing)
+function supplyReach(L) {
+  const T = UT[L.t], inRange = new Set([L.z]); let fr = [L.z];
+  for (let k = 0; k < (T.range || 0); k++) { const nx = []; for (const i of fr) for (const [j, f] of ADJ[i]) if (!inRange.has(j) && (T.dom !== "land" || (f & 9))) { inRange.add(j); nx.push(j); } fr = nx; }
+  return inRange;
+}
 function airOps() {
   for (const u of G.units) {
     const T = UT[u.t]; if (T.dom !== "air" || u.in) continue;
@@ -2582,7 +2700,7 @@ function endTurn() {
   rumourSeen = new Set();
   _vis = null;
   const pre = new Map(G.units.map(u => [u.id, { id: u.id, t: u.t, o: u.o, z: u.z, bat: inBattalion(u) ? u.bat : null }]));
-  const preVis = Uint8Array.from(playerVis().vis), preOwn = Int16Array.from(G.owner);
+  const preVis = Uint8Array.from(playerVis().vis), preSon = Uint8Array.from(playerVis().sonar), preOwn = Int16Array.from(G.owner);
   const preStab = G.nations[G.player].stab;
   // 1) your standing orders resolve first, tick by tick
   const pt = executeOrders(G.player);
@@ -2596,6 +2714,8 @@ function endTurn() {
   // production
   const done = [];
   for (const q of G.queue) {
+    if (q.kind === "u" && recruitPaused(q.z)) { if (!q.pause && q.n === G.player && G.bomb[q.z] !== G.turn) news("home", 1, `Recruitment at ${Z[q.z].n} stays paused this turn after the bombardment.`, { z: q.z }); q.pause = 1; continue; }
+    if (q.pause) { delete q.pause; if (q.n === G.player) news("home", 1, `Recruitment at ${Z[q.z].n} has resumed: a full turn without bombardment.`, { z: q.z }); }
     if (--q.left > 0) continue;
     done.push(q);
     if (ownerOf(q.z) !== q.n) continue;
@@ -2627,7 +2747,7 @@ function endTurn() {
     const T = UT[u.t]; u.mp = u.ord && u.ord.rtb ? T.mp : Math.max(0, Math.min(T.mp, Math.floor(fuelMp(u) * 2) / 2));
     const o = isLand(u.z) ? G.owner[u.z] : -1;
     const home = o === u.o || (o >= 0 && friendly(u.o, o));
-    let h = Math.min(100 - u.hp, home ? (B(u.z).hosp ? hospHeal(B(u.z).hosp) : 6) : 2);
+    let h = Math.min(100 - u.hp, home ? (B(u.z).hosp ? hospHeal(B(u.z).hosp) : HEAL_HOME) : HEAL_AWAY);
     if (h > 0) { const N = G.nations[u.o], per = manOf(u.t) / 100; if (N && per > 0) { h = Math.min(h, Math.max(0, N.man) / per); N.man -= h * per; } u.hp = Math.min(100, u.hp + h); }
   }
   // relations drift
@@ -2681,7 +2801,7 @@ function endTurn() {
   if (G.log.length > 400) { const n0 = G.log.length; G.log = G.log.filter(l => l.key || (l.imp || 1) >= 3 || l.turn >= G.turn - 12); G.lastSeenLog = Math.max(0, (G.lastSeenLog || 0) - (n0 - G.log.length)); }
   invalidate();
   save();
-  const result = { ev: REC.ev, pre, preVis, preOwn };
+  const result = { ev: REC.ev, pre, preVis, preSon, preOwn };
   REC = null;
   return result;
 }
@@ -2690,7 +2810,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.17 beta"; // early access playtest build
+const VERSION = "1.0.18 beta"; // early access playtest build
 const DISCORD_URL = "https://discord.gg/jv8T6Pxz3e"; // official community server (permanent invite)
 const SITE_URL = "https://fractured-coasts.playfracturedcoast.workers.dev/"; // 1.0.16: the game's home on Cloudflare (was pacific-rim-ww3.netlify.app)
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
@@ -2720,7 +2840,7 @@ function reviveSave(s) {
   delete s.pending; delete s.manual; for (const u of s.units) delete u.eng;
   // 0.9: infantry no longer swim. Anyone left at sea goes aboard a friendly transport there, or ashore at the nearest friendly coast.
   rescueAtSea(s);
-  s.fronts ??= {}; s.bhp ??= {};
+  s.fronts ??= {}; s.bhp ??= {}; s.bomb ??= {}; s.warAct ??= {}; s.warHist ??= {}; // 1.0.18: war records (older saves start counting from now) // 1.0.18: last bombardment turn per city (none in older saves)
   s.guide = guideFix(s.guide, s.turn); // 1.0.17: guidance progress, kept apart from everything the campaign calculates
   if (!s.minors) { const g0 = G; G = s; try { addMinors(); } finally { G = g0; } }
   // 1.0.7: one alliance per nation; every alliance from before ends (back to neutral), relations kept
@@ -2754,6 +2874,10 @@ function reviveSave(s) {
       news("world", 3, `Manpower overhaul: every nation's draft pool is smaller and units now draw manpower for their support crews, not just their seats. Reserves above the new ceiling were stood down${cut ? ` (your reserve lost ${fmtMan(cut)})` : ""}.`, { key: true });
     } finally { G = g0; }
   }
+  // 1.0.18: sea lanes that crossed land are gone; routes saved through them are worked out again (or dropped if none)
+  if (!s.lane118) { const g0 = G; G = s; let n = 0; try { for (const u of s.units) { if (!u.ord || !u.ord.p || !u.ord.p.length || u.in) continue; let at = u.z, ok = true; for (const nx of u.ord.p) { if (!isFinite(edgeCost(at, nx, u.t))) { ok = false; break; } at = nx; } if (ok) continue; const p = fullPath(u, u.ord.d); if (p) u.ord.p = p; else { if (u.o === s.player) n++; u.ord = null; } } if (n) news("home", 2, `${n} of your units had a route through a sea lane that crossed land; it no longer exists and they're holding position. Give them a new order.`, {}); } finally { G = g0; } s.lane118 = 1; }
+  // 1.0.18: oversized battalions (over the new limits) are reorganised into several; every unit is kept
+  if (!s.bat118) { const g0 = G; G = s; try { reorgOversized(); } finally { G = g0; } s.bat118 = 1; }
   return s;
 }
 function saveJson() { G.savedAt = Date.now(); return JSON.stringify({ ...G, owner: Array.from(G.owner) }); }
@@ -3043,6 +3167,7 @@ function renderBase() {
   for (const l of LM) if (overlap(l.bb, vb)) ctx.stroke(l.path);
   ctx.lineWidth = px; ctx.strokeStyle = "rgba(2,8,16,0.85)";
   for (const l of LM) if (overlap(l.bb, vb)) ctx.stroke(l.path);
+  drawRivers(vb, px);
   // lanes
   const { land: sL, sea: sS, air: sA } = UI.lanes;
   if (sL || sS || sA) {
@@ -3096,8 +3221,9 @@ function drawNow() {
   if (G && !PB) {
     // supply columns running fuel and ammo into neighbouring cells
     for (const L of G.units) {
-      if (L.o !== G.player || !L.ran || !L.ran.length || L.in) continue;
-      for (const z of L.ran) { ctx.beginPath(); ctx.moveTo(Z[L.z].x, Z[L.z].y); ctx.lineTo(Z[z].x, Z[z].y); ctx.lineWidth = px * 2; ctx.strokeStyle = "rgba(125,220,139,.75)"; ctx.setLineDash([px * 2, px * 4]); ctx.stroke(); ctx.setLineDash([]); }
+      if (L.o !== G.player || !L.ran || !L.ran.length || L.ranZ !== L.z) continue; // drawn only from where it ran them
+      const reach = supplyReach(L);
+      for (const z of L.ran) { if (!reach.has(z)) continue; ctx.beginPath(); ctx.moveTo(Z[L.z].x, Z[L.z].y); ctx.lineTo(Z[z].x, Z[z].y); ctx.lineWidth = px * 2; ctx.strokeStyle = "rgba(125,220,139,.75)"; ctx.setLineDash([px * 2, px * 4]); ctx.stroke(); ctx.setLineDash([]); }
     }
   }
   if (PB && PB.shots[PB.k] && PB.shots[PB.k].kind === "cap") { const e = PB.shots[PB.k].e, q = PB.local / PB.shots[PB.k].dur; ctx.fillStyle = hexA(C[e.o].color, .75 * (1 - q)); ctx.fill(CELL[e.z].path); }
@@ -3211,7 +3337,7 @@ function sensorNet() {
 function drawSensorCells(vb, px) {
   const N = sensorNet();
   ctx.lineWidth = px;
-  for (const [i] of N.cellsR) { if (!overlap(CELL[i].bb, vb)) continue; ctx.fillStyle = "rgba(90,230,150,.08)"; ctx.fill(CELL[i].path); }
+  for (const [i] of N.cellsR) { if (!overlap(CELL[i].bb, vb)) continue; ctx.fillStyle = "rgba(165,190,215,.10)"; ctx.fill(CELL[i].path); } // 1.0.18: radar coverage in light blue-grey
   for (const [i] of N.cellsS) { if (isLand(i) || !overlap(CELL[i].bb, vb)) continue; ctx.fillStyle = "rgba(90,170,255,.10)"; ctx.fill(CELL[i].path); }
 }
 function drawSensorsScreen() {
@@ -3219,9 +3345,9 @@ function drawSensorsScreen() {
   for (const [z] of N.srcR) { // a rotating radar sweep from each radar cell
     const [x, y] = toScreen(Z[z].x, Z[z].y), R = N.rad.get("r" + z) * s; if (R < 6) continue;
     const a = ((now / 2600) + z * .37) % 1 * Math.PI * 2;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, R); g.addColorStop(0, "rgba(110,255,170,.28)"); g.addColorStop(1, "rgba(110,255,170,0)");
+    const g = ctx.createRadialGradient(x, y, 0, x, y, R); g.addColorStop(0, "rgba(180,205,230,.22)"); g.addColorStop(1, "rgba(180,205,230,0)");
     ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, R, a - .55, a); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = "rgba(110,255,170,.35)"; ctx.lineWidth = 1; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = "rgba(190,210,230,.5)"; ctx.lineWidth = 1.2; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
   }
   for (const [z] of N.srcS) { // sonar pings ripple out from each sonar cell
     const [x, y] = toScreen(Z[z].x, Z[z].y), R = Math.max(14, N.rad.get("s" + z) * s);
@@ -3310,11 +3436,44 @@ function typeIfFormed(units) {
   const c = { n: units.length }; for (const t of UT_KEYS) c[t] = 0; for (const u of units) c[u.t]++;
   return BAT_TYPES.find(b => b.need(c)) || BAT_GENERIC;
 }
+// 1.0.18: battalion size and composition limits. Several battalions can still stand together in one cell.
+const BAT_LIMIT = {
+  land: { total: 12, cls: { tank: 6, inf: 8, art: 4, sup: 3 }, text: "12 units: at most 6 tanks, 8 infantry, 4 artillery and 3 support units" },
+  sea: { total: 8, cls: { tr: 3, sub: 4 }, text: "8 ships: at most 3 transports and 4 submarines" },
+  air: { total: 6, cls: {}, text: "6 aircraft" },
+};
+function batClass(t) {
+  if (t === "mbt" || t === "lt") return "tank";
+  if (t === "inf" || t === "sf" || t === "scout") return "inf";
+  if (t === "art") return "art";
+  if (t === "tsea") return "tr";
+  if (t === "ss") return "sub";
+  return UT[t].dom === "land" ? "sup" : "other";
+}
+function batOverLimit(units) { // the first limit these units would break together, or ""
+  const L = BAT_LIMIT[armOf(units[0].t)]; if (!L) return "";
+  if (units.length > L.total) return L.text;
+  const c = {}; for (const u of units) { const k = batClass(u.t); c[k] = (c[k] || 0) + 1; if (L.cls[k] != null && c[k] > L.cls[k]) return L.text; }
+  return "";
+}
+// split a group into as few battalions as the limits allow, each class spread evenly so every part keeps the mix
+function batSplit(units) {
+  const L = BAT_LIMIT[armOf(units[0].t)]; if (!L) return [units];
+  const by = new Map(); for (const u of units) { const k = batClass(u.t); (by.get(k) || by.set(k, []).get(k)).push(u); }
+  let k = Math.ceil(units.length / L.total); for (const [c, us] of by) if (L.cls[c]) k = Math.max(k, Math.ceil(us.length / L.cls[c]));
+  for (;;) {
+    const parts = Array.from({ length: k }, () => []); let i = 0;
+    for (const us of [...by.values()].sort((a, b) => b.length - a.length)) for (const u of us) parts[i++ % k].push(u);
+    if (parts.every(p => !p.length || !batOverLimit(p))) return parts.filter(p => p.length);
+    k++;
+  }
+}
 function canFormBattalion(units) {
   if (units.length < 2) return "Pick at least two units.";
   const o = units[0].o, z = units[0].z, arm = armOf(units[0].t);
   if (units.some(u => u.o !== o || u.z !== z || u.in)) return "Units must be together in one cell.";
   if (units.some(u => armOf(u.t) !== arm)) return "A battalion is land, sea or air, not a mix.";
+  const over = batOverLimit(units); if (over) return `Too many for one battalion: it holds at most ${over}. Form two battalions; they can still stand together.`;
   return "";
 }
 function formBattalion(units) {
@@ -3324,6 +3483,19 @@ function formBattalion(units) {
   const id = G.nextId++; G.bats[id] = { id, o: units[0].o, n: N.batN };
   for (const u of units) u.bat = id;
   invalidate(); tidyBattalions(); return "";
+}
+// 1.0.18: a battalion over the limits (from an older save) is reorganised into several, every unit kept
+function reorgOversized() {
+  invalidate(); const m = batIndex(); let told = new Map();
+  for (const [id, e] of [...m]) {
+    if (e.members.length < 2 || !batOverLimit(e.members)) continue;
+    const parts = batSplit(e.members), o = e.members[0].o, N = G.nations[o], name = batName(id, e), size = e.members.length;
+    parts.slice(1).forEach(part => { N.batN = (N.batN || 0) + 1; const nid = G.nextId++; G.bats = G.bats || {}; G.bats[nid] = { id: nid, o, n: N.batN }; for (const u of part) u.bat = nid; });
+    if (o === G.player) told.set(name, [size, parts.length]);
+    invalidate();
+  }
+  tidyBattalions();
+  for (const [name, [size, n]] of told) news("home", 2, `Your ${name} (${size} units) was reorganised into ${n} battalions under the new size limits. No units were lost, and they stay together.`, {});
 }
 function disbandBattalion(id) { for (const u of G.units) if (u.bat === id) delete u.bat; if (G.bats) delete G.bats[id]; invalidate(); }
 function tidyBattalions() { // a battalion down to one unit dissolves; that unit carries on alone
@@ -3337,7 +3509,8 @@ function aiFormBattalions(ci) {
   for (const u of G.units) if (u.o === ci && !u.in && u.bat == null && !isEngaged(u)) (byZ.get(u.z) || byZ.set(u.z, []).get(u.z)).push(u);
   for (const us of byZ.values()) for (const arm of ["land", "sea", "air"]) {
     const grp = us.filter(u => armOf(u.t) === arm);
-    if (grp.length >= 2 && typeIfFormed(grp) !== BAT_GENERIC) formBattalion(grp);
+    if (grp.length < 2) continue;
+    for (const part of batSplit(grp)) if (part.length >= 2 && typeIfFormed(part) !== BAT_GENERIC) formBattalion(part); // 1.0.18: within the size limits
   }
 }
 // ---------- map markers ----------
@@ -3425,19 +3598,22 @@ function drawExpanded(x, y, us, aff, own) {
 function drawUnits(vb) {
   const s = cam.s, P = G.player;
   UI.plates = [];
-  const byZ = new Map();
+  const byZ = new Map(), blips = new Map();
   for (const u of G.units) {
     const z = Z[u.z]; if (z.x < vb[0] - 1 || z.x > vb[2] + 1 || z.y < vb[1] - 1 || z.y > vb[3] + 1) continue;
     if (!unitVisible(u)) continue;
-    let m = byZ.get(u.z); if (!m) byZ.set(u.z, m = new Map());
+    if (!unitIdentified(u)) { blips.set(u.z, (blips.get(u.z) || 0) + 1); continue; } // 1.0.18: a radar contact only
+    const key = isLand(u.z) && isShipT(u.t) && Z[u.z].sx != null ? -1 - u.z : u.z; // ships in port: their own spot offshore
+    let m = byZ.get(key); if (!m) byZ.set(key, m = new Map());
     (m.get(u.o) || m.set(u.o, []).get(u.o)).push(u);
   }
   const rank = o => o === P ? 0 : friendly(P, o) ? 1 : atWar(P, o) ? 3 : 2;
   const cards = s >= 14, expanded = s >= 70;
-  for (const [z, m] of byZ) {
-    const [x0, y0] = toScreen(Z[z].x, Z[z].y);
+  for (const [key, m] of byZ) {
+    const z = key < 0 ? -1 - key : key, afloat = key < 0 || !isLand(z);
+    const [x0, y0] = toScreen(...(afloat ? shipXY(z) : [Z[z].x, Z[z].y]));
     const owners = [...m.keys()].sort((a, b) => rank(a) - rank(b));
-    const yb = y0 + (isLand(z) && Z[z].t !== "prov" ? 20 : 4);
+    const yb = y0 + (isLand(z) && !afloat && Z[z].t !== "prov" ? 20 : 4);
     if (s < 8) {
       owners.forEach((o, i) => { const aff = affOf(o), x = x0 + i * 7, y = y0 + 9; UI.plates.push({ z, o, x0: x - 7, y0: y - 7, x1: x + 7, y1: y + 7 }); ctx.fillStyle = COL[aff]; ctx.strokeStyle = "#0b1622"; ctx.lineWidth = 1.4; ctx.beginPath(); if (aff === "hostile") { ctx.moveTo(x, y - 5); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 5); ctx.lineTo(x - 5, y); ctx.closePath(); } else ctx.rect(x - 4, y - 4, 8, 8); ctx.fill(); ctx.stroke(); });
       continue;
@@ -3451,6 +3627,18 @@ function drawUnits(vb) {
       UI.plates.push(expanded ? { z, o, x0: x - 95, y0: yb - 32, x1: x + 95, y1: yb + 140 } : cards ? { z, o, x0: x - 30, y0: yb - 22, x1: x + 30, y1: yb + 52 } : { z, o, x0: x - 20, y0: yb - 20, x1: x + 20, y1: yb + 20 });
     });
   }
+  drawBlips(blips, byZ);
+}
+// unidentified enemy contacts: a red dot per cell (a second for several), with a subtle radar pulse
+function drawBlips(blips, byZ) {
+  if (!blips.size) return;
+  const now = performance.now(), q = (now % 2200) / 2200;
+  for (const [z, n] of blips) {
+    const [x0, y0] = toScreen(...(isLand(z) ? [Z[z].x, Z[z].y] : shipXY(z))), x = x0 + (byZ.has(z) ? 26 : 0), y = y0 - 2;
+    ctx.strokeStyle = `rgba(255,96,80,${.5 * (1 - q)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 5 + q * 9, 0, Math.PI * 2); ctx.stroke();
+    for (let k = 0; k < Math.min(n, 2); k++) { ctx.fillStyle = "#ff5a4a"; ctx.strokeStyle = "#2a0806"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x + k * 7, y + k * 3, 4.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+  }
+  animLoop();
 }
 
 // ranged fire orders: a red arc from the guns to the target, drawn over the unit markers
@@ -3487,12 +3675,25 @@ function drawFronts(vb) {
 // ---------- resources, infrastructure and supply layers ----------
 let OCEAN = null;
 function oceanPath() { if (!OCEAN) { OCEAN = new Path2D(); OCEAN.rect(BX0 - 5, BY0 - 5, BX1 - BX0 + 10, BY1 - BY0 + 10); for (const l of LM) OCEAN.addPath(l.path); } return OCEAN; }
+// 1.0.18: navigable rivers, drawn as water between their river ports (ships sail them; see M.rivers)
+// 1.0.18: ships are drawn on water: a sea cell's open-water point, or just offshore of a port (river ports: on the river)
+const shipXY = z => Z[z].k === "L" ? (Z[z].sx != null ? [Z[z].sx, Z[z].sy] : [Z[z].x, Z[z].y]) : (Z[z].wx != null ? [Z[z].wx, Z[z].wy] : [Z[z].x, Z[z].y]);
+const unitXY = (t, z) => isShipT(t) || (!isLand(z) && UT[t].dom !== "air") ? shipXY(z) : [Z[z].x, Z[z].y];
+function drawRivers(vb, px) {
+  if (!M.rivers) return;
+  ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const [name, cs] of M.rivers) {
+    const pts = cs.map(c => [Z[c].x, Z[c].y]);
+    if (pts.every(([x, y]) => x < vb[0] - 2 || x > vb[2] + 2 || y < vb[1] - 2 || y > vb[3] + 2)) continue;
+    for (const [w, col] of [[px * 4.2, "rgba(20,40,64,.55)"], [px * 2.4, "rgba(118,172,224,.85)"]]) { ctx.lineWidth = w; ctx.strokeStyle = col; ctx.beginPath(); pts.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); }
+  }
+  ctx.restore();
+}
 function drawSupplyOverlay(vb) {
   const hub = supplyMap(G.player), mob = new Uint8Array(NZ);
   for (const L of G.units) {
-    if (L.o !== G.player || L.in || UT[L.t].role !== "logistics") continue;
-    let fr = [L.z]; mob[L.z] = 1;
-    for (let k = 0; k < UT[L.t].range; k++) { const nx = []; for (const i of fr) for (const [j] of ADJ[i]) if (!mob[j]) { mob[j] = 1; nx.push(j); } fr = nx; }
+    if (L.o !== G.player || UT[L.t].role !== "logistics" || L.cg <= 0) continue; // embarked columns supply from where their transport is, so they count too
+    for (const j of supplyReach(L)) mob[j] = 1; // 1.0.18: the same reach as the supply phase (land columns go by land)
   }
   for (let i = 0; i < NZ; i++) {
     const c = CELL[i]; if (!overlap(c.bb, vb)) continue;
@@ -3614,9 +3815,29 @@ function volleyPlan(shots) {
   groups.sort((a, b) => (b[0].pt ? 1 : 0) - (a[0].pt ? 1 : 0)); // parting fire first: it happened as units pulled out
   const n = groups.length, gap = clamp(1500 / Math.max(1, n), 260, 520), list = [];
   groups.forEach((g, gi) => { // one damage number per target per volley: the total, shown with the last hit
-    const last = new Map(); g.forEach((s, i) => { const e = { s, at: 650 + gi * gap + (i % 6) * 55, dy: 0, tot: null }; list.push(e); const p = last.get(s.v); last.set(s.v, { e, sum: (p ? p.sum : 0) + s.d, b: s.b }); });
+    const last = new Map(); g.forEach((s, i) => { const e = { s, at: 650 + gi * gap + (i % 6) * 55, dy: 0, tot: null, gi }; list.push(e); const p = last.get(s.v); last.set(s.v, { e, sum: (p ? p.sum : 0) + s.d, b: s.b }); });
     for (const { e, sum } of last.values()) e.tot = sum; });
-  return { list, dur: 650 + n * gap + 1300 };
+  return { list, groups, dur: 650 + n * gap + 1300 };
+}
+// 1.0.18: replay captions name the units in each exchange. Identity follows the fog of war: your own and allied units,
+// units in a cell you can see, and anything that fired on you (it was seen firing) are named; the rest are "unidentified".
+function pbName(o, t, n, known) {
+  const P = G.player, own = o === P, ally = !own && friendly(P, o);
+  if (!known) return `<b class="foe">${n > 1 ? n + " unidentified attackers" : "an unidentified attacker"}</b>`;
+  const nm = `${n > 1 ? n + " " : ""}${UT[t].name}${n > 1 ? "s" : ""}`;
+  return `<b class="${own || ally ? "" : "foe"}">${own ? "Your " : esc(shortName(o)) + " "}${esc(nm)}</b>`;
+}
+function pbHits(shots, knownV) { // "Infantry −34 (destroyed), Main Battle Tank −12"
+  const by = new Map();
+  for (const s of shots) { const k = s.b ? "b:" + s.b : s.v; const e = by.get(k) || { s, d: 0, kill: false }; e.d += s.d; e.kill = e.kill || s.kill; by.set(k, e); }
+  const parts = [...by.values()].slice(0, 3).map(({ s, d, kill }) => `${s.b ? esc(BLD[s.b] ? BLD[s.b].name : "building") : knownV(s) ? esc((s.vo === G.player ? "your " : "") + UT[s.vt].name) : "a hidden unit"} <span class="dmg">−${d}</span>${kill ? ' <span class="lost">destroyed</span>' : ""}`);
+  return parts.join(", ") + (by.size > 3 ? ` and ${by.size - 3} more` : "");
+}
+function setPbCap(html) {
+  const c = $("pbCap"); if (!c) return;
+  if (!html) { if (!c.hidden) c.hidden = true; return; }
+  if (c.dataset.k !== html) { c.innerHTML = html; c.dataset.k = html; }
+  c.hidden = false; const b = $("pbBanner"); c.style.top = Math.round((b && !b.hidden ? b.getBoundingClientRect().bottom : 110) + 6) + "px";
 }
 function startPlayback(r) {
   const ev = r.ev || [];
@@ -3634,7 +3855,8 @@ function startPlayback(r) {
       else { cur = { zs: [m.from, m.to], t0: m.t, tEnd: m.t + 1, last: m.to }; rs.push(cur); }
     }
     for (const q of rs) {
-      let pts = q.zs.map(z => [Z[z].x, Z[z].y]);
+      const pt0 = r.pre.get(id), afloatT = pt0 ? pt0.t : null;
+      let pts = q.zs.map(z => afloatT ? unitXY(afloatT, z) : [Z[z].x, Z[z].y]);
       for (let it = 0; it < 2 && pts.length > 2; it++) { const o = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const [a, b] = [pts[i], pts[i + 1]]; o.push([a[0] * .75 + b[0] * .25, a[1] * .75 + b[1] * .25], [a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75]); } o.push(pts[pts.length - 1]); pts = o; }
       q.pts = pts; q.cum = [0];
       for (let i = 1; i < pts.length; i++) q.cum.push(q.cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
@@ -3643,6 +3865,7 @@ function startPlayback(r) {
   }
   _vis = null;
   const preVis = r.preVis, postVis = playerVis().vis, seesZ = z => preVis[z] || postVis[z];
+  const preSon = r.preSon || new Uint8Array(NZ), postSon = playerVis().sonar, sonarZ = z => preSon[z] || postSon[z]; // 1.0.18: submarines your sonar holds are shown moving
   const P = G.player, mineO = o => friendly(P, o);
   const early = ev.filter(e => e.t < cStart);
   const T1 = Math.max(0, ...early.filter(e => e.type === "move").map(e => e.t + 1), ...early.filter(e => e.type === "cap").map(e => e.t + 1.4));
@@ -3652,7 +3875,7 @@ function startPlayback(r) {
     const p = r.pre.get(id); if (!p) continue;
     const rr = rs.filter(q => q.t0 < T1); if (!rr.length) continue;
     const ours = mineO(p.o), zs = rr.flatMap(q => q.zs);
-    if (!ours && (p.t === "ss" || !zs.some(seesZ))) continue; // what you can't see stays hidden
+    if (!ours && (p.t === "ss" ? !zs.some(sonarZ) : !zs.some(seesZ))) continue; // what you can't see stays hidden
     const first = rr[0].zs[0], last = rr[rr.length - 1].last, u = G.units.find(v => v.id === id);
     movers.push({ id, o: p.o, t: p.t, rr, ta: rr[0].t0, tb: rr[rr.length - 1].tEnd, from: first, to: last, sx: Z[first].x, sy: Z[first].y, ex: Z[last].x, ey: Z[last].y, bat: u ? u.bat : null,
       land: isLand(last) && !isLand(first) && UT[p.t].dom === "land", air: UT[p.t].dom === "air" });
@@ -3691,13 +3914,19 @@ function startPlayback(r) {
       const shown = ord.slice(i, i + 10), gap = shown.length > 5 ? 300 : 450;
       if (i && !shown.some(e => e.o === P)) break;
       // guns before aircraft at the same target: the bombardment, then the strike run
-      cand.push({ kind: "strike", z: to, list: shown, gap, mine: shown.some(e => e.o === P), score: (mine ? 6 : 1) + list.filter(e => e.kill).length * 2 + (list.some(e => mineO(e.vo)) ? 3 : 0) - i * .01, order: list[0].air ? .5 : 0, dur: 1900 + shown.length * gap });
+      const caps = shown.map(e => { const kA = mineO(e.o) || mineO(e.vo) || seesZ(e.from), kV = mineO(e.vo) || seesZ(e.to);
+        const what = e.vid === -1 ? (BLD[e.vb] ? BLD[e.vb].name : "a building") : kV && e.vt ? (e.vo === P ? "your " : "") + UT[e.vt].name : "a hidden unit";
+        const aa = e.aaBy && e.aaBy.length ? ` · <span class="lost">${e.lost ? "shot down" : "hit"} by ${mineO(e.o) || seesZ(e.to) ? (e.aaBy[0].o === P ? "your " : esc(shortName(e.aaBy[0].o)) + " ") + esc(aaSummary(e.aaBy).replace(/ \(\d+\)/g, "")) : "air defences"}</span>` : e.lost ? ' · <span class="lost">shot down</span>' : "";
+        return `${pbName(e.o, e.ut, 1, kA)} → ${esc(what)} <span class="dmg">−${e.d}</span>${e.kill ? ' <span class="lost">destroyed</span>' : ""}${aa}`; });
+      cand.push({ kind: "strike", z: to, list: shown, caps, gap, mine: shown.some(e => e.o === P), score: (mine ? 6 : 1) + list.filter(e => e.kill).length * 2 + (list.some(e => mineO(e.vo)) ? 3 : 0) - i * .01, order: list[0].air ? .5 : 0, dur: 1900 + shown.length * gap });
     }
   }
   for (const e of ev.filter(e => e.type === "volley")) {
     const mine = e.shots.some(s => mineO(s.fo) || mineO(s.vo));
     if (!mine && !seesZ(e.z)) continue;
     const vp = volleyPlan(e.shots);
+    { const sonar = playerVis().sonar, sees = seesZ(e.z), knownU = (o, t) => mineO(o) || (sees && (t !== "ss" || !!sonar[e.z]));
+      vp.caps = vp.groups.map(g => { const s0 = g[0]; return `${s0.pt ? "Parting fire: " : ""}${pbName(s0.fo, s0.ft, g.length, knownU(s0.fo, s0.ft))} → ${pbHits(g, s => knownU(s.vo, s.vt))}`; }); }
     cand.push({ kind: "battle", z: e.z, v: e, vp, mine: e.shots.some(s => s.fo === P), score: (mine ? 7 : 1) + e.shots.filter(s => s.kill).length * 2 + (e.shots.some(s => s.kill && mineO(s.vo)) ? 4 : 0), order: 1, dur: vp.dur });
   }
   for (const e of ev.filter(e => e.type === "cap" && e.t >= cStart)) {
@@ -3731,7 +3960,7 @@ function startPlayback(r) {
     });
   });
   if (!all.length) { finishTurnUI(); return; }
-  PB = { T1, tracks, runs, death, shots: all, unitShot, moveDur, k: -1, pre: r.pre, preOwn: r.preOwn, preVis, postVis, cam0: { ...cam }, local: 0, done: 0, last: performance.now(), mtau: 0, bgTau: 0, fx: [] };
+  PB = { T1, tracks, runs, death, shots: all, unitShot, moveDur, k: -1, pre: r.pre, preOwn: r.preOwn, preVis, postVis, preSon, postSon, cam0: { ...cam }, local: 0, done: 0, last: performance.now(), mtau: 0, bgTau: 0, fx: [] };
   PB.total = all.reduce((s, sh) => s + sh.dur, 0);
   $("pbBanner").hidden = false; $("pbBar").style.width = "0"; $("pbRate").textContent = PB_RATE + "×";
   PB.k = 0; beginShot(performance.now());
@@ -3775,7 +4004,7 @@ function beginShot(now) {
 }
 function endPlayback() {
   const c0 = PB && PB.cam0;
-  PB = null; $("pbBanner").hidden = true;
+  PB = null; $("pbBanner").hidden = true; setPbCap(null);
   if (c0 && !REDUCED) flyTo(c0);
   finishTurnUI();
 }
@@ -3868,11 +4097,11 @@ function drawPlayback() {
   }
   for (const [id, p] of PB.pre) {
     const rs = PB.runs.get(id), tau = pbTauOf(id);
-    let x = Z[p.z].x, y = Z[p.z].y, at = p.z, moving = false;
+    let [x, y] = unitXY(p.t, p.z), at = p.z, moving = false;
     if (rs) {
       const live = rs.find(r => tau >= r.t0 && tau < r.tEnd);
       if (live) { const q = runAt(live, tau); x = q.x; y = q.y; at = q.z; moving = true; }
-      else { const done = rs.filter(r => r.tEnd <= tau).pop(); const z0 = done ? done.last : rs[0].zs[0]; x = Z[z0].x; y = Z[z0].y; at = z0; }
+      else { const done = rs.filter(r => r.tEnd <= tau).pop(); const z0 = done ? done.last : rs[0].zs[0]; [x, y] = unitXY(p.t, z0); at = z0; }
     }
     const d = PB.death.get(id); let dying = 0;
     if (d) {
@@ -3881,8 +4110,9 @@ function drawPlayback() {
     }
     const own = friendly(G.player, p.o);
     if (!own && !(PB.preVis[at] || PB.postVis[at])) continue;
-    if (!own && p.t === "ss") continue;
-    tokens.push({ id, t: p.t, o: p.o, wx: x, wy: y, at, dying, moving, bat: p.bat });
+    if (!own && p.t === "ss" && !(PB.preSon[at] || PB.postSon[at])) continue;
+    const lu = !own && atWar(G.player, p.o) ? G.units.find(v => v.id === id) : null;
+    tokens.push({ id, t: p.t, o: p.o, wx: x, wy: y, at, dying, moving, bat: p.bat, blip: !!(lu && !unitIdentified(lu)) }); // an unidentified contact moves as a red dot
   }
   tokens.sort((a, b) => a.moving - b.moving);
   // 1.0.9: a battalion travelling together draws as one tag (its strongest unit) with its echelon and member count
@@ -3965,7 +4195,8 @@ function drawPlayback() {
     x += n * 5; y += 4 - n * 3;
     pos.set(tk.id, [x, y, 1]);
     ctx.save(); ctx.globalAlpha = 1 - Math.min(1, tk.dying);
-    if (cam.s < 8) { ctx.fillStyle = COL[aff]; ctx.strokeStyle = "#0b1622"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.rect(x - 4, y - 4, 8, 8); ctx.fill(); ctx.stroke(); }
+    if (tk.blip) { ctx.fillStyle = "#ff5a4a"; ctx.strokeStyle = "#2a0806"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    else if (cam.s < 8) { ctx.fillStyle = COL[aff]; ctx.strokeStyle = "#0b1622"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.rect(x - 4, y - 4, 8, 8); ctx.fill(); ctx.stroke(); }
     else { drawSymbol(ctx, tk.t, x, y, 15, aff); ctx.fillStyle = C[tk.o].color; ctx.fillRect(x - 11, y + 9, 22, 3); if (cam.s >= 14 && tk.moving) ctx.drawImage(unitSprite(tk.t, aff), x - TAG_W / 2, y + 14, TAG_W, TAG_H);
       if (tk.batN) { const e = batIndex().get(tk.bat); drawEchelon(x, y - 16, `${e ? e.type.ech : "I"} ×${tk.batN}`); } }
     ctx.restore();
@@ -3974,8 +4205,11 @@ function drawPlayback() {
   for (const [id, r] of batRep) if (!pos.has(id) && pos.has(r)) pos.set(id, pos.get(r)); // shots from a merged member start at the battalion tag
   // captures made by the column in focus
   if (cur && isMoveShot(cur)) cur.caps.forEach((e, i) => { const k = (L - cur.capAt[i]) / 1500; if (k >= 0 && k <= 1) capBanner(e, k); });
-  if (!sh) return;
+  if (!sh) { setPbCap(null); return; }
   // ---- the current shot ----
+  if (sh.kind === "battle") { let gi = -1; for (const e of sh.vp.list) if (L >= e.at && e.gi > gi) gi = e.gi; setPbCap(gi >= 0 && sh.vp.caps ? sh.vp.caps[gi] : null); }
+  else if (sh.kind === "strike") { let i = -1; sh.list.forEach((_, k) => { if (L - 600 - k * (sh.gap || 450) >= 0) i = k; }); setPbCap(i >= 0 && sh.caps ? sh.caps[i] : null); }
+  else setPbCap(null);
   if (sh.kind === "battle") {
     const [cx, cy] = toScreen(Z[sh.z].x, Z[sh.z].y);
     sh.vp.list.forEach(({ s, at, dy, tot }, k) => {
@@ -4423,7 +4657,7 @@ const bldCost = (k, l) => { const d = BLD[k], mult = 1 + (l - 1) * .6; return { 
 const BLD_INFO = {
   fort: { purpose: "Fortified positions: bunkers, trenches and wire that shield your land units from enemy fire.", place: "Any land cell you hold. One construction at a time per cell.", how: "Protects land units friendly to the cell's owner, against both direct fire and bombardment. It doesn't protect ships, aircraft or attackers standing in the cell. Capturing the cell destroys one level, and strikes can wreck levels.", tips: ["Fortify capitals and border cities first: they hold the most victory points.", "Defences multiply with terrain cover, so jungle and urban cells become very hard to take.", "Pair with artillery behind the line to punish attackers stuck in front of the wall."] },
   road: { purpose: "Paved roads that speed up land movement and lift the cell's income.", place: "Any land cell you hold. A road only speeds moves when both cells on the route have roads; the lower level counts.", how: "Movement uses the road rate for any unit travelling between two road cells, invaders included. The income bonus applies to the cell's own income.", tips: ["Build chains of roads from your cities to the front so reinforcements arrive in fewer turns.", "Battalions move at their slowest unit's pace, so roads matter most for tanks and artillery.", "Remember the enemy can drive on your roads too once they break through."] },
-  hosp: { purpose: "A military hospital that heals units in its cell and returns more of your people to service.", place: "Any land cell you hold.", how: "Healing in the cell runs once a turn and draws manpower (1% of the unit's manpower cost per health point). The manpower bonus counts every hospital level across all land you hold, up to the cap.", tips: ["Put hospitals where your armies regroup: a level-5 hospital heals 40 health a turn.", "Several level-1 hospitals give the same manpower bonus as one big one, but healing only happens in the hospital's own cell.", "Healing costs manpower, so watch your reserve during long wars."] },
+  hosp: { purpose: "A military hospital that heals units in its cell and returns more of your people to service.", place: "Any land cell you hold.", how: "Healing in the cell runs once a turn and draws manpower (1% of the unit's manpower cost per health point). The manpower bonus counts every hospital level across all land you hold, up to the cap.", tips: ["Put hospitals where your armies regroup: a level-5 hospital heals 20 health a turn.", "Several level-1 hospitals give the same manpower bonus as one big one, but healing only happens in the hospital's own cell.", "Healing costs manpower, so watch your reserve during long wars."] },
   fac: { purpose: "An industrial complex producing both money and materials.", place: "Any land cell you hold; best in cities you're unlikely to lose.", how: "Its output joins your economy each turn. Funds are scaled by your government and stability and halved on occupied land. Materials are only scaled by your economic policy (free market 90%, state-directed 120%) and aren't reduced on occupied land.", tips: ["Factories are the main source of materials for most nations.", "Upgrade a few factories deep rather than many shallow ones: the cost per level rises slowly.", "Keep them behind the front: strikes and capture take levels away."] },
   mine: { purpose: "An extraction site that digs raw industrial materials from an ore deposit.", place: "Only on a land cell with an ore deposit.", how: "An ore cell already gives +1.5 materials without a mine; the mine adds its own output on top. Like all materials, the total is scaled by your economic policy. Output isn't reduced if the cell is occupied, so a captured mine works for its new owner.", tips: ["Develop every ore deposit you hold: it's the cheapest steady material supply.", "Protect mining cells: they're prize targets for invaders.", "Materials pay for heavy units and ships, so mines matter most for navies and armour."] },
   well: { purpose: "Extraction equipment pumping crude from an oil deposit to fuel your forces.", place: "Only on a land cell with an oil deposit.", how: "An oil cell already gives +1.5 fuel without a well. Fuel keeps aircraft flying, ships sailing and tanks moving.", tips: ["Air forces and navies burn fuel fast; wells keep them operating far from home.", "Losing your wells mid-war grounds aircraft, so defend them.", "Fuel can also be bought on the market, but wells are cheaper over time."] },
@@ -4463,7 +4697,7 @@ function showZone(i, refresh) {
   const z = Z[i], P = G.player, land = isLand(i);
   const owner = land ? G.owner[i] : -1;
   const vis = playerVis().vis[i];
-  const units = unitsAt(i).filter(unitVisible);
+  const units = unitsAt(i).filter(unitIdentified), blips = unitsAt(i).filter(u => unitVisible(u) && !unitIdentified(u)).length; // 1.0.18: radar contacts stay unidentified
   const mine = units.filter(u => u.o === P);
   const pills = [];
   if (land) {
@@ -4591,6 +4825,8 @@ function showZone(i, refresh) {
     if (attachable.length && leaders.length) T.orders += `<div class="attach"><label for="attSel">Attach ${attachable.length} support unit${attachable.length > 1 ? "s" : ""} to</label><div class="attach-row"><select id="attSel">${leaders.map(l => `<option value="${l.id}">${UT[l.t].name} · ${Math.round(l.hp)}% · #${l.id}</option>`).join("")}</select><button class="btn" data-act="attach">Attach</button></div></div>`;
   }
   if (mine.length) T.units += `<p class="note" style="margin-top:8px">Order a commander and its attached support follows. While the commander stands, enemies must go through it to reach them. Support units on their own can be destroyed, and a transport takes its cargo down with it.</p>`;
+  if (blips) T.units += `<div class="section-title">Radar contacts</div><div class="rows"><div class="row unit"><i class="blipdot"></i><div class="t"><span>${blips} unidentified contact${blips > 1 ? "s" : ""}</span></div><div class="s">Detected by radar at the edge of your ships' coverage, not identified. Ships identify what they see within 1 cell; land radar and aircraft identify what they detect.</div></div></div>`;
+  if (others.length || blips) { const strikers = fc ? [] : strikersFor(i); if (!others.length && strikers.length) T.orders += `<div class="section-title">Strike this cell</div><div class="actions"><button class="btn" data-strikein="${i}">Strike with ${strikers.length} unit${strikers.length > 1 ? "s" : ""} in range</button></div>`; }
   if (others.length) {
     T.units += `<div class="section-title">Other forces</div><div class="rows">`;
     for (const u of others) { const UTT = UT[u.t], aff = affOf(u.o), q = fc && fc.per.get(u); T.units += `<div class="row unit">${symCanvas(u.t, aff)}<div class="t"><span>${UTT.name}</span><canvas class="fig" width="104" height="52" data-fig="${u.t}" data-aff="${aff}"></canvas></div><div class="s">${esc(shortName(u.o))} · ${STN[stance(P, u.o)]}${inBat(u) ? ` · ${esc(batName(u.bat))}` : ""}${isPassiveT(u.t) ? " · support" : ""}${cargoIntel(u)}${q && q.taken ? ` · <span class="fcast">takes ~${Math.round(q.taken)}</span>` : ""}</div>${hpBar(u)}</div>`; }
@@ -4602,7 +4838,7 @@ function showZone(i, refresh) {
   // own province: build & recruit
   if (land && owner === P) {
     const q = G.queue.filter(x => x.z === i && x.n === P);
-    const qrow = x => `<div class="row"><div class="t"><span>${x.kind === "u" ? UT[x.t].name : BLD[x.t].name}</span></div><div class="s">${x.left} turn${x.left > 1 ? "s" : ""} left${x.kind === "u" && x.at === G.turn ? " · ordered this turn" : ""}</div>${x.kind === "u" && x.at === G.turn ? `<div class="r"><button class="btn" data-cancelq="${G.queue.indexOf(x)}">Cancel</button><span class="cost">full refund</span></div>` : ""}</div>`;
+    const qrow = x => `<div class="row"><div class="t"><span>${x.kind === "u" ? UT[x.t].name : BLD[x.t].name}</span></div><div class="s">${x.left} turn${x.left > 1 ? "s" : ""} left${x.kind === "u" && x.at === G.turn ? " · ordered this turn" : ""}${x.kind === "u" && recruitPaused(x.z) ? ` · <b class="bad">paused: city bombarded</b> (resumes after ${G.bomb[x.z] === G.turn ? "the next" : "this"} turn without attack)` : ""}</div>${x.kind === "u" && x.at === G.turn ? `<div class="r"><button class="btn" data-cancelq="${G.queue.indexOf(x)}">Cancel</button><span class="cost">full refund</span></div>` : ""}</div>`;
     const qu = q.filter(x => x.kind === "u"), qb = q.filter(x => x.kind !== "u");
     if (qu.length) T.recruit += `<div class="section-title">In training</div><div class="rows">${qu.map(qrow).join("")}</div>`;
     if (qb.length) T.build += `<div class="section-title">In progress</div><div class="rows">${qb.map(qrow).join("")}</div>`;
@@ -4730,7 +4966,7 @@ function showStrikePreview(z, ids, spri, pick) {
 function showAttackPreview(z, ids) {
   const P = G.player, movers = ids.map(id => G.units.find(u => u.id === id)).filter(Boolean);
   const fighters = movers.filter(u => isCombatT(u.t));
-  const foes = unitsAt(z).filter(u => atWar(P, u.o) && unitVisible(u));
+  const foes = unitsAt(z).filter(u => atWar(P, u.o) && unitIdentified(u)); // 1.0.18: only identified enemies can be singled out
   const fc = forecast(z, fighters.concat(unitsAt(z).filter(u => friendly(P, u.o))), foes), o = outlookText(fc);
   const turns = Math.max(1, ...fighters.map(u => { const p = fullPath(u, z); return p ? eta(u, p).turns : 1; }));
   const mods = [];
@@ -4765,7 +5001,7 @@ function orderChase(units, tgt, z) {
   let n = 0, fire = 0, maxEta = 0;
   for (const u of hunters) {
     if (UT[u.t].dom === "air" && atAirbase(u)) u.base = u.z;
-    u.drop = null; u.chase = tgt.id; u.chaseName = UT[tgt.t].name;
+    u.drop = null; u.chase = tgt.id; u.chaseName = unitIdentified(tgt) ? UT[tgt.t].name : "radar contact";
     const r = planChase(u);
     if (!r) continue;
     n++; if (r === "fire") fire++;
@@ -5217,7 +5453,7 @@ function howToHtml() {
     <li><b>Fight.</b> Units that meet an enemy they're at war with become engaged. At the end of every turn each unit fires once at the best target on its priority list, using its attack values against land, air, ships, subs and structures, its health and ammo, and the target's armour, terrain and defences. Fighting goes on turn after turn until one side is destroyed or pulls out. A land cell with no defending troops left changes hands. Set what each unit shoots first with <b>Targets</b>; the forecast shows what to expect before you commit.</li>
     <li><b>Fire from range.</b> Artillery (2 cells), jets (4), helicopters (2), frigates and radar pickets (1) can hit a cell without entering it: select them and press <b>Attack</b>. Aircraft draw fire from enemy air defences. Units keep firing every turn until the target is clear or you call them off.</li>
     <li><b>Carry troops.</b> At a port (or airbase), press <b>Embark</b> to load units onto a transport. Nothing goes ashore by itself: sail into a friendly port and press <b>Disembark</b>, or sit offshore of an enemy coast and press <b>Assault</b>. Every island has at least one port.</li>
-    <li><b>The sea.</b> Lighter water is shallow: big ships move slower there and submarines are easy to find and kill. Deep ocean is where subs hide and hit hardest. Each nation owns the waters around its coast; your aircraft can't cross a neutral nation's airspace, and offshore oil fields in your waters can take a rig.</li>
+    <li><b>The sea.</b> Lighter water is shallow: big ships move slower there and submarines are easy to find and kill. Deep ocean is where subs hide and hit hardest. Each nation owns the waters around its coast; your aircraft can't cross a neutral nation's airspace, and offshore oil fields in your waters can take a rig. Four great rivers are navigable: the Yangtze up to Wuhan, the Pearl to Guangzhou, the Mekong to Phnom Penh and the Irrawaddy to Mandalay. Ships sail them through friendly river ports, which build transports and supply ships. Ship radar picks up contacts out to its full range, but a ship identifies what it sees only within 1 cell: beyond that, enemies show as red radar contacts.</li>
     <li><b>Read the reports.</b> After each turn the Fractured Coasts Network covers what you saw clearly, plus rumours from places you can't see.</li>
     <li><b>Commander guidance.</b> A new campaign can walk you through your first turns. After that, a short lesson appears only when you first meet something: ships, a transport, loading and landing troops, a supply column, a battle. Your next objective, under the resource bar, offers ideas from what you can see; ignore it freely. Guidance never acts for you. Turn either part off, or read any lesson again, under Nation → Commander guidance.</li>
   </ol></div>`;
@@ -5739,6 +5975,40 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.18 beta", date: "5 Nov 2026", title: "Rivers, radar and a sharper war", items: [
+    "## War and peace",
+    "Wars now run at least 8 turns before either side talks peace, so nations no longer declare war and sue for peace straight away. In four 60-turn test campaigns, peace treaties signed within 3 turns of a war starting fell from 34 to 0.",
+    "The AI no longer spares an enemy it has nearly beaten unless it's in real danger itself, and it keeps fighting for a prize other nations are also fighting over. Wars between evenly matched sides that have become costly or have gone quiet can still end in peace, and a war that ended in peace isn't restarted on a whim.",
+    "Your own peace proposals are refused in the first 8 turns of a war, unless the other side is losing badly, and refused when you're close to defeat.",
+    "## Radar",
+    "Detection fix: every sensor now sees its full range. Before, a unit's sight stopped at any cell something else already saw, so a radar picket off your coast often saw only one cell past it.",
+    "Ship radar picks up contacts out to its full range (frigates 2 cells, radar pickets 3), but a ship identifies what it sees only within 1 cell. Beyond that, enemies show as pulsing red radar contacts with no unit type. Land radar, aircraft and land units identify what they detect.",
+    "Radar works on its own, whether or not the radar layer is showing. The layer now shows coverage in light blue-grey.",
+    "Replays now show enemy submarines moving while your sonar holds them, and the reports tell you when enemy troops you can see come ashore from a transport in port.",
+    "## Attack orders",
+    "A target you pick stays your target. If it moves to a cell still in range, your units follow it there; if it slips out of sight they hold fire; if it's destroyed the strike is called off. They never switch to a different enemy.",
+    "Units hunting an enemy shoot only that enemy. Jets sent after enemy aircraft at their airbase now hit the aircraft, not the airbase or the troops there. Striking an airbase cell directly still hits the airbase.",
+    "## Battalions",
+    "A battalion now holds at most 12 land units (6 tanks, 8 infantry, 4 artillery, 3 support), 8 ships (3 transports, 4 submarines) or 6 aircraft. Several battalions can still stand and fight together. Before, AI battalions reached 38 units.",
+    "Any battalion over the limit in your campaign is reorganised into several, keeping the same mix; no unit is lost and they stay where they are.",
+    "## Seas and rivers",
+    "25 sea lanes that crossed land are closed, including across the Kra Isthmus, Taiwan, Timor, New Guinea and North Island. Ships now sail around. Any route saved through one is worked out again.",
+    "Navigable rivers: the Yangtze (Shanghai to Wuhan), the Pearl (to Guangzhou), the Mekong (to Phnom Penh) and the Irrawaddy (Yangon to Mandalay). Ships sail upriver through friendly river ports only; river ports build transports and supply ships.",
+    "Ships are drawn on the water, just offshore of their port or in open water, rather than on the shoreline.",
+    "## Supply",
+    "Supply lines no longer linger after a supply column runs dry and moves away, and the supply overlay now shows exactly the cells a column really reaches: land columns travel by land only.",
+    "## Combat reports and replays",
+    "Air defence fire is now recorded against each unit that fired. Strike reports name them with the damage each did (\"air defence hit back: 2 Radar Pickets (30), Frigate (13), and shot it down\"), and incoming-fire reports name the attacking unit type.",
+    "Battle and strike replays show a caption for each exchange: which units fired at what, and the damage done. Attackers you couldn't have seen stay \"unidentified\".",
+    "## Healing and bombardment",
+    "All healing is halved: hospitals heal 7.5 + 2.5 per level (20 a turn at level 5, was 40); units on their own or an ally's land heal 3 (was 6), anywhere else 1 (was 2).",
+    "A city that's bombarded by naval gunfire, air strikes or artillery pauses its recruitment. It resumes after the city goes a full turn without bombardment. Queued units are kept and nothing is cancelled or refunded, and other cities are unaffected.",
+    "## What's coming",
+    "Further balancing and bug fixes, including anything you report on the Discord.",
+    "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+    "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+    "The first unit expansion: the first new unit types to join the current roster.",
+  ] },
   { v: "1.0.17 beta", date: "5 Nov 2026", title: "Commander guidance", items: [
     "## Learn as you play",
     "A new campaign can walk you through your first turns: your nation and the goal, finding your forces, giving an order, recruiting, how territory is taken, ending the turn, reading the results and building. It fits your nation: a step that doesn't apply to you is left out. Skip opening stops it at any point.",
@@ -6218,7 +6488,7 @@ function gObjectives() {
   if (foes.length) {
     const own = new Set(LAND_IDS.filter(i => G.owner[i] === P));
     const f = foes.find(x => !own.has(x.z) && ADJ[x.z].some(([j]) => own.has(j)) && !(cap >= 0 && gStepsAway(cap, 2).has(x.z)));
-    if (f && !orderedTo(f.z) && !ADJ[f.z].some(([j]) => orderedTo(j))) out.push({ key: "border", pri: 80, title: `Investigate the enemy force near your border`, why: `${UT[f.t].name} of ${shortName(f.o)} seen at ${Z[f.z].n}, next to your territory.`, target: { z: f.z } });
+    if (f && !orderedTo(f.z) && !ADJ[f.z].some(([j]) => orderedTo(j))) out.push({ key: "border", pri: 80, title: `Investigate the enemy force near your border`, why: unitIdentified(f) ? `${UT[f.t].name} of ${shortName(f.o)} seen at ${Z[f.z].n}, next to your territory.` : `An unidentified radar contact at ${Z[f.z].n}, next to your territory.`, target: { z: f.z } });
   }
   const hub = supplyMap(P), low = mine.filter(u => !u.in && ((UT[u.t].fpm && u.fu < 30) || (UT[u.t].apb && u.am < 30)) && hub[u.z] !== 2 && UT[u.t].role !== "logistics");
   if (low.length && !gLogistics().some(L => L.ord && low.some(u => gStepsAway(L.ord.d, UT[L.t].range).has(u.z)))) out.push({ key: "supply", pri: 70, title: "Review your supply situation before going further", why: `${gPlural(low.length, "unit")} low on fuel or ammunition, such as the ${gName(low[0])} at ${Z[low[0].z].n}. Cities, capitals and depots refill units; supply columns carry it forward.`, target: { z: low[0].z } });
@@ -6799,6 +7069,6 @@ function exportFeed() {
     nations, governments, units, battalions, buildings, guide: howToGuide(), notes: { startingArmy: "Powers pick their own starting army with " + BUDGET + " points; minor nations' starting forces are fixed." } };
   return { meta, codex };
 }
-window.__prw = { guide: { LESSONS, OPENING, MECHANICS, gTapPoint, guideTick, guideStart, guideShow, guideFinish, GD, GPREF, GUIDE_HIT, showGuideSettings, gObjectives, gLoadOpp, gUnloadOpp, gResupplyOpp, gLoadBlock, gUnloadBlock, guideFix }, get G() { return G; }, mergeTransfer, receiveTransfer, exportFeed, VERSION, PATCH_NOTES, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; }, BLD, BLD_INFO, BLD_CAT, bldEffect, bldCost, bldsAt, showBldCard, showBldAt, defMult, laneCost, supplyMap, cellFunds, recruitSites, fortDiv, roadCost, hospHeal, depotReload };
+window.__prw = { draw: () => draw(), aiAnswer, unitIdentified, aiAcceptsPeace, inDanger, recruitPaused, batOverLimit, batSplit, BAT_LIMIT, supplyReach, pickedTarget, warRec, MIN_WAR, HEAL_MULT, shipXY, atWar, guide: { LESSONS, OPENING, MECHANICS, gTapPoint, guideTick, guideStart, guideShow, guideFinish, GD, GPREF, GUIDE_HIT, showGuideSettings, gObjectives, gLoadOpp, gUnloadOpp, gResupplyOpp, gLoadBlock, gUnloadBlock, guideFix }, get G() { return G; }, mergeTransfer, receiveTransfer, exportFeed, VERSION, PATCH_NOTES, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; }, BLD, BLD_INFO, BLD_CAT, bldEffect, bldCost, bldsAt, showBldCard, showBldAt, defMult, laneCost, supplyMap, cellFunds, recruitSites, fortDiv, roadCost, hospHeal, depotReload };
 })();
 </script>

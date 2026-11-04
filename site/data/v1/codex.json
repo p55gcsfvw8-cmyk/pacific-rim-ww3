@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "version": "1.0.17 beta",
+ "version": "1.0.18 beta",
  "rules": {
   "winSharePct": 30,
   "recruitSlotsPerCity": 4,
@@ -21,7 +21,7 @@
    "government": "One-Party State",
    "cells": 149,
    "cities": 31,
-   "ports": 11,
+   "ports": 15,
    "victoryPointsPct": 17.22,
    "start": {
     "funds": 96,
@@ -614,7 +614,7 @@
    "government": "Military Government",
    "cells": 16,
    "cities": 5,
-   "ports": 3,
+   "ports": 6,
    "victoryPointsPct": 1.82,
    "start": {
     "funds": 17,
@@ -1871,7 +1871,7 @@
    "placement": "Any land cell you hold.",
    "howItWorks": "Healing in the cell runs once a turn and draws manpower (1% of the unit's manpower cost per health point). The manpower bonus counts every hospital level across all land you hold, up to the cap.",
    "tips": [
-    "Put hospitals where your armies regroup: a level-5 hospital heals 40 health a turn.",
+    "Put hospitals where your armies regroup: a level-5 hospital heals 20 health a turn.",
     "Several level-1 hospitals give the same manpower bonus as one big one, but healing only happens in the hospital's own cell.",
     "Healing costs manpower, so watch your reserve during long wars."
    ],
@@ -1881,35 +1881,35 @@
      "funds": 5,
      "materials": 3,
      "turns": 2,
-     "effect": "Heals units here 20 health a turn; national manpower growth +5% (all hospitals together cap at +50%)"
+     "effect": "Heals units here 10 health a turn; national manpower growth +5% (all hospitals together cap at +50%)"
     },
     {
      "level": 2,
      "funds": 8,
      "materials": 5,
      "turns": 2,
-     "effect": "Heals units here 25 health a turn; national manpower growth +10% (all hospitals together cap at +50%)"
+     "effect": "Heals units here 12.5 health a turn; national manpower growth +10% (all hospitals together cap at +50%)"
     },
     {
      "level": 3,
      "funds": 11,
      "materials": 7,
      "turns": 2,
-     "effect": "Heals units here 30 health a turn; national manpower growth +15% (all hospitals together cap at +50%)"
+     "effect": "Heals units here 15 health a turn; national manpower growth +15% (all hospitals together cap at +50%)"
     },
     {
      "level": 4,
      "funds": 14,
      "materials": 8,
      "turns": 2,
-     "effect": "Heals units here 35 health a turn; national manpower growth +20% (all hospitals together cap at +50%)"
+     "effect": "Heals units here 17.5 health a turn; national manpower growth +20% (all hospitals together cap at +50%)"
     },
     {
      "level": 5,
      "funds": 17,
      "materials": 10,
      "turns": 2,
-     "effect": "Heals units here 40 health a turn; national manpower growth +25% (all hospitals together cap at +50%)"
+     "effect": "Heals units here 20 health a turn; national manpower growth +25% (all hospitals together cap at +50%)"
     }
    ]
   },
@@ -2185,7 +2185,7 @@
   },
   {
    "title": "The sea",
-   "text": "Lighter water is shallow: big ships move slower there and submarines are easy to find and kill. Deep ocean is where subs hide and hit hardest. Each nation owns the waters around its coast; your aircraft can't cross a neutral nation's airspace, and offshore oil fields in your waters can take a rig."
+   "text": "Lighter water is shallow: big ships move slower there and submarines are easy to find and kill. Deep ocean is where subs hide and hit hardest. Each nation owns the waters around its coast; your aircraft can't cross a neutral nation's airspace, and offshore oil fields in your waters can take a rig. Four great rivers are navigable: the Yangtze up to Wuhan, the Pearl to Guangzhou, the Mekong to Phnom Penh and the Irrawaddy to Mandalay. Ships sail them through friendly river ports, which build transports and supply ships. Ship radar picks up contacts out to its full range, but a ship identifies what it sees only within 1 cell: beyond that, enemies show as red radar contacts."
   },
   {
    "title": "Read the reports",

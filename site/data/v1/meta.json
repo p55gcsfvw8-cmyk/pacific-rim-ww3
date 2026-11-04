@@ -3,12 +3,87 @@
  "game": "The Fractured Coasts: WW3",
  "inGameTitle": "The Fractured Coasts: WW3",
  "formerly": "Pacific Rim WW3",
- "version": "1.0.17 beta",
+ "version": "1.0.18 beta",
  "released": "5 Nov 2026",
  "discord": "https://discord.gg/jv8T6Pxz3e",
  "play": "https://fractured-coasts.playfracturedcoast.workers.dev/",
  "mode": "Single-player against AI nations",
  "patchNotes": [
+  {
+   "version": "1.0.18 beta",
+   "date": "5 Nov 2026",
+   "title": "Rivers, radar and a sharper war",
+   "sections": [
+    {
+     "heading": "War and peace",
+     "items": [
+      "Wars now run at least 8 turns before either side talks peace, so nations no longer declare war and sue for peace straight away. In four 60-turn test campaigns, peace treaties signed within 3 turns of a war starting fell from 34 to 0.",
+      "The AI no longer spares an enemy it has nearly beaten unless it's in real danger itself, and it keeps fighting for a prize other nations are also fighting over. Wars between evenly matched sides that have become costly or have gone quiet can still end in peace, and a war that ended in peace isn't restarted on a whim.",
+      "Your own peace proposals are refused in the first 8 turns of a war, unless the other side is losing badly, and refused when you're close to defeat."
+     ]
+    },
+    {
+     "heading": "Radar",
+     "items": [
+      "Detection fix: every sensor now sees its full range. Before, a unit's sight stopped at any cell something else already saw, so a radar picket off your coast often saw only one cell past it.",
+      "Ship radar picks up contacts out to its full range (frigates 2 cells, radar pickets 3), but a ship identifies what it sees only within 1 cell. Beyond that, enemies show as pulsing red radar contacts with no unit type. Land radar, aircraft and land units identify what they detect.",
+      "Radar works on its own, whether or not the radar layer is showing. The layer now shows coverage in light blue-grey.",
+      "Replays now show enemy submarines moving while your sonar holds them, and the reports tell you when enemy troops you can see come ashore from a transport in port."
+     ]
+    },
+    {
+     "heading": "Attack orders",
+     "items": [
+      "A target you pick stays your target. If it moves to a cell still in range, your units follow it there; if it slips out of sight they hold fire; if it's destroyed the strike is called off. They never switch to a different enemy.",
+      "Units hunting an enemy shoot only that enemy. Jets sent after enemy aircraft at their airbase now hit the aircraft, not the airbase or the troops there. Striking an airbase cell directly still hits the airbase."
+     ]
+    },
+    {
+     "heading": "Battalions",
+     "items": [
+      "A battalion now holds at most 12 land units (6 tanks, 8 infantry, 4 artillery, 3 support), 8 ships (3 transports, 4 submarines) or 6 aircraft. Several battalions can still stand and fight together. Before, AI battalions reached 38 units.",
+      "Any battalion over the limit in your campaign is reorganised into several, keeping the same mix; no unit is lost and they stay where they are."
+     ]
+    },
+    {
+     "heading": "Seas and rivers",
+     "items": [
+      "25 sea lanes that crossed land are closed, including across the Kra Isthmus, Taiwan, Timor, New Guinea and North Island. Ships now sail around. Any route saved through one is worked out again.",
+      "Navigable rivers: the Yangtze (Shanghai to Wuhan), the Pearl (to Guangzhou), the Mekong (to Phnom Penh) and the Irrawaddy (Yangon to Mandalay). Ships sail upriver through friendly river ports only; river ports build transports and supply ships.",
+      "Ships are drawn on the water, just offshore of their port or in open water, rather than on the shoreline."
+     ]
+    },
+    {
+     "heading": "Supply",
+     "items": [
+      "Supply lines no longer linger after a supply column runs dry and moves away, and the supply overlay now shows exactly the cells a column really reaches: land columns travel by land only."
+     ]
+    },
+    {
+     "heading": "Combat reports and replays",
+     "items": [
+      "Air defence fire is now recorded against each unit that fired. Strike reports name them with the damage each did (\"air defence hit back: 2 Radar Pickets (30), Frigate (13), and shot it down\"), and incoming-fire reports name the attacking unit type.",
+      "Battle and strike replays show a caption for each exchange: which units fired at what, and the damage done. Attackers you couldn't have seen stay \"unidentified\"."
+     ]
+    },
+    {
+     "heading": "Healing and bombardment",
+     "items": [
+      "All healing is halved: hospitals heal 7.5 + 2.5 per level (20 a turn at level 5, was 40); units on their own or an ally's land heal 3 (was 6), anywhere else 1 (was 2).",
+      "A city that's bombarded by naval gunfire, air strikes or artillery pauses its recruitment. It resumes after the city goes a full turn without bombardment. Queued units are kept and nothing is cancelled or refunded, and other cities are unaffected."
+     ]
+    },
+    {
+     "heading": "What's coming",
+     "items": [
+      "Further balancing and bug fixes, including anything you report on the Discord.",
+      "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+      "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+      "The first unit expansion: the first new unit types to join the current roster."
+     ]
+    }
+   ]
+  },
   {
    "version": "1.0.17 beta",
    "date": "5 Nov 2026",
