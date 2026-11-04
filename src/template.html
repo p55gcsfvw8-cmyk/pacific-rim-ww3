@@ -2264,7 +2264,7 @@ function declareWar(a, b, quiet) {
 }
 function declareWarRaw(a, b) { setStance(a, b, "W"); addRel(a, b, -30); warBegin(a, b); }
 // ---------- 1.0.18: what a war has actually involved, for peace decisions ----------
-const MIN_WAR = 8; // turns a war runs before either side normally considers peace
+const MIN_WAR = 12; // turns a war runs before either side normally considers peace
 function warBegin(a, b) { G.warAct = G.warAct || {}; G.warHist = G.warHist || {}; const k = key2(a, b); G.warAct[k] = { t0: G.turn, f: 0, c: 0, last: null, la: G.nations[a].lostUnits || 0, lb: G.nations[b].lostUnits || 0, a, b }; (G.warHist[k] = G.warHist[k] || []).push(G.turn); }
 function warActivity(x, y, captured) { if (x == null || y == null || x < 0 || y < 0 || x === y || !atWar(x, y)) return; const w = warRec(x, y); w.f++; w.last = G.turn; if (captured) w.c++; }
 function warRec(x, y) { G.warAct = G.warAct || {}; const k = key2(x, y); return G.warAct[k] || (G.warAct[k] = { t0: G.since[k] ?? G.turn, f: 0, c: 0, last: null, la: 0, lb: 0, a: Math.min(x, y), b: Math.max(x, y), old: 1 }); } // wars from older saves start counting now
@@ -5977,9 +5977,9 @@ async function showOnline() {
 const PATCH_NOTES = [
   { v: "1.0.18 beta", date: "5 Nov 2026", title: "Rivers, radar and a sharper war", items: [
     "## War and peace",
-    "Wars now run at least 8 turns before either side talks peace, so nations no longer declare war and sue for peace straight away. In four 60-turn test campaigns, peace treaties signed within 3 turns of a war starting fell from 34 to 0.",
+    "Wars now run at least 12 turns before either side talks peace, so nations no longer declare war and sue for peace straight away. In four 60-turn test campaigns, peace treaties signed within 3 turns of a war starting fell from 34 to 0.",
     "The AI no longer spares an enemy it has nearly beaten unless it's in real danger itself, and it keeps fighting for a prize other nations are also fighting over. Wars between evenly matched sides that have become costly or have gone quiet can still end in peace, and a war that ended in peace isn't restarted on a whim.",
-    "Your own peace proposals are refused in the first 8 turns of a war, unless the other side is losing badly, and refused when you're close to defeat.",
+    "Your own peace proposals are refused in the first 12 turns of a war, unless the other side is losing badly, and refused when you're close to defeat.",
     "## Radar",
     "Detection fix: every sensor now sees its full range. Before, a unit's sight stopped at any cell something else already saw, so a radar picket off your coast often saw only one cell past it.",
     "Ship radar picks up contacts out to its full range (frigates 2 cells, radar pickets 3), but a ship identifies what it sees only within 1 cell. Beyond that, enemies show as pulsing red radar contacts with no unit type. Land radar, aircraft and land units identify what they detect.",

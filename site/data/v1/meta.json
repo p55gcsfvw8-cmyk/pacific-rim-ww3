@@ -17,9 +17,9 @@
     {
      "heading": "War and peace",
      "items": [
-      "Wars now run at least 8 turns before either side talks peace, so nations no longer declare war and sue for peace straight away. In four 60-turn test campaigns, peace treaties signed within 3 turns of a war starting fell from 34 to 0.",
+      "Wars now run at least 12 turns before either side talks peace, so nations no longer declare war and sue for peace straight away. In four 60-turn test campaigns, peace treaties signed within 3 turns of a war starting fell from 34 to 0.",
       "The AI no longer spares an enemy it has nearly beaten unless it's in real danger itself, and it keeps fighting for a prize other nations are also fighting over. Wars between evenly matched sides that have become costly or have gone quiet can still end in peace, and a war that ended in peace isn't restarted on a whim.",
-      "Your own peace proposals are refused in the first 8 turns of a war, unless the other side is losing badly, and refused when you're close to defeat."
+      "Your own peace proposals are refused in the first 12 turns of a war, unless the other side is losing badly, and refused when you're close to defeat."
      ]
     },
     {
