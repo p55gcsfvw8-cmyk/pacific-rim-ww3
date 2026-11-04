@@ -3675,17 +3675,46 @@ function drawFronts(vb) {
 // ---------- resources, infrastructure and supply layers ----------
 let OCEAN = null;
 function oceanPath() { if (!OCEAN) { OCEAN = new Path2D(); OCEAN.rect(BX0 - 5, BY0 - 5, BX1 - BX0 + 10, BY1 - BY0 + 10); for (const l of LM) OCEAN.addPath(l.path); } return OCEAN; }
-// 1.0.18: navigable rivers, drawn as water between their river ports (ships sail them; see M.rivers)
-// 1.0.18: ships are drawn on water: a sea cell's open-water point, or just offshore of a port (river ports: on the river)
+// 1.0.18: navigable rivers, drawn as water cut into the land, like the sea: a winding channel from open water at the
+// mouth up through each river port, wide at the mouth and narrowing upstream, with the same coastline edge as the sea.
+// ships are drawn on water: a sea cell's open-water point, or just offshore of a port (river ports: on the river)
 const shipXY = z => Z[z].k === "L" ? (Z[z].sx != null ? [Z[z].sx, Z[z].sy] : [Z[z].x, Z[z].y]) : (Z[z].wx != null ? [Z[z].wx, Z[z].wy] : [Z[z].x, Z[z].y]);
 const unitXY = (t, z) => isShipT(t) || (!isLand(z) && UT[t].dom !== "air") ? shipXY(z) : [Z[z].x, Z[z].y];
+let RIVER_GEO = null;
+function riverGeo() {
+  if (RIVER_GEO) return RIVER_GEO;
+  RIVER_GEO = (M.rivers || []).map(([name, cs], ri) => {
+    const mouth = cs[0], sea = Z[mouth].sx != null ? [Z[mouth].sx, Z[mouth].sy] : null;
+    const knots = (sea ? [sea] : []).concat(cs.map(c => [Z[c].x, Z[c].y]));
+    // gentle meanders between knots; every river port stays exactly on the river
+    let pts = [knots[0]];
+    for (let k = 1; k < knots.length; k++) {
+      const [ax, ay] = knots[k - 1], [bx, by] = knots[k], dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+      const bends = Math.max(2, Math.round(L / .9)), amp = Math.min(.22, L * .07) * (k === 1 && sea ? .4 : 1), n = bends * 6;
+      for (let q = 1; q <= n; q++) { const t = q / n, w = Math.sin(Math.PI * t * bends + ri * 1.7 + k) * Math.sin(Math.PI * t) * amp; pts.push([ax + dx * t + nx * w, ay + dy * t + ny * w]); }
+    }
+    for (let it = 0; it < 2; it++) { const o = [pts[0]]; for (let q = 0; q < pts.length - 1; q++) { const [a, b] = [pts[q], pts[q + 1]]; o.push([a[0] * .75 + b[0] * .25, a[1] * .75 + b[1] * .25], [a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75]); } o.push(pts[pts.length - 1]); pts = o; }
+    let tot = 0; const cum = [0]; for (let q = 1; q < pts.length; q++) { tot += Math.hypot(pts[q][0] - pts[q - 1][0], pts[q][1] - pts[q - 1][1]); cum.push(tot); }
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    return { name, pts, cum, tot, bb: [Math.min(...xs) - .5, Math.min(...ys) - .5, Math.max(...xs) + .5, Math.max(...ys) + .5] };
+  });
+  return RIVER_GEO;
+}
 function drawRivers(vb, px) {
-  if (!M.rivers) return;
-  ctx.save(); ctx.lineCap = "round"; ctx.lineJoin = "round";
-  for (const [name, cs] of M.rivers) {
-    const pts = cs.map(c => [Z[c].x, Z[c].y]);
-    if (pts.every(([x, y]) => x < vb[0] - 2 || x > vb[2] + 2 || y < vb[1] - 2 || y > vb[3] + 2)) continue;
-    for (const [w, col] of [[px * 4.2, "rgba(20,40,64,.55)"], [px * 2.4, "rgba(118,172,224,.85)"]]) { ctx.lineWidth = w; ctx.strokeStyle = col; ctx.beginPath(); pts.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); }
+  const geo = riverGeo(); if (!geo.length) return;
+  ctx.save(); ctx.lineJoin = "round";
+  for (const r of geo) {
+    if (!overlap(r.bb, vb)) continue;
+    const { pts, cum, tot } = r, L = [], R = [];
+    for (let q = 0; q < pts.length; q++) {
+      const a = pts[Math.max(0, q - 1)], b = pts[Math.min(pts.length - 1, q + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+      const t = cum[q] / tot, w = Math.max(.1 + (.28 - .1) * Math.pow(1 - t, 1.3), px * 2.2) / 2; // world units: ~28 km at the mouth to ~10 km upstream
+      L.push([pts[q][0] - dy / l * w, pts[q][1] + dx / l * w]); R.push([pts[q][0] + dy / l * w, pts[q][1] - dx / l * w]);
+    }
+    const path = new Path2D(); L.forEach(([x, y], k) => k ? path.lineTo(x, y) : path.moveTo(x, y)); for (let k = R.length - 1; k >= 0; k--) path.lineTo(R[k][0], R[k][1]); path.closePath();
+    ctx.fillStyle = "#123150"; ctx.fill(path);                                 // the same shallow-water colour as the sea
+    ctx.lineWidth = px * 3; ctx.strokeStyle = "rgba(140,200,255,0.10)"; ctx.stroke(path); // and the same coastline glow and edge
+    ctx.lineWidth = px; ctx.strokeStyle = "rgba(2,8,16,0.85)"; ctx.stroke(path);
   }
   ctx.restore();
 }
@@ -5993,7 +6022,7 @@ const PATCH_NOTES = [
     "Any battalion over the limit in your campaign is reorganised into several, keeping the same mix; no unit is lost and they stay where they are.",
     "## Seas and rivers",
     "25 sea lanes that crossed land are closed, including across the Kra Isthmus, Taiwan, Timor, New Guinea and North Island. Ships now sail around. Any route saved through one is worked out again.",
-    "Navigable rivers: the Yangtze (Shanghai to Wuhan), the Pearl (to Guangzhou), the Mekong (to Phnom Penh) and the Irrawaddy (Yangon to Mandalay). Ships sail upriver through friendly river ports only; river ports build transports and supply ships.",
+    "Navigable rivers: the Yangtze (Shanghai to Wuhan), the Pearl (to Guangzhou), the Mekong (to Phnom Penh) and the Irrawaddy (Yangon to Mandalay). They're drawn as water cut into the land, like the sea, winding up from the coast and narrowing inland. Ships sail upriver through friendly river ports only; river ports build transports and supply ships.",
     "Ships are drawn on the water, just offshore of their port or in open water, rather than on the shoreline.",
     "## Supply",
     "Supply lines no longer linger after a supply column runs dry and moves away, and the supply overlay now shows exactly the cells a column really reaches: land columns travel by land only.",
