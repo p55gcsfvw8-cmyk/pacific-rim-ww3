@@ -213,6 +213,32 @@ button.row { cursor: pointer; }
 .coach.tip { border-color: rgba(127,194,255,.55); z-index: 45; }
 .coach.tip b { color: #9fd8ff; }
 .coach .linkbtn { margin-left: 4px; }
+.coach.guide { border-color: rgba(127,194,255,.6); z-index: 47; padding: 10px 12px; overflow-y: auto; overscroll-behavior: contain; }
+.coach.guide b { margin-top: 6px; font-size: 13.5px; }
+.coach.guide p { font-size: 13.5px; line-height: 1.4; }
+.coach.guide .actions { margin-top: 8px; flex-wrap: wrap; }
+.coach.guide .actions .btn { min-height: 36px; }
+.coach.guide b { color: #9fd8ff; }
+.coach.guide.opening { border-color: rgba(245,184,74,.6); }
+.coach.guide.opening b { color: var(--signal); }
+.pill.gnew { background: rgba(127,194,255,.16); color: #9fd8ff; border-color: rgba(127,194,255,.45); }
+.gtap { outline: 2.5px solid var(--signal) !important; outline-offset: 2px; animation: gtap 1.1s ease-in-out infinite; }
+.gtap:not(.objbar):not(#resBar) { position: relative; }
+.gtap:not(.objbar):not(#resBar)::after { content: "TAP"; position: absolute; top: 1px; right: 1px; padding: 1px 4px; border-radius: 4px; background: var(--signal); color: #0a1626; font: 700 8.5px/1.2 var(--f-display); letter-spacing: .08em; pointer-events: none; }
+@keyframes gtap { 50% { outline-color: rgba(245,184,74,.25); box-shadow: 0 0 0 6px rgba(245,184,74,.18); } }
+@media (prefers-reduced-motion: reduce) { .gtap { animation: none; } }
+.objbar { position: fixed; left: 10px; right: 10px; top: 110px; z-index: 44; border-radius: 12px; border: 1px solid rgba(245,184,74,.35); background: rgba(10,22,38,.92); max-width: 460px; }
+.objbar[hidden] { display: none; }
+.objhead { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 6px 10px; background: none; border: 0; color: var(--ink); text-align: left; cursor: pointer; }
+.objtag { flex: none; font: 700 9.5px/1 var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--signal); }
+.objt { flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.objbar.open .objt { white-space: normal; }
+.objbody { padding: 0 10px 10px; }
+.objbody p { margin: 0 0 8px; font-size: 13px; line-height: 1.45; }
+.objbody .actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.objbody .note { margin: 8px 0 0; }
+.gopt { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; font-size: 14px; line-height: 1.4; }
+.gopt input { margin-top: 3px; width: 18px; height: 18px; flex: none; }
 .cmdbar { position: sticky; top: 0; z-index: 3; margin: 10px -14px 4px; padding: 10px 14px; background: linear-gradient(180deg, var(--panel) 85%, rgba(0,0,0,0)); border-bottom: 1px solid var(--line); }
 .vol { display: grid; grid-template-columns: 84px minmax(0, 1fr) 30px; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; color: var(--muted); }
 .vol input { width: 100%; accent-color: var(--signal); }
@@ -463,6 +489,8 @@ canvas.fig { width: 52px; height: 26px; flex: none; margin-left: auto; }
 
   <div class="coach glass" id="coach" hidden role="dialog" aria-label="Tutorial"></div>
   <div class="coach tip glass" id="tip" hidden role="status" aria-label="Tip"></div>
+  <div class="coach guide glass" id="guideCard" hidden role="dialog" aria-label="Commander guidance"></div>
+  <div class="objbar glass" id="objBar" hidden role="region" aria-label="Your next objective"></div>
   <div class="mode-banner" id="modeBanner" hidden><span id="modeText"></span><button id="modeExit">Done</button></div>
   <div class="mode-banner" id="pbBanner" hidden><span id="pbText">Resolving turn…</span><span class="pbbar"><i id="pbBar"></i></span><button id="pbNext" aria-label="Next event">Next</button><button id="pbRate" aria-label="Playback speed">1×</button><button id="pbSkip">Skip</button></div>
   <div class="ticker" id="ticker" hidden role="button" aria-label="Open the turn report"><span class="tag">PRN LIVE</span><div class="track"><div class="run" id="tickerRun"></div></div></div>
@@ -1509,6 +1537,7 @@ function capture(n, z, tAt = REC ? REC.now + .5 : 0) {
   const prev = G.owner[z];
   if (prev === n) return;
   G.owner[z] = n; G.ov = (G.ov || 0) + 1;
+  if (n === G.player) GUIDE_HIT.captured = { z }; // 1.0.17 guidance only
   rec("cap", { z, o: n, prev, t: tAt });
   { const out = new Map();
     for (const u of unitsAt(z).slice()) if (!u.in && u.o !== n && !friendly(n, u.o) && !atWar(n, u.o) && evacuate(u, z, tAt)) out.set(u.o, (out.get(u.o) || 0) + 1);
@@ -1794,6 +1823,7 @@ function unloadAt(tr, z, tAt = REC ? REC.now : 0) {
   if (!cargo.length) { if (n === G.player) news("home", 1, `Nothing aboard could be dropped at ${Z[z].n}. Vehicles need a friendly airbase.`, { z }); return; }
   const enemies = hostilesAt(n, z);
   cargo.forEach(c => { rec("move", { id: c.id, from: tr.z, to: z, t: tAt + .1 }); c.in = null; c.z = z; c.mp = 0; c.ord = null; });
+  if (n === G.player) GUIDE_HIT.unloaded = 1; // 1.0.17 guidance only
   invalidate();
   const kind = T.dom === "air" ? "Airborne" : z === tr.z ? "Unloading" : "Amphibious";
   if (enemies.length) {
@@ -2061,6 +2091,7 @@ function supplyPhase() {
         const held = (u.lk && u.lk.id === L.id && u.lk.t === G.turn - 1) || !!(batBonus(L) || {}).fast, share = held ? 1 : .35;
         const gf = Math.min(U.fpm ? (100 - u.fu) * share : 0, 60, L.cg); u.fu += gf; L.cg -= gf;
         const ga = Math.min(U.apb ? (100 - u.am) * share : 0, 60, L.cg); u.am += ga; L.cg -= ga;
+        if (ci === G.player && gf + ga > 0) GUIDE_HIT.resupplied = 1; // 1.0.17 guidance only
         if ((U.fpm && u.fu < 99.5) || (U.apb && u.am < 99.5) || !held) u.lk = { id: L.id, t: G.turn };
         if (gf + ga > 0 && u.z !== L.z) ran.add(u.z);
       }
@@ -2569,7 +2600,7 @@ function endTurn() {
     done.push(q);
     if (ownerOf(q.z) !== q.n) continue;
     if (q.kind === "u") { addUnit(q.n, q.t, isShipT(q.t) ? q.z : q.z); if (q.n === G.player) news("home", 1, `${UT[q.t].name} ready at ${Z[q.z].n}.`, { z: q.z }); }
-    else { const lv = (B(q.z)[q.t] || 0) + 1; setB(q.z, q.t, lv); if (q.n === G.player) news("home", 1, lv > 1 ? `${BLD[q.t].name} in ${Z[q.z].n} upgraded to level ${lv}.` : `${BLD[q.t].name} completed in ${Z[q.z].n}.`, { z: q.z }); }
+    else { const lv = (B(q.z)[q.t] || 0) + 1; setB(q.z, q.t, lv); if (q.n === G.player) GUIDE_HIT.built = 1; if (q.n === G.player) news("home", 1, lv > 1 ? `${BLD[q.t].name} in ${Z[q.z].n} upgraded to level ${lv}.` : `${BLD[q.t].name} completed in ${Z[q.z].n}.`, { z: q.z }); }
   }
   G.queue = G.queue.filter(q => !done.includes(q));
   // economy, stability, healing
@@ -2659,7 +2690,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.16 beta"; // early access playtest build
+const VERSION = "1.0.17 beta"; // early access playtest build
 const DISCORD_URL = "https://discord.gg/jv8T6Pxz3e"; // official community server (permanent invite)
 const SITE_URL = "https://fractured-coasts.playfracturedcoast.workers.dev/"; // 1.0.16: the game's home on Cloudflare (was pacific-rim-ww3.netlify.app)
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
@@ -2690,6 +2721,7 @@ function reviveSave(s) {
   // 0.9: infantry no longer swim. Anyone left at sea goes aboard a friendly transport there, or ashore at the nearest friendly coast.
   rescueAtSea(s);
   s.fronts ??= {}; s.bhp ??= {};
+  s.guide = guideFix(s.guide, s.turn); // 1.0.17: guidance progress, kept apart from everything the campaign calculates
   if (!s.minors) { const g0 = G; G = s; try { addMinors(); } finally { G = g0; } }
   // 1.0.7: one alliance per nation; every alliance from before ends (back to neutral), relations kept
   if (!s.dip107) {
@@ -3080,8 +3112,9 @@ function drawNow() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   if (G && PB) drawPlayback(vb); else if (G) { drawUnits(vb); drawFronts(vb); drawStrikeLines(); if (sensorsActive()) drawSensorsScreen(); }
   if (pingLive()) {
-    const k = (performance.now() - UI.ping.t0) / 2600, [x, y] = toScreen(Z[UI.ping.z].x, Z[UI.ping.z].y);
+    const k = (performance.now() - UI.ping.t0) / 2600, [x, y] = toScreen(UI.ping.wx ?? Z[UI.ping.z].x, UI.ping.wy ?? Z[UI.ping.z].y);
     for (let r = 0; r < 3; r++) { const q = (k * 2.2 - r * .3); if (q < 0 || q > 1) continue; ctx.strokeStyle = hexA(COL.signal, (1 - q) * (1 - k * .6)); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 8 + q * 46, 0, Math.PI * 2); ctx.stroke(); }
+    if (UI.ping.tap) { ctx.font = `700 11px ${FONT_D}`; const w = ctx.measureText("TAP HERE").width + 14; ctx.fillStyle = COL.signal; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - w / 2, y - 42, w, 18, 5) : ctx.rect(x - w / 2, y - 42, w, 18); ctx.fill(); ctx.fillStyle = "#0a1626"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("TAP HERE", x, y - 33); ctx.textAlign = "start"; ctx.textBaseline = "alphabetic"; }
   }
   for (const [z, n] of etaTags) {
     const [x, y] = toScreen(Z[z].x, Z[z].y);
@@ -4856,7 +4889,7 @@ body.addEventListener("click", e => {
   }
   if (b.dataset.unload) {
     const tr = G.units.find(u => u.id === +b.dataset.unload); if (!tr) return;
-    const cg = cargoOf(tr); cg.forEach(c => { c.in = null; c.z = tr.z; c.mp = Math.min(c.mp, Math.floor(UT[c.t].mp / 2)); }); tr.drop = null; invalidate();
+    const cg = cargoOf(tr); cg.forEach(c => { c.in = null; c.z = tr.z; c.mp = Math.min(c.mp, Math.floor(UT[c.t].mp / 2)); }); tr.drop = null; invalidate(); if (cg.length) GUIDE_HIT.unloaded = 1;
     toast(`${cg.length} unit${cg.length > 1 ? "s" : ""} disembarked at ${Z[tr.z].n}. They can still move ${cg.length > 1 ? "half their usual distance" : "half its usual distance"} this turn.`); draw(); refreshSheet(); save(); return;
   }
   if (b.dataset.land) {
@@ -4895,6 +4928,7 @@ body.addEventListener("click", e => {
   if (b.dataset.newgame) { G = null; showTitle(); return; }
   if (b.dataset.bug) { showBugReport(); return; }
   if (b.dataset.notes) { showPatchNotes(); return; }
+  if (b.dataset.guide) { showGuideSettings(); return; }
   if (b.dataset.online) { showOnline(); return; }
   if (b.dataset.dlsave) { downloadSave().then(ok => toast(ok ? "Save file ready." : "The save file wasn't downloaded.")); return; }
   if (b.dataset.mainmenu) { save(); cloudFlush(); if (TUT.on) endTutorial(false); G = null; PB = null; showTitle(); return; }
@@ -5017,7 +5051,7 @@ function showGov(_, refresh) {
     <dl class="stats"><div><dt>Stability</dt><dd>${Math.round(N.stab)}%<small> →${Math.round(gm.stab)}</small></dd></div><div><dt>War support</dt><dd>${Math.round(N.ws)}%</dd></div><div><dt>Provinces</dt><dd>${econ(P).prov}</dd></div></dl>
     <div class="actions"><button class="btn" data-res-open="econ" id="econBtn">Economy & market</button>${N.cap >= 0 ? `<button class="btn" data-goto="${N.cap}">Go to capital</button>` : ""}</div>
     ${(() => { const s = scoreParts(); return `<div class="fx" style="margin-top:8px">Score <b>${s.total.toLocaleString()}</b> · territory ${s.held} · ground taken ${s.taken} · enemies destroyed ${s.kills} · losses ${s.losses}</div>`; })()}
-    <div class="actions"><button class="btn" data-mainmenu="1">${G.tutorial ? "Leave practice game" : "Save and exit to menu"}</button><button class="btn" data-bug="1">Report a bug</button><button class="btn" data-dlsave="1">Download save</button><button class="btn" data-notes="1">Patch notes</button>${API != null ? `<button class="btn" data-online="1">Players online</button>` : ""}</div>
+    <div class="actions"><button class="btn" data-mainmenu="1">${G.tutorial ? "Leave practice game" : "Save and exit to menu"}</button><button class="btn" data-bug="1">Report a bug</button><button class="btn" data-dlsave="1">Download save</button><button class="btn" data-notes="1">Patch notes</button>${!G.tutorial ? `<button class="btn" data-guide="1">Commander guidance</button>` : ""}${API != null ? `<button class="btn" data-online="1">Players online</button>` : ""}</div>
     <div class="section-title">Government <small>change: −15 stability, 6-turn cooldown</small></div><div class="seg">${Object.entries(GOV).map(([k, g]) => `<button data-gov="${k}" aria-pressed="${N.gov.type === k}" class="${UI.pend && UI.pend.type === "gov" && UI.pend.v === k ? "pending" : ""}">${g.name}</button>`).join("")}</div>
     ${UI.pend && UI.pend.type === "gov" ? (() => { const g = GOV[UI.pend.v], cd = 6 - (G.turn - N.govChanged); return confirmCard(`Switch to ${g.name}?`, `${g.blurb} Funds ×${fmt(g.funds, 2)} · manpower ×${fmt(g.man, 2)} · unit cost ×${fmt(g.cost, 2)} · base stability ${g.stab} · base war support ${g.ws}. Stability −15 now.`, false, cd > 0 ? `Your government changed recently. Available in ${cd} turn${cd > 1 ? "s" : ""}.` : null); })() : `<p class="note" style="margin-top:8px">${gv.blurb}</p>
     <div class="fx">Funds ×${fmt(gv.funds, 2)} · Manpower ×${fmt(gv.man, 2)} · Unit cost ×${fmt(gv.cost, 2)} · Base stability ${gv.stab} · Base war support ${gv.ws}</div>`}
@@ -5185,6 +5219,7 @@ function howToHtml() {
     <li><b>Carry troops.</b> At a port (or airbase), press <b>Embark</b> to load units onto a transport. Nothing goes ashore by itself: sail into a friendly port and press <b>Disembark</b>, or sit offshore of an enemy coast and press <b>Assault</b>. Every island has at least one port.</li>
     <li><b>The sea.</b> Lighter water is shallow: big ships move slower there and submarines are easy to find and kill. Deep ocean is where subs hide and hit hardest. Each nation owns the waters around its coast; your aircraft can't cross a neutral nation's airspace, and offshore oil fields in your waters can take a rig.</li>
     <li><b>Read the reports.</b> After each turn the Fractured Coasts Network covers what you saw clearly, plus rumours from places you can't see.</li>
+    <li><b>Commander guidance.</b> A new campaign can walk you through your first turns. After that, a short lesson appears only when you first meet something: ships, a transport, loading and landing troops, a supply column, a battle. Your next objective, under the resource bar, offers ideas from what you can see; ignore it freely. Guidance never acts for you. Turn either part off, or read any lesson again, under Nation → Commander guidance.</li>
   </ol></div>`;
 }
 function showHowTo() { openSheet(`<div class="eyebrow"><span class="pill">Open beta · v${VERSION}</span></div><h2>How to play</h2>${howToHtml()}`, { type: "howto" }); }
@@ -5704,6 +5739,24 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.17 beta", date: "5 Nov 2026", title: "Commander guidance", items: [
+    "## Learn as you play",
+    "A new campaign can walk you through your first turns: your nation and the goal, finding your forces, giving an order, recruiting, how territory is taken, ending the turn, reading the results and building. It fits your nation: a step that doesn't apply to you is left out. Skip opening stops it at any point.",
+    "After that, a short lesson appears only the first time you meet something: your first ships or aircraft, a transport, loading it, putting troops ashore (or why they can't land where they are), a supply column, a unit that needs supplies, your first battle, ground you capture, a finished building, a signed agreement. If you never build ships, you never see a lesson about them.",
+    "Lessons point at the real thing to tap: a TAP HERE ring on the map, or a pulsing outline on the button. If the spot is off screen or crowded, the card offers to zoom in on it.",
+    "## Your next objective",
+    "A slim bar under the resources suggests one goal at a time, based only on what you can see: enemies near your capital or at your border, units low on fuel or ammunition, fuel running short, manpower, free recruitment slots, the economy, diplomacy and your progress towards victory. Tap it for the reason, Show, Next idea or Dismiss.",
+    "It's a suggestion, not an order. Once your orders already deal with something, it steps aside, and a dismissed idea stays away for at least 8 turns.",
+    "## You stay in command",
+    "Guidance never moves, recruits, builds, attacks or resupplies for you, never changes your orders, and never reveals anything hidden in the fog. Combat, the economy and the AI are unchanged: AI-only games play out identically to 1.0.16.",
+    "Nation > Commander guidance turns lessons or objectives off, restarts the guided opening, and lets you read any lesson again. Dismissed lessons don't come back.",
+    "Campaigns from before 1.0.17 carry on as they were: they don't start the opening, and lessons for anything new still appear. In campaigns, guidance replaces the old first-time tips; the practice game's tutorial is unchanged.",
+    "## What's coming",
+    "Further balancing and bug fixes, including anything you report on the Discord.",
+    "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+    "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+    "The first unit expansion: the first new unit types to join the current roster.",
+  ] },
   { v: "1.0.16 beta", date: "1 Nov 2026", title: "The Fractured Coasts", items: [
     "## A new name",
     "Pacific Rim WW3 is now The Fractured Coasts: WW3. The title screen, the news network (now the Fractured Coasts Network), bug reports and save files all carry the new name. Nothing about how the game plays has changed.",
@@ -5904,6 +5957,7 @@ const TIPS = {
 };
 const tipsSeen = (() => { try { return JSON.parse(localStorage.getItem("prww3-tips") || "{}"); } catch (e) { return {}; } })();
 function showTip(k, tries = 0) {
+  if (G && !G.tutorial) return; // 1.0.17: Commander guidance replaces the first-time tips in campaigns
   if (!G || G.tutorial || TUT.on || tipsSeen[k] || tipsSeen._off) return;
   if (k === "start" && (tipsSeen.cell || UI.move || UI.strike)) { tipsSeen.start = 1; return; } // they've already found their way in
   if (k === "start" && (PB || sheet.classList.contains("open"))) { if (tries < 90) setTimeout(() => showTip(k, tries + 1), 1000); return; } // wait until the opening report is closed
@@ -5960,10 +6014,27 @@ function tutTick() {
   if (s.ping && !UI.move) { const z = s.ping(); if (z != null && z >= 0 && (!UI.ping || performance.now() - UI.ping.t0 > 2400)) { UI.ping = { z, t0: performance.now() }; animLoop(); } }
   if (s.done && s.done()) { TUT.i++; renderCoach(); }
 }
-function placeCoach() { placeFloat($("coach")); const t = $("tip"); if (t && !t.hidden) placeFloat(t); }
+function placeCoach() { placeObjBar(); placeFloat($("coach")); const t = $("tip"); if (t && !t.hidden) placeFloat(t); const g = $("guideCard"); if (g && !g.hidden) placeGuide(g); }
+// the guidance card: below the resource bar (and objective) when there's room; else it may sit over the nation header,
+// but never over the dock or the thing it points at. Too little room: it scrolls inside.
+function placeGuide(c) {
+  if (!c || c.hidden) return;
+  const box = id => { const e = $(id); return e && !e.hidden && e.getClientRects().length ? e.getBoundingClientRect() : null; };
+  const d = box("dockWrap"), floor = (d ? d.top : innerHeight) - 8;
+  let under = 0; for (const id of ["resBar", "objBar", "modeBanner", "pbBanner"]) { const r = box(id); if (r) under = Math.max(under, r.bottom); } under += 8;
+  const mb = box("modeBanner"), pinned = (GD.mark && GD.mark.id === "resBar") || UI.move || UI.strike; // keep the bar (or the move banner) visible
+  c.style.maxHeight = "none"; const h = c.offsetHeight;
+  let top = under;
+  if (top + h > floor && !pinned) top = Math.max(6, floor - h);
+  if (mb) top = Math.max(top, mb.bottom + 6);
+  if (GD.cur && LESSONS[GD.cur].inMove && UI.move) top = Math.max(mb ? mb.bottom + 6 : under, floor - h); // the map's middle stays clear for picking
+  if (UI.ping && UI.ping.tap && pingLive()) { const [, py] = toScreen(UI.ping.wx ?? Z[UI.ping.z].x, UI.ping.wy ?? Z[UI.ping.z].y); if (py > top - 60 && py < top + h + 60) { const low = floor - h; if (low > py + 60) top = low; else if (under + h < py - 60) top = under; } }
+  c.style.top = Math.round(top) + "px"; c.style.maxHeight = Math.max(120, Math.round(floor - top)) + "px";
+}
+function placeObjBar() { const b = $("objBar"), r = $("resBar"); if (!b || b.hidden || !r) return; b.style.top = Math.round(r.getBoundingClientRect().bottom + 6) + "px"; }
 function placeFloat(c) {
   if (!c || c.hidden) return;
-  let y = 0; for (const id of ["resBar", "modeBanner", "pbBanner"]) { const e = $(id); if (e && !e.hidden && e.getClientRects().length) y = Math.max(y, e.getBoundingClientRect().bottom); } // fixed elements have no offsetParent, so test their boxes
+  let y = 0; for (const id of ["resBar", "modeBanner", "pbBanner", ...(c.id === "objBar" ? [] : ["objBar"])]) { const e = $(id); if (e && !e.hidden && e.getClientRects().length) y = Math.max(y, e.getBoundingClientRect().bottom); } // fixed elements have no offsetParent, so test their boxes
   y += 8;
   const dock = $("dockWrap"), h = c.offsetHeight;
   if (dock) { const dt = dock.getBoundingClientRect().top; if (y + h > dt - 6) y = Math.max(6, dt - h - 8); } // never cover the dock (it rides above an open panel)
@@ -5981,6 +6052,373 @@ function renderCoach() {
   on("tutMenu", () => endTutorial(true));
   placeCoach();
 }
+
+// =====================================================================
+// 1.0.17: COMMANDER GUIDANCE
+// Three independent parts, all read-only towards the campaign: they never move, recruit, build, attack, resupply,
+// change an order, touch the AI or use the random number generator. They only read what the player can see.
+//  A. Control guidance: highlights the real control or cell to tap (TAP HERE), computed from the live state.
+//  B. Lessons: the guided opening (turns 1 to 5, adapted to the nation) and one lesson per mechanic, each shown
+//     the first time it becomes relevant (first transport, first loading chance, first supply column...).
+//  C. YOUR NEXT OBJECTIVE: small suggestions from the campaign's visible state. Never commands.
+// Device preferences: prww3-guide (lessons on/off, objectives on/off, lessons already seen on this device).
+// Per campaign (in the save): G.guide = { v, open: {on, i, skipped, offered}, seen: {key: turn}, obj: {key: snoozedUntilTurn} }.
+// =====================================================================
+const GUIDE_KEY = "prww3-guide";
+const GPREF = (() => { const d = { lessons: true, objectives: true, seen: {}, openDone: 0 }; try { return Object.assign(d, JSON.parse(localStorage.getItem(GUIDE_KEY) || "{}")); } catch (e) { return d; } })();
+if (!GPREF.seen || typeof GPREF.seen !== "object") GPREF.seen = {};
+function gprefSave() { try { localStorage.setItem(GUIDE_KEY, JSON.stringify(GPREF)); } catch (e) {} }
+// a returning player (saves or tips from before 1.0.17) is offered the opening instead of being walked through it
+const GUIDE_VETERAN = (() => { try { return !!(localStorage.getItem("prww3-tips") || Object.keys(PROF.meta || {}).length || localStorage.getItem("prww3-tut")); } catch (e) { return false; } })();
+// events the simulation reports for the player's own units; the simulation never reads these
+const GUIDE_HIT = {};
+function guideNew(fresh) { return { v: 1, open: fresh ? { on: false, i: 0, offered: 0 } : { on: false, i: 0, skipped: 1 }, seen: {}, obj: {} }; }
+function guideFix(g, turn) { // safe defaults for any shape, including saves from before 1.0.17
+  if (!g || typeof g !== "object") g = guideNew(turn <= 1);
+  g.v = 1; g.open = g.open && typeof g.open === "object" ? g.open : { on: false, i: 0, skipped: 1 };
+  g.seen = g.seen && typeof g.seen === "object" ? g.seen : {}; g.obj = g.obj && typeof g.obj === "object" ? g.obj : {};
+  return g;
+}
+const guideLive = () => !!(G && !G.tutorial && !G.over && G.guide && $("start").hidden);
+const gSeen = k => !!(GPREF.seen[k] || (G && G.guide && G.guide.seen[k]));
+function gMark(k) { if (!G || !G.guide) return; G.guide.seen[k] = G.turn; GPREF.seen[k] = 1; gprefSave(); save(); }
+
+// ---------- what the player can see and own (read only) ----------
+const gMine = () => G.units.filter(u => u.o === G.player && u.hp > 0);
+const gZone = () => (sheetView && sheetView.type === "zone" ? sheetView.arg : null);
+const gTab = () => { const z = gZone(); return z != null && UI.ztab && UI.ztab.z === z ? UI.ztab.k : null; };
+const gName = u => UT[u.t].name;
+const gPlural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const gStepsAway = (from, n) => { const seen = new Set([from]); let fr = [from]; for (let k = 0; k < n; k++) { const nx = []; for (const i of fr) for (const [j] of ADJ[i]) if (!seen.has(j)) { seen.add(j); nx.push(j); } fr = nx; } return seen; };
+function gOnScreen(z) { const [x, y] = toScreen(Z[z].x, Z[z].y), d = $("dockWrap"), bottom = d ? d.getBoundingClientRect().top : innerHeight - 140, r = $("resBar"), top = r ? r.getBoundingClientRect().bottom : 110; return x > 20 && x < innerWidth - 20 && y > top + 10 && y < bottom - 10; }
+// the cell, then the tab, then the button: always the real control for where the player is right now
+function gPath(z, tab, sel) {
+  if (gZone() !== z) return { z };
+  if (tab && gTab() !== tab) return { sel: `[data-ztab="${tab}"]` };
+  return sel ? { sel } : { z };
+}
+const gOrderSupportSel = '[data-act="move"][data-grp="support"]';
+function gCanAffordUnit(ci, z) { const sl = slotsLeft(z); if (sl <= 0) return null; return UT_KEYS.find(t => recruitSites(ci, t).includes(z) && canAfford(ci, costF(ci, t), UT[t].m, manOf(t))) || null; }
+function gRecruitCity() { const P = G.player, N = G.nations[P]; const cities = LAND_IDS.filter(i => G.owner[i] === P && Z[i].t !== "prov"); cities.sort((a, b) => (b === N.cap) - (a === N.cap)); return cities.find(z => gCanAffordUnit(P, z)) ?? null; }
+function gBuildCell() { const P = G.player, N = G.nations[P]; const own = LAND_IDS.filter(i => G.owner[i] === P); own.sort((a, b) => (b === N.cap) - (a === N.cap)); return own.find(z => buildingOptions(P, z).some(o => !o.why && canAfford(P, o.f, o.m))) ?? null; }
+function gForcesCell() { const P = G.player, N = G.nations[P], by = new Map(); for (const u of gMine()) if (!u.in) by.set(u.z, (by.get(u.z) || 0) + 1); if (by.has(N.cap)) return N.cap; let best = null, n = 0; for (const [z, k] of by) if (k > n) { best = z; n = k; } return best; }
+const gHasOrders = () => gMine().some(u => u.ord || u.chase != null || u.strike != null || u.tz != null || u.drop != null);
+const gAtWarAny = () => PLAY.some(c => c !== G.player && atWar(G.player, c));
+const gTransports = () => gMine().filter(u => UT[u.t].role === "transport" && !u.in);
+const gLogistics = () => gMine().filter(u => UT[u.t].role === "logistics" && !u.in);
+const gShips = () => gMine().filter(u => isShipT(u.t) && !u.in);
+const gAir = () => gMine().filter(u => UT[u.t].dom === "air" && isCombatT(u.t) && !u.in);
+const gCarries = T => T.carries.map(t => UT[t].name).join(", ");
+function gLoadOpp() { for (const tr of gTransports()) { const k = G.units.filter(u => canLoad(tr, u)).length; if (k) return { tr, k }; } return null; }
+function gLoadBlock() { // a transport and units that want to board, where boarding isn't possible: say exactly why
+  const z = gZone(); if (z == null) return null;
+  const P = G.player, here = unitsAt(z).filter(u => u.o === P && !u.in);
+  for (const tr of here.filter(u => UT[u.t].role === "transport")) {
+    const T = UT[tr.t], want = here.filter(u => u !== tr && T.carries.includes(u.t));
+    if (!want.length || want.some(u => canLoad(tr, u))) continue;
+    if (T.dom === "air" && !(isLand(z) && B(z).air)) return { key: "air", text: `The ${T.name} can only take units aboard at an airbase, and ${Z[z].n} has none. Fly it to a friendly airbase where the troops are.` };
+    if (capUsed(tr) >= T.cap) return { key: "full", text: `The ${T.name} is full (${capUsed(tr)} of ${T.cap} spaces). Unload it, or bring another transport.` };
+    return { key: "fit", text: `Nothing here fits aboard the ${T.name} as it is: it has ${T.cap - capUsed(tr)} of ${T.cap} spaces left, and a battalion only boards whole.` };
+  }
+  if (isLand(z)) { // troops on a coast that isn't a port, with their ship just offshore
+    const troops = here.filter(u => UT.tsea.carries.includes(u.t)); if (!troops.length) return null;
+    const ship = gTransports().find(tr => UT[tr.t].dom === "sea" && !isLand(tr.z) && ADJ[z].some(([j]) => j === tr.z));
+    if (ship && !Z[z].port) return { key: "port", text: `Ships take troops aboard only in a port, and ${Z[z].n} has none. Move the troops to a friendly port and sail the ${gName(ship)} in to meet them.` };
+  }
+  return null;
+}
+function gUnloadOpp() {
+  const P = G.player;
+  for (const tr of gTransports()) {
+    if (!cargoOf(tr).length || tr.drop != null) continue;
+    const T = UT[tr.t], z = tr.z;
+    if (isLand(z) && friendly(P, G.owner[z]) && (T.dom !== "air" || B(z).air)) return { tr, kind: "disembark", sel: `[data-unload="${tr.id}"]` };
+    if (T.dom === "sea" && !isLand(z)) { const j = ADJ[z].map(([j]) => j).find(j => isLand(j) && atWar(P, G.owner[j])); if (j != null) return { tr, kind: "assault", j, sel: `[data-land="${tr.id}:${j}"]` }; }
+  }
+  return null;
+}
+function gUnloadBlock() {
+  const z = gZone(); if (z == null || isLand(z)) return null;
+  const P = G.player, tr = gTransports().find(t => t.z === z && UT[t.t].dom === "sea" && cargoOf(t).length && t.drop == null);
+  if (!tr) return null;
+  const coast = ADJ[z].map(([j]) => j).filter(isLand);
+  if (!coast.length || coast.some(j => atWar(P, G.owner[j]))) return null;
+  if (coast.some(j => friendly(P, G.owner[j]) && !Z[j].port)) return { key: "port", text: `Troops go ashore on friendly land only at a port. Sail the ${gName(tr)} into a friendly port city and press Disembark there. Assault is only for an enemy coast.` };
+  if (coast.some(j => !friendly(P, G.owner[j]) && !atWar(P, G.owner[j]))) return { key: "neutral", text: `This coast belongs to a nation you're not at war with, so no landing is possible here. Troops go ashore at a friendly port, or by assault on a nation you're at war with.` };
+  return null;
+}
+const gNeedsSupply = u => (UT[u.t].fpm && u.fu < 50) || (UT[u.t].apb && u.am < 50);
+function gSupplyReach(L) { const T = UT[L.t], inR = new Set([L.z]); let fr = [L.z]; for (let k = 0; k < T.range; k++) { const nx = []; for (const i of fr) for (const [j, f] of ADJ[i]) if (!inR.has(j) && (T.dom !== "land" || (f & 9))) { inR.add(j); nx.push(j); } fr = nx; } return inR; } // the same reach rule as supplyPhase
+function gResupplyOpp() {
+  const P = G.player, hub = supplyMap(P);
+  const low = gMine().filter(u => !u.in && gNeedsSupply(u) && UT[u.t].role !== "logistics" && hub[u.z] !== 2);
+  for (const L of gLogistics()) {
+    if (L.cg <= 1) continue;
+    const reach = gSupplyReach(L);
+    const u = low.find(v => !reach.has(v.z) && fullPath(L, v.z)); // only a unit the column can actually reach
+    if (u) return { L, u };
+  }
+  return null;
+}
+
+// ---------- B. lessons ----------
+// Each lesson: when(c) it becomes relevant; text(c) and title; target(c) the real control or cell; done(c) when the
+// player has done it (else "Got it"). Opening steps also have applies(c): skipped when they don't fit this nation.
+const LESSONS = {
+  // the guided opening, in order
+  o_offer: { kind: "opening", title: "A guided opening?", text: () => "New lessons appear by themselves as you meet transports, supply columns and battles. If you'd also like a walk through your first turns (forces, orders, recruiting, the end of the turn), start the guided opening.", offer: true },
+  o_nation: { kind: "opening", title: "Your nation and the goal", text: () => { const P = G.player, v = vp(P); return `You lead ${shortName(P)}, capital ${Z[G.nations[P].cap].n}. Victory goes to whoever holds ${Math.round(WIN_SHARE * 100)}% of the Pacific's victory points: capitals are worth 10, cities 3, provinces 1. You hold ${v} of ${TOTAL_VP} (${Math.round(v / TOTAL_VP * 100)}%). The bar at the top shows your money, troops deployed, manpower reserve, materials and fuel.`; }, target: () => ({ sel: "#resBar" }) },
+  o_select: { kind: "opening", title: "Find your forces", applies: () => gForcesCell() != null, text: () => `Tap ${Z[gForcesCell()].n} on the map, at the pulsing ring, to open it and see the units stationed there.`, target: () => ({ z: gForcesCell() }), done: () => { const z = gZone(); return z != null && unitsAt(z).some(u => u.o === G.player && !u.in); } },
+  o_order: { kind: "opening", title: "Give an order", applies: () => !gHasOrders(), text: () => "Tap Order at the top of the panel. To send only some units, tap them in the list first; they light up.", target: () => { const z = gZone(); return z != null && unitsAt(z).some(u => u.o === G.player && !u.in) ? { sel: '.cmdbar [data-act="move"]' } : { z: gForcesCell() }; }, done: () => !!UI.move || gHasOrders() },
+  o_dest: { kind: "opening", title: "Pick a destination", inMove: true, applies: () => !gHasOrders(), text: () => "Highlighted cells are reached this turn; tap further away for a route of several turns, which the units follow until they arrive. Tap your own cell again to cancel. Everyone starts neutral, so for now you can only move within your own land (and an ally's).", target: () => (UI.move ? null : { sel: '.cmdbar [data-act="move"]' }), done: () => gHasOrders() },
+  o_recruit: { kind: "opening", title: "Recruit", applies: () => gRecruitCity() != null && !G.queue.some(q => q.kind === "u" && q.n === G.player), text: () => { const z = gRecruitCity(); return `Units are recruited in cities and capitals, up to ${RECRUIT_SLOTS} a turn in each. Open ${Z[z].n}, then Recruit, and tap Build on a unit. It costs money, materials and manpower, trains for a few turns, and can be cancelled this turn for a full refund.`; }, target: () => { const z = gRecruitCity(); return z == null ? null : gPath(z, "recruit", "[data-recruit]:not([disabled])"); }, done: () => G.queue.some(q => q.kind === "u" && q.n === G.player) },
+  o_war: { kind: "opening", title: "Taking territory", applies: () => !gAtWarAny(), text: () => "Land units capture enemy provinces by moving into them, but only from a nation you're at war with: neutral land is closed to you. Diplomacy is where wars are declared and pacts and alliances proposed. Nothing makes you fight early; building up first is a fair plan too.", target: () => ({ sel: "#dDip" }), done: () => !!(sheetView && sheetView.type === "dip") },
+  o_end: { kind: "opening", title: "End the turn", applies: () => G.turn === (G.guide.open.startTurn || 1), text: () => "When your orders are set, tap End turn. Your orders play out first, then every other nation moves, and the camera follows each move and fight.", target: () => ({ sel: "#dEnd" }), done: () => G.turn > (G.guide.open.startTurn || 1) },
+  o_results: { kind: "opening", title: "Reading the results", applies: () => G.turn > (G.guide.open.startTurn || 1), text: () => "Reports, at the left of the bar, lists what happened: battles, arrivals, captures and news from around the Pacific. During a replay, Next jumps ahead, 2× speeds it up and Skip ends it.", target: () => (sheetView && sheetView.type === "report" ? null : { sel: "#dRep" }), done: () => GD.repClosed && !!(sheetView && sheetView.type === "report") },
+  o_build: { kind: "opening", title: "Build up your land", applies: () => gBuildCell() != null && !G.queue.some(q => q.kind !== "u" && q.n === G.player), text: () => { const z = gBuildCell(); return `Tap one of your provinces, such as ${Z[z].n}, and open Build. Factories, mines and oil wells raise income; roads speed movement; defences, hospitals and depots help hold ground. Most buildings level up from 1 to 5.`; }, target: () => { const z = gBuildCell(); return z == null ? null : gPath(z, "build", "[data-build]:not([disabled])"); }, done: () => G.queue.some(q => q.kind !== "u" && q.n === G.player) },
+  o_done: { kind: "opening", title: "The opening is done", text: () => "From here, a lesson appears only when you meet something new: your first ships, transport, supply column or battle. Your next objective sits under the resource bar: tap it for ideas, or ignore it. Guidance settings are under Nation.", target: () => (GPREF.objectives ? { sel: "#objBar" } : null) },
+
+  // one lesson per mechanic, the first time it matters
+  m_recruited: { title: "In training", when: () => G.queue.some(q => q.kind === "u" && q.n === G.player), text: () => { const q = G.queue.find(q => q.kind === "u" && q.n === G.player); return `Your ${UT[q.t].name} is training at ${Z[q.z].n} and arrives in ${gPlural(q.left, "turn")}. It shows in that city's Recruit tab under In training${q.at === G.turn ? "; until you end this turn it can be cancelled for a full refund" : ""}.`; }, target: () => { const q = G.queue.find(q => q.kind === "u" && q.n === G.player); return q ? gPath(q.z, "recruit", null) : null; } },
+  m_naval: { title: "Ships", when: () => gShips().length > 0, text: () => { const s = gShips()[0]; return `Your ${gName(s)} is at ${Z[s.z].n}. A ship in port sits in the port city: tap the city to select it. At sea, tap the sea cell it's in. Ships sail between sea cells and can only enter ports in your own or an ally's land. Lighter water is shallow: big ships slow down there, and submarines are easy to find; deep ocean is where submarines hide.`; }, target: () => { const s = gShips().find(u => gOnScreen(u.z)) || gShips()[0]; return s ? { z: s.z } : null; }, done: () => { const z = gZone(); return z != null && gShips().some(s => s.z === z); } },
+  m_air: { title: "Aircraft", done: () => { const z = gZone(); return z != null && gAir().some(t => t.z === z); }, when: () => gAir().length > 0, text: () => { const a = gAir()[0], T = UT[a.t]; return `Your ${T.name} is based at ${Z[a.z].n}. Aircraft strike from range${T.rng ? ` (up to ${T.rng} cells for this one)` : ""}: select them and press Attack in range. Enemy air defences fire back, aircraft head home to refuel when fuel runs low, and they can't fly through a neutral nation's airspace.`; }, target: () => { const a = gAir()[0]; return a ? { z: a.z } : null; } },
+  m_transport: { title: "Transports", when: () => gTransports().length > 0, text: () => { const tr = gTransports()[0], T = UT[tr.t], where = T.dom === "sea" ? "in a port" : T.dom === "air" ? "at an airbase" : "in the same cell"; return `A ${T.name} carries up to ${T.cap} spaces of: ${gCarries(T)}. Infantry, special forces and scouts take 1 space, light vehicles and trucks 2, tanks and artillery 3. Units board ${where}: when they share a cell with it, Embark appears in that cell's Orders tab.`; }, target: () => { const tr = gTransports()[0]; return tr ? { z: tr.z } : null; }, done: () => { const z = gZone(); return z != null && gTransports().some(t => t.z === z); } },
+  m_load: { title: "Loading a transport", when: () => { const o = gLoadOpp(); return !!o && gZone() === o.tr.z; }, text: () => { const { tr, k } = gLoadOpp(); return `Your ${gName(tr)} and ${gPlural(k, "unit")} that can board are together at ${Z[tr.z].n}. Open that cell, go to Orders and tap Embark. To send only some, tap them in the Units list first. A battalion boards whole or not at all.`; }, target: () => { const o = gLoadOpp(); return o ? gPath(o.tr.z, "orders", `[data-load^="${o.tr.id}:"]`) : null; }, done: () => gMine().some(u => u.in) },
+  m_load_block: { title: "Why they can't board", urgent: true, when: () => !!gLoadBlock(), text: () => gLoadBlock().text, target: () => null, keyed: () => "m_load_block_" + gLoadBlock().key },
+  m_loaded: { title: "Units aboard", when: () => gMine().some(u => u.in), text: () => { const u = gMine().find(v => v.in), tr = G.units.find(v => v.id === u.in); if (!tr) return "Units are aboard a transport."; const T = UT[tr.t]; return `${gPlural(cargoOf(tr).length, "unit")} aboard the ${T.name} (${capUsed(tr)} of ${T.cap} spaces), shown as dashed rows under it. Cargo moves with the transport and can't fight while aboard; if the transport is sunk or shot down, everything aboard is lost. Order it like any support unit. Ordered straight to a land cell, it heads for the nearest port, or offshore of an enemy coast.`; }, target: () => { const u = gMine().find(v => v.in), tr = u && G.units.find(v => v.id === u.in); return tr ? gPath(tr.z, "orders", gOrderSupportSel) : null; }, done: () => { const u = gMine().find(v => v.in), tr = u && G.units.find(v => v.id === u.in); return !!(tr && (tr.ord || tr.drop != null)); } },
+  m_unload: { title: "Putting troops ashore", urgent: true, when: () => !!gUnloadOpp(), text: () => { const o = gUnloadOpp(), T = UT[o.tr.t], k = cargoOf(o.tr).length; return o.kind === "disembark" ? `Your ${T.name} is at ${Z[o.tr.z].n} with ${gPlural(k, "unit")} aboard. Open Orders and tap Disembark: they go ashore now and can still move half their usual distance this turn.` : `Your ${T.name} is off ${Z[o.j].n}, held by a nation you're at war with. Assault (in Orders) puts the ${gPlural(k, "unit")} ashore at the end of the turn to fight for it; if they're thrown back, survivors re-embark. You can call it off before you end the turn.`; }, target: () => { const o = gUnloadOpp(); return o ? gPath(o.tr.z, "orders", o.sel) : null; }, done: () => !!GUIDE_HIT.unloaded || gTransports().some(t => t.drop != null) },
+  m_unload_block: { title: "Why they can't land here", urgent: true, when: () => !!gUnloadBlock(), text: () => gUnloadBlock().text, target: () => null, keyed: () => "m_unload_block_" + gUnloadBlock().key },
+  m_unloaded: { title: "Ashore", when: () => !!GUIDE_HIT.unloaded, text: () => "Troops that disembark in port can still move half their usual distance this turn. Troops landed by assault fight for the cell at the end of the turn, and take it if they win against a nation you're at war with." },
+  m_logistics: { title: "Supply columns", done: () => { const z = gZone(); return z != null && gLogistics().some(t => t.z === z); }, when: () => gLogistics().length > 0, text: () => { const L = gLogistics()[0], T = UT[L.t]; return `A ${T.name} carries ${T.cargo} supplies and reaches ${gPlural(T.range, "cell")} out. There's no button to press: at the end of every turn it refuels and rearms your units within reach, from its cargo. The first turn alongside passes about a third across; staying a second turn completes it. It reloads in your cities and capitals, faster at a depot. Attach it to a combat unit (Orders tab) and it follows that unit.`; }, target: () => { const L = gLogistics()[0]; return L ? { z: L.z } : null; } },
+  m_resupply: { title: "A unit needs supplies", when: () => !!gResupplyOpp(), text: () => { const { L, u } = gResupplyOpp(), T = UT[L.t]; return `Your ${gName(u)} at ${Z[u.z].n} is low (${Math.round(u.fu)}% fuel, ${Math.round(u.am)}% ammunition) and out of reach of a city or depot. Your ${T.name} at ${Z[L.z].n} has ${Math.round(L.cg)} supplies: order it to within ${gPlural(T.range, "cell")} of the unit, or into its cell, and it resupplies at the end of the turn.`; }, target: () => { const o = gResupplyOpp(); return o ? gPath(o.L.z, "orders", gOrderSupportSel) : null; }, done: () => { const o = gResupplyOpp(); return !o || !!o.L.ord; } },
+  m_resupplied: { title: "Resupplied", when: () => !!GUIDE_HIT.resupplied, text: () => "Your supply column refuelled and rearmed units within its reach from its cargo. Its row now shows where it's running supplies and how much it has left; send it back to a city, capital or depot to reload. Running supplies into a cell where fighting is going on can get the column spotted and hit." },
+  m_building: { title: "Construction finished", when: () => !!GUIDE_HIT.built, text: () => "A building is finished and works from now on: income from factories, mines and wells each turn, protection from defences, healing from hospitals, full resupply around depots. Tap a building picture on the map, or a cell's Info tab, for its card." },
+  m_diplomacy: { title: "An agreement signed", when: () => PLAY.some(c => c !== G.player && ["P", "A"].includes(stance(G.player, c))), text: () => { const c = PLAY.find(x => x !== G.player && ["P", "A"].includes(stance(G.player, x))); return stance(G.player, c) === "A" ? `You're allied with ${shortName(c)}: your units can move through each other's land, and a nation can have only one ally. Breaking an alliance costs relations.` : `You have a non-aggression pact with ${shortName(c)}. Cancelling it costs relations. A pact doesn't open their land to your units; only an alliance or a war does.`; }, target: () => ({ sel: "#dDip" }) },
+  m_combat: { title: "Your first battle", urgent: true, when: () => gMine().some(u => !u.in && isEngaged(u)), text: () => { const u = gMine().find(v => !v.in && isEngaged(v)); return `Your units are fighting at ${Z[u.z].n}. At the end of every turn each unit fires once at the best target on its list, until one side is destroyed or pulls out. That cell's panel shows the forecast; Targets sets what to shoot first; Retreat pulls out.`; }, target: () => { const u = gMine().find(v => !v.in && isEngaged(v)); return u ? { z: u.z } : null; }, done: () => { const z = gZone(); return z != null && gMine().some(v => !v.in && v.z === z && isEngaged(v)); } },
+  m_capture: { title: "Territory taken", when: () => !!GUIDE_HIT.captured, text: () => { const z = GUIDE_HIT.captured.z; return `You took ${Z[z].n}. Captured ground counts towards your victory points and income from now on, and its former owner will want it back.`; }, target: () => (GUIDE_HIT.captured ? { z: GUIDE_HIT.captured.z } : null) },
+};
+const OPENING = ["o_nation", "o_select", "o_order", "o_dest", "o_recruit", "o_war", "o_end", "o_results", "o_build", "o_done"];
+// introductions before the lessons that use them; urgent ones (a battle, troops waiting to land) skip the per-turn limit
+const MECHANICS = ["m_combat", "m_unload_block", "m_load_block", "m_transport", "m_load", "m_loaded", "m_unload", "m_unloaded", "m_logistics", "m_resupply", "m_resupplied", "m_capture", "m_naval", "m_air", "m_recruited", "m_building", "m_diplomacy"];
+const GUIDE_PER_TURN = 2;
+const OPENING_LAST_TURN = 5;
+
+// ---------- C. YOUR NEXT OBJECTIVE ----------
+// Ranked suggestions from what the player can see. Each says why. "Acted" means the player already did something
+// about it (an order towards it), so the suggestion steps aside instead of contradicting them.
+function gObjectives() {
+  const P = G.player, N = G.nations[P], out = [], mine = gMine();
+  const foes = G.units.filter(u => u.hp > 0 && !u.in && atWar(P, u.o) && isCombatT(u.t) && unitVisible(u));
+  const orderedTo = z => mine.some(u => (u.ord && u.ord.d === z) || u.tz === z || u.strike === z || (u.chase != null && foes.some(f => f.id === u.chase && f.z === z)));
+  const cap = N.cap;
+  if (cap >= 0 && foes.length) {
+    const near = gStepsAway(cap, 2), threat = foes.filter(f => near.has(f.z)), guard = mine.filter(u => u.z === cap && isCombatT(u.t)).length;
+    if (threat.length && threat.length > guard && !orderedTo(cap)) out.push({ key: "capital", pri: 100, title: "Review your capital's defences", why: `${gPlural(threat.length, "enemy unit")} seen within two cells of ${Z[cap].n}, where you have ${gPlural(guard, "combat unit")}.`, target: { z: cap } });
+  }
+  if (foes.length) {
+    const own = new Set(LAND_IDS.filter(i => G.owner[i] === P));
+    const f = foes.find(x => !own.has(x.z) && ADJ[x.z].some(([j]) => own.has(j)) && !(cap >= 0 && gStepsAway(cap, 2).has(x.z)));
+    if (f && !orderedTo(f.z) && !ADJ[f.z].some(([j]) => orderedTo(j))) out.push({ key: "border", pri: 80, title: `Investigate the enemy force near your border`, why: `${UT[f.t].name} of ${shortName(f.o)} seen at ${Z[f.z].n}, next to your territory.`, target: { z: f.z } });
+  }
+  const hub = supplyMap(P), low = mine.filter(u => !u.in && ((UT[u.t].fpm && u.fu < 30) || (UT[u.t].apb && u.am < 30)) && hub[u.z] !== 2 && UT[u.t].role !== "logistics");
+  if (low.length && !gLogistics().some(L => L.ord && low.some(u => gStepsAway(L.ord.d, UT[L.t].range).has(u.z)))) out.push({ key: "supply", pri: 70, title: "Review your supply situation before going further", why: `${gPlural(low.length, "unit")} low on fuel or ammunition, such as the ${gName(low[0])} at ${Z[low[0].z].n}. Cities, capitals and depots refill units; supply columns carry it forward.`, target: { z: low[0].z } });
+  if (N.lastFuel > 0.5 && N.fuel < N.lastFuel * 3) out.push({ key: "fuel", pri: 65, title: "Check whether your fuel can support further operations", why: `${Math.round(N.fuel)} fuel left after using ${Math.round(N.lastFuel)} last turn: about ${Math.max(0, Math.floor(N.fuel / N.lastFuel))} turns' worth. Buy more under Nation → Economy & market, or tap an oil deposit.`, target: { sel: "#dNation" } });
+  const inf = manOf("inf");
+  if (N.man < inf * 2) out.push({ key: "manpower", pri: 60, title: "Review your recruitment commitments", why: `Your manpower reserve is ${fmtMan(N.man)}; an infantry unit needs ${fmtMan(inf)}. The reserve refills a little each turn; hospitals and training centres raise it.` });
+  const city = gRecruitCity();
+  if (G.turn >= 2 && city != null && N.man >= inf * 3 && !G.queue.some(q => q.kind === "u" && q.n === P && q.at === G.turn)) out.push({ key: "recruit", pri: 40, title: "Recruit more units if your manpower allows", why: `${Z[city].n} has recruitment slots free this turn, and you can afford to train there.`, target: { z: city } });
+  const econCell = LAND_IDS.find(i => G.owner[i] === P && buildingOptions(P, i).some(o => ["fac", "mine", "well"].includes(o.k) && !o.why && canAfford(P, o.f, o.m)));
+  if (G.turn >= 2 && econCell != null && !G.queue.some(q => q.kind !== "u" && q.n === P)) out.push({ key: "economy", pri: 35, title: "Consider investing in your economy", why: `Nothing is under construction. A factory, mine or oil well at a site like ${Z[econCell].n} adds income every turn.`, target: { z: econCell } });
+  if (G.turn >= 3 && !PLAY.some(c => c !== P && ["P", "A"].includes(stance(P, c))) && !gAtWarAny()) out.push({ key: "diplomacy", pri: 25, title: "Review your diplomatic opportunities", why: "You have no pacts or alliances yet. Envoys, aid and proposals shape how other leaders treat you.", target: { sel: "#dDip" } });
+  const share = vp(P) / TOTAL_VP;
+  if (G.turn >= 4 && (G.turn % 6 === 0 || share >= WIN_SHARE * .66)) out.push({ key: "vp", pri: 20, title: "Check your progress towards victory", why: `You hold ${vp(P)} of ${TOTAL_VP} victory points (${Math.round(share * 100)}%); victory needs ${Math.round(WIN_SHARE * 100)}%.` });
+  const snooze = G.guide.obj;
+  return out.filter(o => !(snooze[o.key] >= G.turn)).sort((a, b) => b.pri - a.pri);
+}
+
+// ---------- the engine: one card at a time, never during a replay, never stacked ----------
+const GD = { cur: null, key: null, shownAt: 0, closedAt: 0, mark: null, objs: [], objI: 0, objOpen: false, objAt: 0, objSig: "" };
+function guideStart() { // called when a campaign starts or loads
+  if (!G) return;
+  G.guide = guideFix(G.guide, G.turn);
+  for (const k in GUIDE_HIT) delete GUIDE_HIT[k];
+  GD.cur = null; GD.key = null; GD.closedAt = performance.now(); GD.objs = []; GD.objOpen = false; GD.waitAt = 0; GD.objSig = "";
+  const o = G.guide.open;
+  if (!o.on && !o.skipped && !o.done && !o.offered && G.turn <= 1 && !G.tutorial) { // a brand-new campaign
+    if (GUIDE_VETERAN || GPREF.openDone) o.offered = 1; // offered, not imposed
+    else { o.on = true; o.i = 0; o.startTurn = G.turn; }
+  }
+  $("guideCard").hidden = true; guideMarkClear();
+}
+function guideOpeningStep() {
+  const o = G.guide.open;
+  if (!o.on) return null;
+  if (G.turn > Math.max(OPENING_LAST_TURN, (o.startTurn || 1) + 4)) { o.on = false; o.done = 1; GPREF.openDone = 1; gprefSave(); return null; }
+  while (o.i < OPENING.length) {
+    const k = OPENING[o.i], L = LESSONS[k];
+    if (G.guide.seen[k] || (L.applies && !L.applies()) || (L.done && k !== "o_results" && L.done() && !L.offer)) { G.guide.seen[k] = G.guide.seen[k] || G.turn; o.i++; continue; }
+    return k;
+  }
+  o.on = false; o.done = 1; GPREF.openDone = 1; gprefSave(); return null;
+}
+function guideNext() {
+  if (G.guide.open.offered === 1 && !G.guide.open.on && !G.guide.open.skipped && !G.guide.open.done && G.turn <= 1) return "o_offer";
+  const op = guideOpeningStep(); if (op) return op;
+  if (G.guide.open.on) return null;
+  if (!GPREF.lessons) return null;
+  const shown = (G.guide.nT && G.guide.nT.t === G.turn) ? G.guide.nT.n : 0;
+  for (const k of MECHANICS) {
+    const L = LESSONS[k];
+    if (!L.urgent && shown >= GUIDE_PER_TURN) continue;
+    let ok = false; try { ok = L.when(); } catch (e) { ok = false; }
+    if (!ok) continue;
+    const key = L.keyed ? L.keyed() : k;
+    if (gSeen(key)) continue;
+    return k;
+  }
+  return null;
+}
+function guideTick() {
+  const card = $("guideCard"), ob = $("objBar");
+  if (!guideLive() || PB || document.querySelector(".cardmodal")) { if (card) card.hidden = true; if (ob) ob.hidden = true; guideMarkClear(); return; }
+  if (card.hidden && GD.cur) GD.cur = null; // closed elsewhere
+  // the card in view: done? then mark it and move on
+  if (GD.cur) {
+    const L = LESSONS[GD.cur];
+    let finished = false; try { finished = !!(L.done && L.done()); } catch (e) {}
+    if (L.offer && G.turn > (G.guide.open.startTurn || 1)) { const o = G.guide.open; o.offered = 2; o.skipped = 1; save(); finished = true; } // an offer left unanswered past the first turn counts as "I know the basics"
+    if (L.when && !L.offer && !finished) { let still = true; try { still = L.when(); } catch (e) { still = false; } if (!still && !L.done) finished = true; } // the moment passed
+    if (!(sheetView && sheetView.type === "report")) GD.repClosed = true; // Reports opened again after the card appeared counts as done
+    if (finished) { guideFinish(GD.cur); }
+    else guidePoint(L);
+  }
+  if (!GD.cur && performance.now() - GD.closedAt > 1600 && !(UI.move && !(guideNextPeek() && LESSONS[guideNextPeek()].inMove)) && !UI.strike) {
+    const k = guideNext();
+    const waitReport = k && LESSONS[k].kind === "opening" && sheetView && sheetView.type === "report" && G.turn === (G.guide.open.startTurn || 1);
+    if (waitReport && !GD.waitAt) GD.waitAt = performance.now();
+    if (k && (!waitReport || performance.now() - GD.waitAt > 25000)) guideShow(k);
+  }
+  guideObjectives();
+  if (GD.cur) placeGuide(card);
+}
+function guideNextPeek() { try { return guideNext(); } catch (e) { return null; } }
+function guideShow(k, replay) {
+  const L = LESSONS[k], card = $("guideCard"); if (!L) return;
+  let text = ""; try { text = L.text(); } catch (e) { return; }
+  if (UI.ping && UI.ping.tap) UI.ping = null; // a ring from the previous card never lingers
+  if (!replay && !L.kind && !L.urgent) { const nT = G.guide.nT && G.guide.nT.t === G.turn ? G.guide.nT : { t: G.turn, n: 0 }; nT.n++; G.guide.nT = nT; }
+  GD.cur = k; GD.key = L.keyed && !replay ? L.keyed() : k; GD.shownAt = performance.now(); GD.replay = !!replay; GD.repClosed = false;
+  const o = G.guide.open, isOpen = L.kind === "opening" && !L.offer;
+  const n = OPENING.filter(x => !(LESSONS[x].applies && LESSONS[x].applies() === false) || G.guide.seen[x]).length;
+  const label = L.offer ? "Guidance" : isOpen ? `Opening ${Math.min(o.i + 1, OPENING.length)}/${OPENING.length}` : replay ? "Lesson" : "New";
+  const tgt = guidePointTarget(L); if (tgt && tgt.z != null) gTapPoint(tgt.z);
+  const far = tgt && tgt.z != null && (!gOnScreen(tgt.z) || GD.crowded);
+  card.className = "coach guide glass" + (isOpen ? " opening" : "");
+  card.innerHTML = `<div class="ch"><span class="pill ${isOpen ? "cap" : "gnew"}">${label}</span>${isOpen ? `<button class="linkbtn" id="gSkipAll">Skip opening</button>` : `<button class="linkbtn" id="gSet">Guidance settings</button>`}</div><b>${esc(L.title)}</b><p>${esc(text)}</p>
+    <div class="actions">${L.offer ? `<button class="btn primary" id="gYes">Guide me</button><button class="btn" id="gNo">I know the basics</button>` : `${L.done && !replay ? `<span class="note">Do it to continue, or</span>` : ""}<button class="btn ${L.done && !replay ? "" : "primary"}" id="gOk">${L.done && !replay ? (isOpen ? "Skip step" : "Not now") : "Got it"}</button>${far ? `<button class="btn" id="gGo">${GD.crowded && gOnScreen(tgt.z) ? "Zoom in on it" : "Show me"}</button>` : ""}`}</div>`;
+  card.hidden = false; void n;
+  const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
+  on("gOk", () => guideFinish(k));
+  on("gGo", () => { const t = guidePointTarget(L); if (!t || t.z == null) return; if (sheetView && sheetView.type !== "zone") closeSheet(); flyTo({ x: Z[t.z].x, y: Z[t.z].y, s: GD.crowded && gOnScreen(t.z) ? cam.s * 2.2 : Math.max(cam.s, 22) }); setTimeout(() => { const g = $("gGo"); if (!g) return; gTapPoint(t.z); if (gOnScreen(t.z) && !GD.crowded) g.remove(); else g.textContent = "Zoom in on it"; if (UI.ping) UI.ping.t0 = 0; }, 900); });
+  on("gSkipAll", () => { o.on = false; o.skipped = 1; GPREF.openDone = 1; gprefSave(); card.hidden = true; GD.cur = null; GD.closedAt = performance.now(); guideMarkClear(); save(); toast("Opening skipped. Lessons for new things still appear, and you can restart the opening from Guidance settings under Nation."); });
+  on("gSet", () => showGuideSettings());
+  on("gYes", () => { o.offered = 2; o.on = true; o.i = 0; o.startTurn = G.turn; card.hidden = true; GD.cur = null; GD.closedAt = performance.now() - 1200; save(); });
+  on("gNo", () => { o.offered = 2; o.skipped = 1; card.hidden = true; GD.cur = null; GD.closedAt = performance.now(); save(); });
+  guidePoint(L); placeGuide(card);
+}
+function guideFinish(k) {
+  const L = LESSONS[k], card = $("guideCard");
+  if (!GD.replay) {
+    const key = GD.key || k;
+    gMark(key);
+    if (L.kind === "opening" && G.guide.open.on && OPENING[G.guide.open.i] === k) G.guide.open.i++;
+    if (k === "m_unloaded") delete GUIDE_HIT.unloaded;
+    if (k === "m_resupplied") delete GUIDE_HIT.resupplied;
+    if (k === "m_capture") delete GUIDE_HIT.captured;
+    if (k === "m_building") delete GUIDE_HIT.built;
+  }
+  card.hidden = true; GD.cur = null; GD.replay = false; GD.closedAt = performance.now(); guideMarkClear();
+}
+// ---------- A. control guidance: mark the real control (a DOM element) or cell (a ping on the map) ----------
+function guidePointTarget(L) { if (!L.target) return null; try { return L.target(); } catch (e) { return null; } }
+function guidePoint(L) {
+  const t = guidePointTarget(L);
+  if ((!t || t.z == null) && UI.ping && UI.ping.tap) UI.ping = null; // a ring from an earlier step goes
+  if (!t) { guideMarkClear(); return; }
+  if (t.sel) {
+    const el = [...document.querySelectorAll(t.sel)].find(e => e.getClientRects().length && !e.disabled);
+    if (GD.mark !== el) { guideMarkClear(); if (el) { el.classList.add("gtap"); GD.mark = el; } }
+  } else guideMarkClear();
+  if (t.z != null && !UI.move && (!UI.ping || performance.now() - UI.ping.t0 > 2400)) { const [wx, wy] = gTapPoint(t.z); UI.ping = { z: t.z, wx, wy, t0: performance.now(), tap: true }; animLoop(); }
+}
+// where a tap really opens cell z: its own unit tag if it has one, else a clear point inside it that no other cell's tag covers
+function gTapPoint(z) {
+  // a screen point counts only if a tap there really resolves to z, the way onTap decides (a unit tag first, then the cell)
+  const card = $("guideCard");
+  const ok = (sx, sy) => { if (sy < 0 || sx < 0 || sx > innerWidth || sy > innerHeight) return false;
+    const el = document.elementFromPoint(sx, sy); if (!el || (el.id !== "map" && !(card && card.contains(el)))) return false; // the panel, dock or bars are in the way (the card moves aside by itself)
+    const t = plateAt(sx, sy); if (t && (!UI.move || t.o !== G.player)) return t.z === z; // while ordering, your own tags don't take the tap (as in onTap)
+    if (!UI.move && !UI.strike && UI.infra && UI.bldHits && UI.bldHits.some(r => sx >= r[0] && sx <= r[2] && sy >= r[1] && sy <= r[3])) return false; /* a building picture opens its card instead */ const h = zoneAt(...toWorld(sx, sy)); return !!(h && h.kind === "zone" && h.id === z); };
+  const cand = [];
+  for (const p of (UI.plates || [])) if (p.z === z) { const w = p.x1 - p.x0, hh = p.y1 - p.y0; for (const fx of [.5, .25, .75, .1, .9]) for (const fy of [.5, .25, .75]) cand.push([p.x0 + w * fx, p.y0 + hh * fy]); }
+  const [cx, cy] = toScreen(Z[z].x, Z[z].y); cand.push([cx, cy]);
+  for (const r of [12, 20, 30, 42, 56]) for (let a = 0; a < 12; a++) cand.push([cx + Math.cos(a * Math.PI / 6) * r, cy + Math.sin(a * Math.PI / 6) * r]);
+  let hit = cand.find(([x, y]) => ok(x, y));
+  if (!hit) { // anywhere else inside the cell, nearest the centre first
+    const [a, b, c, d] = CELL[z].bb, [x0, y0] = toScreen(a, d), [x1, y1] = toScreen(c, b), pts = [];
+    for (let i = 1; i < 12; i++) for (let j = 1; j < 12; j++) pts.push([x0 + (x1 - x0) * i / 12, y0 + (y1 - y0) * j / 12]);
+    pts.sort((p, q) => Math.hypot(p[0] - cx, p[1] - cy) - Math.hypot(q[0] - cx, q[1] - cy));
+    hit = pts.find(([x, y]) => ok(x, y));
+  }
+  GD.crowded = !hit; // nowhere clear to tap at this zoom: the card offers to zoom in
+  return hit ? toWorld(hit[0], hit[1]) : [Z[z].x, Z[z].y];
+}
+function guideMarkClear() { if (GD.mark) GD.mark.classList.remove("gtap"); GD.mark = null; document.querySelectorAll(".gtap").forEach(e => e.classList.remove("gtap")); }
+function guideObjectives() {
+  const ob = $("objBar");
+  if (!GPREF.objectives || G.guide.open.on || UI.move || UI.strike || (GD.cur && LESSONS[GD.cur].kind === "opening")) { ob.hidden = true; return; }
+  if (performance.now() - GD.objAt > 2000) { GD.objAt = performance.now(); try { GD.objs = gObjectives(); } catch (e) { GD.objs = []; } }
+  if (!GD.objs.length) { ob.hidden = true; return; }
+  if (GD.objI >= GD.objs.length) GD.objI = 0;
+  const o = GD.objs[GD.objI], sig = o.key + "|" + o.why + "|" + GD.objOpen + "|" + GD.objs.length + "|" + GD.objI;
+  ob.hidden = false;
+  placeObjBar();
+  if (sig === GD.objSig) return;
+  GD.objSig = sig;
+  ob.className = "objbar glass" + (GD.objOpen ? " open" : "");
+  ob.innerHTML = `<button class="objhead" id="objHead" aria-expanded="${GD.objOpen}"><span class="objtag">Your next objective</span><span class="objt">${esc(o.title)}</span></button>${GD.objOpen ? `<div class="objbody"><p>${esc(o.why)}</p><div class="actions">${o.target ? `<button class="btn" id="objShow">Show</button>` : ""}${GD.objs.length > 1 ? `<button class="btn" id="objNext">Next idea (${GD.objI + 1}/${GD.objs.length})</button>` : ""}<button class="btn" id="objDis">Dismiss</button><button class="linkbtn" id="objOff">Turn off suggestions</button></div><p class="note">A suggestion, not an order: ignore it freely.</p></div>` : ""}`;
+  $("objHead").onclick = () => { GD.objOpen = !GD.objOpen; GD.objSig = ""; guideObjectives(); placeCoach(); };
+  const on = (id, f) => { const e = $(id); if (e) e.onclick = f; };
+  on("objShow", () => { const t = o.target; if (t.z != null) { flyTo({ x: Z[t.z].x, y: Z[t.z].y, s: Math.max(cam.s, 22) }); UI.ping = { z: t.z, t0: performance.now(), tap: false }; animLoop(); } else if (t.sel) { const el = document.querySelector(t.sel); if (el) { el.classList.add("gtap"); setTimeout(() => el.classList.remove("gtap"), 2600); } } });
+  on("objNext", () => { GD.objI = (GD.objI + 1) % GD.objs.length; GD.objSig = ""; guideObjectives(); });
+  on("objDis", () => { G.guide.obj[o.key] = G.turn + 8; GD.objs = GD.objs.filter(x => x !== o); GD.objSig = ""; GD.objOpen = false; save(); guideObjectives(); placeCoach(); toast("Dismissed. It won't come back for at least 8 turns."); });
+  on("objOff", () => { GPREF.objectives = false; gprefSave(); ob.hidden = true; placeCoach(); toast("Suggestions off. Turn them back on in Guidance settings under Nation."); });
+}
+// ---------- the help interface: settings and every lesson, to read again ----------
+function showGuideSettings() {
+  document.querySelectorAll(".cardmodal.guideset").forEach(m => m.remove());
+  const m = document.createElement("div"); m.className = "cardmodal guideset";
+  const camp = G && !G.tutorial && G.guide;
+  const list = [...OPENING.filter(k => k !== "o_done"), ...MECHANICS.filter(k => !k.endsWith("_block"))];
+  const row = k => { const L = LESSONS[k]; const seen = gSeen(k) || Object.keys(GPREF.seen).some(s => s.startsWith(k + "_")); let can = true; try { L.text(); } catch (e) { can = false; } return `<div class="row"><div class="t"><span>${esc(L.title)}</span></div><div class="s">${L.kind === "opening" ? "Opening" : "Lesson"} · ${seen ? "seen" : "not met yet"}</div><div class="r">${camp && can ? `<button class="btn" data-gread="${k}">Read</button>` : ""}</div></div>`; };
+  m.innerHTML = `<div class="bugbox"><div class="eyebrow"><span class="pill cap">Commander guidance</span></div><h2>Guidance settings</h2>
+    <label class="gopt"><input type="checkbox" id="gLes" ${GPREF.lessons ? "checked" : ""}> <span><b>Lessons</b> when you meet something new (ships, transports, supply columns, battles)</span></label>
+    <label class="gopt"><input type="checkbox" id="gObj" ${GPREF.objectives ? "checked" : ""}> <span><b>Your next objective:</b> optional suggestions under the resource bar</span></label>
+    ${camp ? `<div class="actions"><button class="btn" id="gRestart">${G.guide.open.on ? "Opening in progress" : "Restart the guided opening"}</button></div>` : ""}
+    <div class="section-title">Lessons <small>read any you've met again</small></div><div class="rows">${list.map(row).join("")}</div>
+    <div class="actions"><button class="btn" id="gReset">Show all lessons again</button><button class="btn primary" id="gClose">Close</button></div>
+    <p class="note">Guidance never moves, recruits, builds or attacks for you, and only uses what you can see.</p></div>`;
+  document.body.appendChild(m);
+  const close = () => m.remove();
+  m.onclick = e => { if (e.target === m) close(); };
+  $("gClose").onclick = close;
+  $("gLes").onchange = e => { GPREF.lessons = e.target.checked; gprefSave(); };
+  $("gObj").onchange = e => { GPREF.objectives = e.target.checked; gprefSave(); GD.objSig = ""; };
+  if ($("gRestart")) $("gRestart").onclick = () => { if (G.guide.open.on) return; const o = G.guide.open; o.on = true; o.i = 0; o.skipped = 0; o.done = 0; o.offered = 2; o.startTurn = G.turn; for (const k of OPENING) delete G.guide.seen[k]; close(); save(); toast("Guided opening restarted."); };
+  $("gReset").onclick = () => { GPREF.seen = {}; gprefSave(); if (G && G.guide) { for (const k of Object.keys(G.guide.seen)) if (!k.startsWith("o_")) delete G.guide.seen[k]; save(); } close(); toast("Lessons reset: each will appear again when it becomes relevant."); };
+  m.querySelectorAll("[data-gread]").forEach(b => b.onclick = () => { close(); if (GD.cur) { $("guideCard").hidden = true; GD.cur = null; } guideShow(b.dataset.gread, true); });
+}
+setInterval(() => { try { guideTick(); } catch (e) { /* guidance must never break the game */ } }, 400);
 
 // ---------- menus: title → commander name → nations → setup ----------
 const MENU = { view: "title", mode: "new", err: "" };
@@ -6172,7 +6610,7 @@ function showSetup(ci) {
   };
   el.scrollTop = 0; render();
 }
-function afterStart() { PARTING = []; homeView(true); updateHud(); draw(); setTimeout(() => showReports("last"), 300); setTimeout(() => { if (G && G.turn <= 2) showTip("start"); }, 1600); }
+function afterStart() { PARTING = []; if (G && !G.tutorial) guideStart(); homeView(true); updateHud(); draw(); setTimeout(() => showReports("last"), 300); setTimeout(() => { if (G && G.turn <= 2) showTip("start"); }, 1600); }
 
 // ---------- taps ----------
 function plateAt(sx, sy) { const L = UI.plates || []; for (let k = L.length - 1; k >= 0; k--) { const p = L[k]; if (sx >= p.x0 && sx <= p.x1 && sy >= p.y0 && sy <= p.y1) return p; } return null; }
@@ -6361,6 +6799,6 @@ function exportFeed() {
     nations, governments, units, battalions, buildings, guide: howToGuide(), notes: { startingArmy: "Powers pick their own starting army with " + BUDGET + " points; minor nations' starting forces are fixed." } };
   return { meta, codex };
 }
-window.__prw = { get G() { return G; }, mergeTransfer, receiveTransfer, exportFeed, VERSION, PATCH_NOTES, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; }, BLD, BLD_INFO, BLD_CAT, bldEffect, bldCost, bldsAt, showBldCard, showBldAt, defMult, laneCost, supplyMap, cellFunds, recruitSites, fortDiv, roadCost, hospHeal, depotReload };
+window.__prw = { guide: { LESSONS, OPENING, MECHANICS, gTapPoint, guideTick, guideStart, guideShow, guideFinish, GD, GPREF, GUIDE_HIT, showGuideSettings, gObjectives, gLoadOpp, gUnloadOpp, gResupplyOpp, gLoadBlock, gUnloadBlock, guideFix }, get G() { return G; }, mergeTransfer, receiveTransfer, exportFeed, VERSION, PATCH_NOTES, SND, sfx, slotsLeft, slotsOf, cancelRecruit, cellFunds, UNIT_W, manOf, MAN_COST, formBattalion, disbandBattalion, batIndex, batBonus, inBattalion, orderMove, isLocked, makePeace, truceLeft, allianceBlock, setG: s => { G = s; invalidate(); afterStart(); }, isLand, MINORS, MAJORS, TOTAL_VP, reviveSave, saveJson, rescueAtSea, canAttach, endTurn, issueOrders, fullPath, eta, startPlayback, showReports, get PB() { return PB; }, newGame: (c, s, set) => { newGame(c, s, set); $("start").hidden = true; afterStart(); }, invalidate, forecast, combatPhase, zoneFight, reap, resolveZone, doStrike, contestedZones, strikeZones, strikeBlock, isEngaged, UT, CLOUD, save, loadSave, cloudFlush, biomeOf, price, BUDGET, showSetup, aiBuyArmy, RECOMMENDED_ARMY, vp, power, econ, PLAY, C, Z, moveGroup, reach, declareWar, playerDiplo, unitsAt, showZone, showDiplomacy, showGov, showArmy, showEcon, showNation, toScreen, get cam() { return cam; }, startMove, startStrike, showCodex, hydrateArt, waters, SHALLOW, OFFSHORE_OIL, econ, deployedOf, buildingOptions, queueBuilding, B, ADJ, unitVisible, playerVis, visibility, showTitle, showName, showScores, showBugReport, showPatchNotes, showOnline, startTutorial, get TUT() { return TUT; }, TUTORIAL_STEPS, API, SCORES_POSTED: POSTED, bugMeta, importSave, downloadSave, setUser, get USER() { return USER; }, SCORES, scoreParts, PROF, saveKeyFor, MENU_FX, menuRefresh, orderChase, planChase, updateChases, chaseQuarry, executeOrders, firingPosition, strikeZones, onTap, zoneAt, toWorld, planMission, sensorNet, sensorsActive, showStrikePreview, startStrike, plateAt, get UI() { return UI; }, get stateVer() { return stateVer; }, BLD, BLD_INFO, BLD_CAT, bldEffect, bldCost, bldsAt, showBldCard, showBldAt, defMult, laneCost, supplyMap, cellFunds, recruitSites, fortDiv, roadCost, hospHeal, depotReload };
 })();
 </script>

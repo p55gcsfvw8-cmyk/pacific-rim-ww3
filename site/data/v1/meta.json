@@ -3,12 +3,51 @@
  "game": "The Fractured Coasts: WW3",
  "inGameTitle": "The Fractured Coasts: WW3",
  "formerly": "Pacific Rim WW3",
- "version": "1.0.16 beta",
- "released": "1 Nov 2026",
+ "version": "1.0.17 beta",
+ "released": "5 Nov 2026",
  "discord": "https://discord.gg/jv8T6Pxz3e",
  "play": "https://fractured-coasts.playfracturedcoast.workers.dev/",
  "mode": "Single-player against AI nations",
  "patchNotes": [
+  {
+   "version": "1.0.17 beta",
+   "date": "5 Nov 2026",
+   "title": "Commander guidance",
+   "sections": [
+    {
+     "heading": "Learn as you play",
+     "items": [
+      "A new campaign can walk you through your first turns: your nation and the goal, finding your forces, giving an order, recruiting, how territory is taken, ending the turn, reading the results and building. It fits your nation: a step that doesn't apply to you is left out. Skip opening stops it at any point.",
+      "After that, a short lesson appears only the first time you meet something: your first ships or aircraft, a transport, loading it, putting troops ashore (or why they can't land where they are), a supply column, a unit that needs supplies, your first battle, ground you capture, a finished building, a signed agreement. If you never build ships, you never see a lesson about them.",
+      "Lessons point at the real thing to tap: a TAP HERE ring on the map, or a pulsing outline on the button. If the spot is off screen or crowded, the card offers to zoom in on it."
+     ]
+    },
+    {
+     "heading": "Your next objective",
+     "items": [
+      "A slim bar under the resources suggests one goal at a time, based only on what you can see: enemies near your capital or at your border, units low on fuel or ammunition, fuel running short, manpower, free recruitment slots, the economy, diplomacy and your progress towards victory. Tap it for the reason, Show, Next idea or Dismiss.",
+      "It's a suggestion, not an order. Once your orders already deal with something, it steps aside, and a dismissed idea stays away for at least 8 turns."
+     ]
+    },
+    {
+     "heading": "You stay in command",
+     "items": [
+      "Guidance never moves, recruits, builds, attacks or resupplies for you, never changes your orders, and never reveals anything hidden in the fog. Combat, the economy and the AI are unchanged: AI-only games play out identically to 1.0.16.",
+      "Nation > Commander guidance turns lessons or objectives off, restarts the guided opening, and lets you read any lesson again. Dismissed lessons don't come back.",
+      "Campaigns from before 1.0.17 carry on as they were: they don't start the opening, and lessons for anything new still appear. In campaigns, guidance replaces the old first-time tips; the practice game's tutorial is unchanged."
+     ]
+    },
+    {
+     "heading": "What's coming",
+     "items": [
+      "Further balancing and bug fixes, including anything you report on the Discord.",
+      "Sound effects on tap: sounds when you tap the map, cells and units, and effects for tanks, artillery, aircraft, ships and submarines.",
+      "More of the graphics update: the rest of the visual pass over the map, unit art and battle effects.",
+      "The first unit expansion: the first new unit types to join the current roster."
+     ]
+    }
+   ]
+  },
   {
    "version": "1.0.16 beta",
    "date": "1 Nov 2026",
