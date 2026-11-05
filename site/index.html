@@ -457,9 +457,9 @@ canvas.fig { width: 52px; height: 26px; flex: none; margin-left: auto; }
 .ticker { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 98px); height: 34px; display: flex; align-items: center; overflow: hidden; background: color-mix(in srgb, #0b1622 94%, transparent); border-block: 1px solid var(--line); cursor: pointer; animation: slidein .35s ease-out; z-index: 15; }
 .ticker .tag { flex: none; height: 100%; display: flex; align-items: center; padding: 0 10px; background: var(--hostile); color: #1c0705; font-family: var(--f-display); font-weight: 700; font-size: 11px; letter-spacing: .14em; }
 .ticker .track { flex: 1; overflow: hidden; position: relative; height: 100%; }
-.ticker .run { position: absolute; white-space: nowrap; top: 50%; left: 100%; transform: translateY(-50%); font-size: 13.5px; animation: run var(--dur, 20s) linear forwards; }
+.ticker .run { position: absolute; white-space: nowrap; top: 50%; left: 0; transform: translate(var(--from, 400px), -50%); font-size: 13.5px; animation: run var(--dur, 20s) linear forwards; will-change: transform; }
 .ticker .run b { color: var(--signal); margin: 0 14px; }
-@keyframes run { to { left: 0; transform: translate(-100%, -50%); } }
+@keyframes run { from { transform: translate(var(--from, 400px), -50%); } to { transform: translate(-100%, -50%); } }
 @keyframes slidein { from { transform: translateY(-120%); opacity: 0; } }
 .res button.flash { animation: flash 1s ease-out; }
 @keyframes flash { 0% { background: color-mix(in srgb, var(--signal) 45%, var(--panel-2)); } }
@@ -2823,7 +2823,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.18 beta"; // early access playtest build
+const VERSION = "1.0.19 beta"; // early access playtest build
 const DISCORD_URL = "https://discord.gg/jv8T6Pxz3e"; // official community server (permanent invite)
 const SITE_URL = "https://fractured-coasts.playfracturedcoast.workers.dev/"; // 1.0.16: the game's home on Cloudflare (was pacific-rim-ww3.netlify.app)
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
@@ -3022,16 +3022,16 @@ function drawSymbol(ctx, t, x, y, h, aff = "friendly") {
 const affOf = o => !G ? "friendly" : friendly(G.player, o) ? "friendly" : atWar(G.player, o) ? "hostile" : "neutral";
 
 const cv = document.getElementById("map");
-const mainCtx = cv.getContext("2d");
+const mainCtx = cv.getContext("2d", { alpha: false }); // 1.0.19: the map is opaque, so frames copy without blending
 let ctx = mainCtx;
 // The static map is drawn once into an offscreen canvas and only redrawn when the view or game state changes.
-const baseCv = document.createElement("canvas"), baseCtx = baseCv.getContext("2d");
+const baseCv = document.createElement("canvas"), baseCtx = baseCv.getContext("2d", { alpha: false });
 let baseKey = "";
 let W = 0, H = 0, DPR = 1;
 const cam = { x: 150, y: 0, s: 4 };
 let minS = 2; const maxS = 900;
 function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  DPR = Math.min(window.devicePixelRatio || 1, PERF.saver ? 1.5 : 2);
   W = cv.clientWidth; H = cv.clientHeight;
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
   baseCv.width = cv.width; baseCv.height = cv.height; baseKey = "";
@@ -3056,7 +3056,7 @@ function flyTo(t, ms = 700) {
     const k = dur ? Math.min(1, (now - t0) / dur) : 1, e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
     cam.x = from.x + (t.x - from.x) * e; cam.y = from.y + (t.y - from.y) * e;
     cam.s = Math.exp(Math.log(from.s) + (Math.log(t.s) - Math.log(from.s)) * e);
-    clampCam(); drawNow();
+    clampCam(); if (!PB) drawNow(); // during a replay its own loop draws the frame: no second draw
     if (k < 1) flyAnim = requestAnimationFrame(step);
   };
   flyAnim = requestAnimationFrame(step);
@@ -3076,19 +3076,33 @@ const UI = { sel: -1, lanes: { land: false, sea: false, air: false }, fog: true,
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let PB = null, animReq = 0, lastAmb = 0;
 const pingLive = () => UI.ping && performance.now() - UI.ping.t0 < 2600;
-const ambientNeeded = () => !!G && !REDUCED && (!!UI.move || !!UI.strike || pingLive() || G.units.some(u => u.o === G.player && u.ord) || sensorsActive());
-function animLoop() {
-  if (animReq) return;
-  const step = now => {
-    animReq = 0;
-    if (PB) {
-      if (!pbStep(now)) return;
-      drawNow(); animReq = requestAnimationFrame(step); return;
-    }
-    if (ambientNeeded()) { if (now - lastAmb > 40) { lastAmb = now; drawNow(); } animReq = requestAnimationFrame(step); }
-  };
-  animReq = requestAnimationFrame(step);
+// 1.0.19 battery: the map only animates (marching orders, radar sweeps) at ~15 fps, and stops 20 s after your
+// last touch. Replays draw at most 60 fps, and fewer when a frame is expensive, so the phone never runs flat out.
+const AMBIENT_MS = 66, AMBIENT_IDLE = 20000;
+// Battery saver (Nation menu): replays at 30 fps, no idle map animation, and a lighter canvas. Remembered on this device.
+const PERF_KEY = "prww3-perf", PERF = (() => { try { return Object.assign({ saver: false }, JSON.parse(localStorage.getItem(PERF_KEY) || "{}")); } catch (e) { return { saver: false }; } })();
+const perfSave = () => { try { localStorage.setItem(PERF_KEY, JSON.stringify(PERF)); } catch (e) {} };
+let lastInput = performance.now(), ambT = 0, pbCost = 6, pbLastDraw = 0, _stand = { v: -1, g: null, r: false };
+const standingOrders = () => { if (_stand.v !== stateVer || _stand.g !== G) _stand = { v: stateVer, g: G, r: G.units.some(u => u.o === G.player && u.ord) }; return _stand.r; };
+const ambientNeeded = () => !!G && !REDUCED && !document.hidden && (pingLive() || !PERF.saver && ( (performance.now() - lastInput < AMBIENT_IDLE && (!!UI.move || !!UI.strike || !!UI.blipLive || standingOrders() || sensorsActive()))));
+function pbFrame(now) {
+  animReq = 0;
+  if (!PB) { animLoop(); return; }
+  const gap = PERF.saver ? 33 : Math.min(50, Math.max(15, pbCost * 2.2));
+  if (now - pbLastDraw >= gap - 2) {
+    if (!pbStep(now)) { animLoop(); return; }
+    const t = performance.now(); drawNow(); pbCost = pbCost * .85 + (performance.now() - t) * .15; pbLastDraw = now;
+  }
+  if (!animReq) animReq = requestAnimationFrame(pbFrame); // never a second loop
 }
+function animLoop() {
+  if (PB) { if (ambT) { clearTimeout(ambT); ambT = 0; } if (!animReq) animReq = requestAnimationFrame(pbFrame); return; }
+  if (animReq || ambT || !ambientNeeded()) return;
+  ambT = setTimeout(() => { ambT = 0; animReq = requestAnimationFrame(() => { animReq = 0; if (PB) { animLoop(); return; } if (ambientNeeded()) { drawNow(); lastAmb = performance.now(); animLoop(); } }); }, UI.move || UI.strike || pingLive() || sensorsActive() ? AMBIENT_MS : 125); // standing orders alone: 8 fps is plenty for the marching dashes
+}
+const wakeAmbient = () => { const idle = performance.now() - lastInput >= AMBIENT_IDLE; lastInput = performance.now(); if (idle && G) draw(); else animLoop(); };
+for (const ev of ["pointerdown", "pointermove", "wheel", "keydown"]) addEventListener(ev, wakeAmbient, { passive: true, capture: true });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && G) { lastInput = performance.now(); draw(); } });
 let fontsReady = false, pending = false;
 function draw() { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; drawNow(); }); } if (ambientNeeded()) animLoop(); }
 function viewBB() { const [x0, y1] = toWorld(0, 0), [x1, y0] = toWorld(W, H); return [x0, y0, x1, y1]; }
@@ -3611,7 +3625,7 @@ function drawExpanded(x, y, us, aff, own) {
 function drawUnits(vb) {
   const s = cam.s, P = G.player;
   UI.plates = [];
-  const byZ = new Map(), blips = new Map();
+  const byZ = new Map(), blips = new Map(); UI.blipLive = false;
   for (const u of G.units) {
     const z = Z[u.z]; if (z.x < vb[0] - 1 || z.x > vb[2] + 1 || z.y < vb[1] - 1 || z.y > vb[3] + 1) continue;
     if (!unitVisible(u)) continue;
@@ -3651,7 +3665,10 @@ function drawBlips(blips, byZ) {
     ctx.strokeStyle = `rgba(255,96,80,${.5 * (1 - q)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 5 + q * 9, 0, Math.PI * 2); ctx.stroke();
     for (let k = 0; k < Math.min(n, 2); k++) { ctx.fillStyle = "#ff5a4a"; ctx.strokeStyle = "#2a0806"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x + k * 7, y + k * 3, 4.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
   }
-  animLoop();
+  // 1.0.19 lag fix: this used to call animLoop() from inside a frame, which started a second animation loop every
+  // frame contacts were on screen (in replays: dozens of full redraws per screen refresh). The pulse now rides the
+  // one ambient loop instead.
+  UI.blipLive = true;
 }
 
 // ranged fire orders: a red arc from the guns to the target, drawn over the unit markers
@@ -4065,7 +4082,8 @@ function pbStep(now) {
     PB.mtau = sh.ta + (sh.tb - sh.ta) * q;
     PB.bgTau = PB.T1 * clamp((PB.done + PB.local) / Math.max(1, PB.moveDur), 0, 1);
   } else PB.bgTau = PB.T1;
-  $("pbBar").style.width = Math.min(100, (PB.done + PB.local) / Math.max(1, PB.total) * 100) + "%";
+  const bw = Math.round(Math.min(100, (PB.done + PB.local) / Math.max(1, PB.total) * 100) * 4) / 4; // write only when it moves: no layout every frame
+  if (bw !== PB.bw) { PB.bw = bw; $("pbBar").style.width = bw + "%"; }
   return true;
 }
 // where along its moves a unit is right now
@@ -4153,8 +4171,10 @@ function drawPlayback() {
     const own = friendly(G.player, p.o);
     if (!own && !(PB.preVis[at] || PB.postVis[at])) continue;
     if (!own && p.t === "ss" && !(PB.preSon[at] || PB.postSon[at])) continue;
-    const lu = !own && atWar(G.player, p.o) ? G.units.find(v => v.id === id) : null;
-    tokens.push({ id, t: p.t, o: p.o, wx: x, wy: y, at, dying, moving, bat: p.bat, blip: !!(lu && !unitIdentified(lu)) }); // an unidentified contact moves as a red dot
+    if (!PB.byId) { PB.byId = new Map(G.units.map(v => [v.id, v])); PB.blipC = new Map(); } // 1.0.19: looked up once per replay, not per unit per frame
+    let blip = PB.blipC.get(id);
+    if (blip == null) { const lu = !own && atWar(G.player, p.o) ? PB.byId.get(id) : null; blip = !!(lu && !unitIdentified(lu)); PB.blipC.set(id, blip); }
+    tokens.push({ id, t: p.t, o: p.o, wx: x, wy: y, at, dying, moving, bat: p.bat, blip }); // an unidentified contact moves as a red dot
   }
   tokens.sort((a, b) => a.moving - b.moving);
   // 1.0.9: a battalion travelling together draws as one tag (its strongest unit) with its echelon and member count
@@ -4224,7 +4244,7 @@ function drawPlayback() {
       if (tk.dying) { ctx.translate(x, y); ctx.rotate(dir * tk.dying * .5); ctx.translate(-x, -y); }
       ctx.drawImage(unitSprite(tk.t, aff, dir > 0), x - tw / 2, y - th / 2, tw, th);
       drawSymbol(ctx, tk.t, x + dir * (tw / 2 - 2), y - th / 2 - 2, 8 * sc, aff);
-      const u = G.units.find(v => v.id === tk.id); const hp = u ? u.hp : 0;
+      const u = PB.byId.get(tk.id); const hp = u ? u.hp : 0;
       ctx.fillStyle = "rgba(11,22,34,.9)"; ctx.fillRect(x - tw / 2, y + th / 2 + 2, tw, 4); ctx.fillStyle = hp > 50 ? "#7ddc8b" : hp > 25 ? "#f5b84a" : "#ff7b6b"; ctx.fillRect(x - tw / 2 + .5, y + th / 2 + 2.5, (tw - 1) * hp / 100, 3);
       ctx.restore();
       continue;
@@ -4338,8 +4358,9 @@ function updateScale() {
   const lat = latOf(cam.y), pxPerKm = cam.s / (111.32 * Math.cos(lat * DEG));
   const target = 70 / pxPerKm, p = Math.pow(10, Math.floor(Math.log10(target)));
   const nice = [1, 2, 5, 10].map(m => m * p).find(v => v >= target * .7) || 10 * p;
-  $("scaleBar").style.width = Math.round(nice * pxPerKm) + "px";
-  $("scaleLbl").textContent = Math.round(nice).toLocaleString() + " km";
+  const w = Math.round(nice * pxPerKm), t = Math.round(nice).toLocaleString() + " km";
+  if (w !== updateScale.w) { updateScale.w = w; $("scaleBar").style.width = w + "px"; } // 1.0.19: no layout when nothing changed
+  if (t !== updateScale.t) { updateScale.t = t; $("scaleLbl").textContent = t; }
 }
 
 // =====================================================================
@@ -5207,6 +5228,7 @@ body.addEventListener("click", e => {
   if (b.dataset.bug) { showBugReport(); return; }
   if (b.dataset.notes) { showPatchNotes(); return; }
   if (b.dataset.guide) { showGuideSettings(); return; }
+  if (b.dataset.saver) { PERF.saver = !PERF.saver; perfSave(); b.textContent = "Battery saver: " + (PERF.saver ? "on" : "off"); b.setAttribute("aria-pressed", PERF.saver); resize(); toast(PERF.saver ? "Battery saver on: replays at 30 fps, no idle map animation, lighter map drawing." : "Battery saver off."); return; }
   if (b.dataset.online) { showOnline(); return; }
   if (b.dataset.dlsave) { downloadSave().then(ok => toast(ok ? "Save file ready." : "The save file wasn't downloaded.")); return; }
   if (b.dataset.mainmenu) { save(); cloudFlush(); if (TUT.on) endTutorial(false); G = null; PB = null; showTitle(); return; }
@@ -5329,7 +5351,7 @@ function showGov(_, refresh) {
     <dl class="stats"><div><dt>Stability</dt><dd>${Math.round(N.stab)}%<small> →${Math.round(gm.stab)}</small></dd></div><div><dt>War support</dt><dd>${Math.round(N.ws)}%</dd></div><div><dt>Provinces</dt><dd>${econ(P).prov}</dd></div></dl>
     <div class="actions"><button class="btn" data-res-open="econ" id="econBtn">Economy & market</button>${N.cap >= 0 ? `<button class="btn" data-goto="${N.cap}">Go to capital</button>` : ""}</div>
     ${(() => { const s = scoreParts(); return `<div class="fx" style="margin-top:8px">Score <b>${s.total.toLocaleString()}</b> · territory ${s.held} · ground taken ${s.taken} · enemies destroyed ${s.kills} · losses ${s.losses}</div>`; })()}
-    <div class="actions"><button class="btn" data-mainmenu="1">${G.tutorial ? "Leave practice game" : "Save and exit to menu"}</button><button class="btn" data-bug="1">Report a bug</button><button class="btn" data-dlsave="1">Download save</button><button class="btn" data-notes="1">Patch notes</button>${!G.tutorial ? `<button class="btn" data-guide="1">Commander guidance</button>` : ""}${API != null ? `<button class="btn" data-online="1">Players online</button>` : ""}</div>
+    <div class="actions"><button class="btn" data-mainmenu="1">${G.tutorial ? "Leave practice game" : "Save and exit to menu"}</button><button class="btn" data-bug="1">Report a bug</button><button class="btn" data-dlsave="1">Download save</button><button class="btn" data-notes="1">Patch notes</button><button class="btn" data-saver="1" aria-pressed="${PERF.saver}">Battery saver: ${PERF.saver ? "on" : "off"}</button>${!G.tutorial ? `<button class="btn" data-guide="1">Commander guidance</button>` : ""}${API != null ? `<button class="btn" data-online="1">Players online</button>` : ""}</div>
     <div class="section-title">Government <small>change: −15 stability, 6-turn cooldown</small></div><div class="seg">${Object.entries(GOV).map(([k, g]) => `<button data-gov="${k}" aria-pressed="${N.gov.type === k}" class="${UI.pend && UI.pend.type === "gov" && UI.pend.v === k ? "pending" : ""}">${g.name}</button>`).join("")}</div>
     ${UI.pend && UI.pend.type === "gov" ? (() => { const g = GOV[UI.pend.v], cd = 6 - (G.turn - N.govChanged); return confirmCard(`Switch to ${g.name}?`, `${g.blurb} Funds ×${fmt(g.funds, 2)} · manpower ×${fmt(g.man, 2)} · unit cost ×${fmt(g.cost, 2)} · base stability ${g.stab} · base war support ${g.ws}. Stability −15 now.`, false, cd > 0 ? `Your government changed recently. Available in ${cd} turn${cd > 1 ? "s" : ""}.` : null); })() : `<p class="note" style="margin-top:8px">${gv.blurb}</p>
     <div class="fx">Funds ×${fmt(gv.funds, 2)} · Manpower ×${fmt(gv.man, 2)} · Unit cost ×${fmt(gv.cost, 2)} · Base stability ${gv.stab} · Base war support ${gv.ws}</div>`}
@@ -5497,6 +5519,7 @@ function howToHtml() {
     <li><b>Carry troops.</b> At a port (or airbase), press <b>Embark</b> to load units onto a transport. Nothing goes ashore by itself: sail into a friendly port and press <b>Disembark</b>, or sit offshore of an enemy coast and press <b>Assault</b>. Every island has at least one port.</li>
     <li><b>The sea.</b> Lighter water is shallow: big ships move slower there and submarines are easy to find and kill. Deep ocean is where subs hide and hit hardest. Each nation owns the waters around its coast; your aircraft can't cross a neutral nation's airspace, and offshore oil fields in your waters can take a rig. Four great rivers are navigable: the Yangtze up to Wuhan, the Pearl to Guangzhou, the Mekong to Phnom Penh and the Irrawaddy to Mandalay. Ships sail them through friendly river ports, which build transports and supply ships. Ship radar picks up contacts out to its full range, but a ship identifies what it sees only within 1 cell: beyond that, enemies show as red radar contacts.</li>
     <li><b>Read the reports.</b> After each turn the Fractured Coasts Network covers what you saw clearly, plus rumours from places you can't see.</li>
+    <li><b>Battery saver.</b> Under Nation, <b>Battery saver</b> plays replays at 30 frames a second, stops the idle map animation and draws the map a little lighter. The map always stops animating 20 seconds after you last touch it.</li>
     <li><b>Commander guidance.</b> A new campaign can walk you through your first turns. After that, a short lesson appears only when you first meet something: ships, a transport, loading and landing troops, a supply column, a battle. Your next objective, under the resource bar, offers ideas from what you can see; ignore it freely. Guidance never acts for you. Turn either part off, or read any lesson again, under Nation → Commander guidance.</li>
   </ol></div>`;
 }
@@ -5583,7 +5606,7 @@ function showTicker() {
   run.innerHTML = items.map(l => esc(l.text)).join("<b>◆</b>");
   const dur = Math.max(10, run.textContent.length * .13);
   run.style.setProperty("--dur", dur + "s");
-  tk.hidden = false; run.style.animation = "none"; void run.offsetWidth; run.style.animation = "";
+  tk.hidden = false; run.style.setProperty("--from", (run.parentNode.clientWidth || innerWidth) + "px"); run.style.animation = "none"; void run.offsetWidth; run.style.animation = "";
   clearTimeout(UI.tickT); UI.tickT = setTimeout(() => tk.hidden = true, (REDUCED ? 8 : dur + .4) * 1000);
 }
 function finishTurnUI() { UI.openLog = null; updateHud(true); draw(); showTicker(); showReports("last"); }
@@ -5820,13 +5843,19 @@ const SCORES = {
     const l = this.local().filter(x => x.gid !== e.gid); l.push(e); l.sort((a, b) => b.score - a.score);
     try { localStorage.setItem(SCORE_KEY, JSON.stringify(l.slice(0, 100))); } catch (er) {}
     if (hiscoreURL() && (e.final || POSTED[e.gid] !== e.turn)) {
-      POSTED[e.gid] = e.turn; const slug = slugOf(e.name);
-      fetch(hiscoreURL(), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...e, ...auth }), keepalive: true }).then(async r => {
+      POSTED[e.gid] = e.turn; const slug = slugOf(e.name), body = JSON.stringify({ ...e, ...auth });
+      // 1.0.19: keepalive only while the page is closing (some phone browsers drop keepalive posts made in the
+      // foreground); a post that fails on the network is retried once, and again with the next turn's save
+      const send = (n = 0) => fetch(hiscoreURL(), { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: document.visibilityState === "hidden" }).then(async r => {
         PROF.claim = PROF.claim || {};
-        if (r.ok) { if (PROF.claim[slug]) { delete PROF.claim[slug]; profStore(); } return; }
+        SCORES.last = { gid: e.gid, score: e.score, turn: e.turn, status: r.status, at: Date.now() };
+        if (r.ok) { const j = await r.json().catch(() => ({})); SCORES.last.best = j.best; SCORES.last.counted = j.counted !== false; if (PROF.claim[slug]) { delete PROF.claim[slug]; profStore(); } return; }
         if (r.status === 403 || r.status === 409) { const j = await r.json().catch(() => ({})); PROF.claim[slug] = j.error === "reserved" ? "reserved" : "taken"; profStore(); delete POSTED[e.gid];
           if (!UI.claimWarned) { UI.claimWarned = true; toast(PROF.claim[slug] === "reserved" ? `${e.name} is the developer's name, so this campaign isn't on the global leaderboard.` : `${e.name} is already registered to another player or device, so this campaign isn't on the global leaderboard. See Hi-scores.`); } }
-      }).catch(() => {});
+        else if (r.status >= 500 && !n) setTimeout(() => send(1), 4000);
+        else if (r.status >= 500 && POSTED[e.gid] === e.turn) delete POSTED[e.gid];
+      }).catch(() => { SCORES.last = { gid: e.gid, score: e.score, turn: e.turn, status: 0, at: Date.now() }; if (!n) setTimeout(() => send(1), 4000); else if (POSTED[e.gid] === e.turn) delete POSTED[e.gid]; });
+      send();
     }
   },
   async top(n = 20) {
@@ -6017,6 +6046,24 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.19 beta", date: "5 Nov 2026", title: "Lag, battery and hi-score fix", items: [
+    "## Lag in replays and orders",
+    "Fixed the 1.0.18 slowdown. When enemy radar contacts were on screen, every frame started another drawing loop, so the map was redrawn dozens of times for each screen refresh. In a test campaign with three contacts in sight, a replay drew the map 76 times per refresh and managed about 5 frames a second. It now draws once per refresh. On the slowed-down test phone, the replay of a large war's turn took 3 min 48 s instead of 1 min 14 s; it now takes 1 min 14 s.",
+    "The same bug kept the phone busy while you planned your moves: about 50 drawing loops ran at once even with nothing changing on screen. Now there's one.",
+    "Replays now draw at most 60 frames a second, down from up to 120 on fast-refresh phones. On a slower phone a replay drops to fewer frames instead of freezing, so Skip and your taps still respond.",
+    "Units and contacts in replays are found once per replay instead of being searched for again on every frame.",
+    "## Battery",
+    "The map's idle animation (order routes, radar sweeps, contact pulses) runs at 8 to 15 frames a second instead of 25, and stops 20 seconds after you last touch the screen. It starts again the moment you do.",
+    "The news ticker after each turn scrolled by moving the text's position, which made the browser lay out the page on every frame. It now slides without that. On a slowed-down test phone, the time spent busy after a turn fell from about 70% to under 3%.",
+    "Nothing animates while the game is in the background, and the guidance and tooltip timers pause there too.",
+    "New: Battery saver, under Nation. It plays replays at 30 frames a second, turns off the idle map animation and draws the map a little lighter. The setting is remembered on your device.",
+    "Measured on a test phone (400 px wide, processor slowed 4 times), in a campaign with 36 units under standing orders: busy time with orders on the map fell from about 88% to 30% while you touch the screen, and to under 1% once you stop. With the move picker open it fell from 98% to 73%.",
+    "## Hi-scores",
+    "The board shows each commander's best campaign, so a new campaign that hadn't beaten your best never appeared, and it looked like scores weren't updating. That includes best scores copied from the old site. Each row now also shows your current campaign (Now: score, nation, turn) as it posts.",
+    "Hi-scores tells you what your current campaign last posted, or that the last post didn't reach the server.",
+    "A score post that fails on a bad connection is now tried again a few seconds later, and again with your next turn. Some phone browsers could drop posts sent in the foreground; posts now ask for that special handling only while the page is closing.",
+    "Unchanged: combat, the AI, diplomacy, scoring and saves. Old saves load as before.",
+  ] },
   { v: "1.0.18 beta", date: "5 Nov 2026", title: "Rivers, radar and a sharper war", items: [
     "## War and peace",
     "Wars now run at least 12 turns before either side talks peace, so nations no longer declare war and sue for peace straight away. In four 60-turn test campaigns, peace treaties signed within 3 turns of a war starting fell from 34 to 0.",
@@ -6303,7 +6350,7 @@ const TUTORIAL_STEPS = [
 ];
 const TUT = { on: false, i: 0, saw: {}, timer: 0 };
 addEventListener("resize", () => placeCoach());
-setInterval(() => { const t = $("tip"); if (t && !t.hidden) { if (PB || !G) t.hidden = true; else placeFloat(t); } }, 300);
+setInterval(() => { const t = $("tip"); if (t && !t.hidden && !document.hidden) { if (PB || !G) t.hidden = true; else placeFloat(t); } }, 300);
 document.addEventListener("pointerdown", e => { const t = $("tip"); if (t && !t.hidden && !t.contains(e.target)) t.hidden = true; }, true); // a tip never blocks play: tap anywhere else and it goes
 function startTutorial() {
   try { localStorage.setItem("prww3-tut", "1"); } catch (e) {}
@@ -6730,7 +6777,7 @@ function showGuideSettings() {
   $("gReset").onclick = () => { GPREF.seen = {}; gprefSave(); if (G && G.guide) { for (const k of Object.keys(G.guide.seen)) if (!k.startsWith("o_")) delete G.guide.seen[k]; save(); } close(); toast("Lessons reset: each will appear again when it becomes relevant."); };
   m.querySelectorAll("[data-gread]").forEach(b => b.onclick = () => { close(); if (GD.cur) { $("guideCard").hidden = true; GD.cur = null; } guideShow(b.dataset.gread, true); });
 }
-setInterval(() => { try { guideTick(); } catch (e) { /* guidance must never break the game */ } }, 400);
+setInterval(() => { if (document.hidden) return; try { guideTick(); } catch (e) { /* guidance must never break the game */ } }, 400);
 
 // ---------- menus: title → commander name → nations → setup ----------
 const MENU = { view: "title", mode: "new", err: "" };
@@ -6832,11 +6879,14 @@ async function showScores() {
   if (MENU.view !== "scores") return;
   const me = USER || PROF.last, mySlug = me ? slugOf(me) : null, issue = mySlug && PROF.claim && PROF.claim[mySlug];
   const row = (e, i) => { const ci = CODE[e.nation], mine = mySlug && slugOf(e.name) === mySlug, n = e.campaigns || 1;
-    return `<tr class="${mine ? "me" : ""}"><td>${e.rank || i + 1}</td><td>${esc(e.name)}${e.dev ? devTag() : ""}<small class="camp">${n} campaign${n > 1 ? "s" : ""}</small></td><td>${ci != null ? `${swatch(ci)}${esc(shortName(ci))}` : esc(e.nation)}</td><td class="n">${Number(e.score).toLocaleString()}</td><td><small>${esc(e.result)}, turn ${e.turn}</small></td></tr>`; };
+    const nw = e.now && typeof e.now.score === "number" ? e.now : null, nci = nw ? CODE[nw.nation] : null;
+    return `<tr class="${mine ? "me" : ""}"><td>${e.rank || i + 1}</td><td>${esc(e.name)}${e.dev ? devTag() : ""}<small class="camp">${n} campaign${n > 1 ? "s" : ""}</small>${nw ? `<small class="camp">Now: ${Number(nw.score).toLocaleString()} · ${nci != null ? esc(shortName(nci)) : esc(nw.nation)}, turn ${nw.turn}</small>` : ""}</td><td>${ci != null ? `${swatch(ci)}${esc(shortName(ci))}` : esc(e.nation)}</td><td class="n">${Number(e.score).toLocaleString()}</td><td><small>${esc(e.result)}, turn ${e.turn}</small></td></tr>`; };
   const claimNote = !issue ? "" : issue === "reserved"
     ? `<p class="note" style="color:var(--signal)">${esc(me)} is the developer's name and the code on this device wasn't accepted, so its campaigns aren't on the global board. <button class="linkbtn" id="mReCode">Enter the code again</button></p>`
     : `<p class="note" style="color:var(--signal)">${esc(me)} is registered to another player or device, so its campaigns aren't on the global board. Pick a different commander name to appear there.</p>`;
-  el.innerHTML = head + claimNote + (list.length ? `<div class="scores"><table><thead><tr><th>#</th><th>Commander</th><th>Nation</th><th class="n">Best</th><th>Result</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table></div>`
+  const lp = SCORES.last, myNote = !online || !lp || issue ? "" : lp.status === 200 ? `<p class="note">Your current campaign last posted <b>${Number(lp.score).toLocaleString()}</b> on turn ${lp.turn}${lp.best != null && lp.best > lp.score ? `. Your best stays at ${Number(lp.best).toLocaleString()}, so the row shows it, with your current campaign under it` : ""}.</p>`
+    : lp.status === 0 || lp.status >= 500 ? `<p class="note" style="color:var(--signal)">Your last score (turn ${lp.turn}) didn't reach the server. It's sent again with your next turn.</p>` : "";
+  el.innerHTML = head + claimNote + myNote + (list.length ? `<div class="scores"><table><thead><tr><th>#</th><th>Commander</th><th>Nation</th><th class="n">Best</th><th>Result</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table></div>`
       : `<p class="note">No scores yet. Every campaign posts its score here as you play, and again when it ends.</p>`) +
     (online ? `<label class="toggle-row" style="margin-top:12px"><span><b>Announce my milestones on the official Discord</b> · when your best campaign takes the lead, enters the top five or passes the developer</span><input type="checkbox" id="mAnnounce" style="width:22px;height:22px;flex:none;accent-color:var(--signal)" ${PROF.announce ? "checked" : ""}></label>` : "") +
     `<p class="note" style="margin-top:10px">${online ? "Global leaderboard: one row per commander, showing their best campaign. Your name is yours once your first campaign posts from this device." : API != null ? "Couldn't reach the global leaderboard, so these are the best scores on this device." : "Best scores on this device. The global leaderboard is on the web version of the game."} Score = territory held (40 a victory-point %) + 25 a province taken + 250 a capital (75 for a minor nation's) + 15 an enemy unit destroyed − 5 a unit lost; a victory adds 2,000 plus a speed bonus.</p>

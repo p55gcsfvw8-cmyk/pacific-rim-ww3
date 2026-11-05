@@ -24,7 +24,10 @@ const same = (a, b) => { a = String(a); b = String(b); if (a.length !== b.length
 // real campaigns stay far below it; a hand-made 60,000 on turn 3 does not.
 export const plausible = (score, turn, result) => score <= 8500 + 600 * turn && (result !== "Victory" || turn >= 5);
 
-const pub = b => ({ name: b.name, nation: b.nation, score: b.score, turn: b.turn, result: b.result, vp: b.vp, at: b.at, dev: !!b.dev, verified: !!b.claimed, campaigns: b.campaigns || 1 });
+// 1.0.19: `now` is the commander's most recent campaign when it isn't the best one (or has moved on since), so a
+// player can see their current campaign posting even while an older best stays on top. `seen` is their last post.
+const nowOf = b => { const l = b.latest; return l && (l.gid !== b.gid || l.turn !== b.turn || l.score !== b.score) ? { nation: l.nation, score: l.score, turn: l.turn, result: l.result } : undefined; };
+const pub = b => ({ name: b.name, nation: b.nation, score: b.score, turn: b.turn, result: b.result, vp: b.vp, at: b.at, dev: !!b.dev, verified: !!b.claimed, campaigns: b.campaigns || 1, now: nowOf(b), seen: b.latest ? b.latest.at : b.at });
 export const rankSort = (a, b) => b.score - a.score || a.at - b.at;
 
 async function readAll(s, prefix) {
@@ -124,12 +127,13 @@ export async function submitScore(s, env, b) {
   const announce = b.announce === true;
   const better = !best || score > best.score || (best.gid === gid && score === best.score);
   const flags = { claimed: claim.claimed || !!(best && best.claimed), dev: claim.dev, announce };
-  if (!better) {
-    if (best && (best.campaigns !== campaigns || best.announce !== announce || best.claimed !== flags.claimed || best.dev !== flags.dev)) await s.setJSON(bk, { ...best, campaigns, ...flags });
+  const latest = { gid, nation, score, turn, result, at: Date.now() };
+  if (!better) { // 1.0.19: the row still records this campaign as the commander's latest, so the board shows it moving
+    await s.setJSON(bk, { ...best, campaigns, ...flags, latest });
     out.body.best = best.score; return out;
   }
   const before = (await readAll(s, "best/")).filter(x => !x.hidden).sort(rankSort);
-  const row = { slug: claim.slug, name, nation, score, turn, result, vp, gid, at: Date.now(), campaigns, ...flags };
+  const row = { slug: claim.slug, name, nation, score, turn, result, vp, gid, at: Date.now(), campaigns, ...flags, latest };
   await s.setJSON(bk, row);
   out.body.best = score;
   if (announce && claim.claimed) await eventsFor(s, before, row);

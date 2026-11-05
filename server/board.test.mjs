@@ -92,3 +92,34 @@ test("old one-row-per-campaign data moves over once, keeping every campaign", as
   assert.equal((await post(s, { gid: gid(), name: "Jacob", score: 100, turn: 3, key: KEY.a })).status, 200);
   assert.equal((await topBoard(s))[0].verified, true);
 });
+
+test("1.0.19: a commander's current campaign shows on the board even while an older best stays on top", async () => {
+  const s = new Mem(), old = gid(), cur = gid();
+  await post(s, { gid: old, name: "Rin", score: 3000, turn: 40, key: KEY.a, nation: "JP" });
+  let top = await topBoard(s);
+  assert.equal(top[0].now, undefined); // the best campaign is the latest: nothing extra
+  await post(s, { gid: cur, name: "Rin", score: 700, turn: 6, key: KEY.a, nation: "AU" });
+  await post(s, { gid: cur, name: "Rin", score: 950, turn: 9, key: KEY.a, nation: "AU" });
+  top = await topBoard(s);
+  assert.equal(top[0].score, 3000); assert.equal(top[0].turn, 40); assert.equal(top[0].campaigns, 2);
+  assert.deepEqual(top[0].now, { nation: "AU", score: 950, turn: 9, result: "In progress" });
+  // the best campaign itself moving on (its score dipped) also shows
+  await post(s, { gid: old, name: "Rin", score: 2900, turn: 41, key: KEY.a, nation: "JP" });
+  top = await topBoard(s);
+  assert.equal(top[0].score, 3000); assert.deepEqual(top[0].now, { nation: "JP", score: 2900, turn: 41, result: "In progress" });
+  // and a new best replaces the row and clears `now`
+  await post(s, { gid: cur, name: "Rin", score: 3400, turn: 30, key: KEY.a, nation: "AU" });
+  top = await topBoard(s);
+  assert.equal(top[0].score, 3400); assert.equal(top[0].nation, "AU"); assert.equal(top[0].now, undefined);
+});
+
+test("1.0.19: a row imported from the old site starts showing the commander's new campaigns", async () => {
+  const s = new Mem();
+  await s.setJSON("meta/best-v1", { at: 1 });
+  await s.setJSON("best/kai", { slug: "kai", name: "Kai", nation: "TH", score: 5000, turn: 70, result: "In progress", vp: 30, gid: "imported", at: 1, campaigns: 4, claimed: false, dev: false, announce: false, imported: true });
+  const r = await post(s, { gid: gid(), name: "Kai", score: 400, turn: 3, key: KEY.b });
+  assert.equal(r.status, 200);
+  const top = await topBoard(s);
+  assert.equal(top[0].score, 5000); assert.equal(top[0].verified, true); assert.equal(top[0].campaigns, 5);
+  assert.deepEqual(top[0].now, { nation: "TH", score: 400, turn: 3, result: "In progress" });
+});

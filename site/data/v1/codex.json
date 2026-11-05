@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "version": "1.0.18 beta",
+ "version": "1.0.19 beta",
  "rules": {
   "winSharePct": 30,
   "recruitSlotsPerCity": 4,
@@ -2190,6 +2190,10 @@
   {
    "title": "Read the reports",
    "text": "After each turn the Fractured Coasts Network covers what you saw clearly, plus rumours from places you can't see."
+  },
+  {
+   "title": "Battery saver",
+   "text": "Under Nation, Battery saver plays replays at 30 frames a second, stops the idle map animation and draws the map a little lighter. The map always stops animating 20 seconds after you last touch it."
   },
   {
    "title": "Commander guidance",

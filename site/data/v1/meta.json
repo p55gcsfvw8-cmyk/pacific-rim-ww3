@@ -3,12 +3,47 @@
  "game": "The Fractured Coasts: WW3",
  "inGameTitle": "The Fractured Coasts: WW3",
  "formerly": "Pacific Rim WW3",
- "version": "1.0.18 beta",
+ "version": "1.0.19 beta",
  "released": "5 Nov 2026",
  "discord": "https://discord.gg/jv8T6Pxz3e",
  "play": "https://fractured-coasts.playfracturedcoast.workers.dev/",
  "mode": "Single-player against AI nations",
  "patchNotes": [
+  {
+   "version": "1.0.19 beta",
+   "date": "5 Nov 2026",
+   "title": "Lag, battery and hi-score fix",
+   "sections": [
+    {
+     "heading": "Lag in replays and orders",
+     "items": [
+      "Fixed the 1.0.18 slowdown. When enemy radar contacts were on screen, every frame started another drawing loop, so the map was redrawn dozens of times for each screen refresh. In a test campaign with three contacts in sight, a replay drew the map 76 times per refresh and managed about 5 frames a second. It now draws once per refresh. On the slowed-down test phone, the replay of a large war's turn took 3 min 48 s instead of 1 min 14 s; it now takes 1 min 14 s.",
+      "The same bug kept the phone busy while you planned your moves: about 50 drawing loops ran at once even with nothing changing on screen. Now there's one.",
+      "Replays now draw at most 60 frames a second, down from up to 120 on fast-refresh phones. On a slower phone a replay drops to fewer frames instead of freezing, so Skip and your taps still respond.",
+      "Units and contacts in replays are found once per replay instead of being searched for again on every frame."
+     ]
+    },
+    {
+     "heading": "Battery",
+     "items": [
+      "The map's idle animation (order routes, radar sweeps, contact pulses) runs at 8 to 15 frames a second instead of 25, and stops 20 seconds after you last touch the screen. It starts again the moment you do.",
+      "The news ticker after each turn scrolled by moving the text's position, which made the browser lay out the page on every frame. It now slides without that. On a slowed-down test phone, the time spent busy after a turn fell from about 70% to under 3%.",
+      "Nothing animates while the game is in the background, and the guidance and tooltip timers pause there too.",
+      "New: Battery saver, under Nation. It plays replays at 30 frames a second, turns off the idle map animation and draws the map a little lighter. The setting is remembered on your device.",
+      "Measured on a test phone (400 px wide, processor slowed 4 times), in a campaign with 36 units under standing orders: busy time with orders on the map fell from about 88% to 30% while you touch the screen, and to under 1% once you stop. With the move picker open it fell from 98% to 73%."
+     ]
+    },
+    {
+     "heading": "Hi-scores",
+     "items": [
+      "The board shows each commander's best campaign, so a new campaign that hadn't beaten your best never appeared, and it looked like scores weren't updating. That includes best scores copied from the old site. Each row now also shows your current campaign (Now: score, nation, turn) as it posts.",
+      "Hi-scores tells you what your current campaign last posted, or that the last post didn't reach the server.",
+      "A score post that fails on a bad connection is now tried again a few seconds later, and again with your next turn. Some phone browsers could drop posts sent in the foreground; posts now ask for that special handling only while the page is closing.",
+      "Unchanged: combat, the AI, diplomacy, scoring and saves. Old saves load as before."
+     ]
+    }
+   ]
+  },
   {
    "version": "1.0.18 beta",
    "date": "5 Nov 2026",
