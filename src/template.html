@@ -2810,7 +2810,7 @@ function endTurn() {
 // SAVE
 // =====================================================================
 const SAVE_KEY = "prww3-save-v6";
-const VERSION = "1.0.19 beta"; // early access playtest build
+const VERSION = "1.0.20 beta"; // early access playtest build
 const DISCORD_URL = "https://discord.gg/jv8T6Pxz3e"; // official community server (permanent invite)
 const SITE_URL = "https://fractured-coasts.playfracturedcoast.workers.dev/"; // 1.0.16: the game's home on Cloudflare (was pacific-rim-ww3.netlify.app)
 try { ["prww3-save-v2", "prww3-save-v3", "prww3-save-v4", "prww3-save-v5"].forEach(k => localStorage.removeItem(k)); } catch (e) {} // older saves lack the new starting forces
@@ -6033,6 +6033,15 @@ async function showOnline() {
 
 // ---------- patch notes: newest first; the button opens the latest ----------
 const PATCH_NOTES = [
+  { v: "1.0.20 beta", date: "6 Nov 2026", title: "A fresh leaderboard", items: [
+    "## Hi-scores fixed",
+    "The leaderboard has been wiped and rebuilt from campaigns actually played on this site. The scores copied from the old site are gone, including commanders who never played here, so the board shows the people playing now.",
+    "Found and fixed: the server could only make 50 storage requests for each visit, and copying the old site's board needed more. Every attempt ran out part-way and the whole request failed, so for a while no score got through.",
+    "Found and fixed: campaigns as the 15 nations added in 1.0.13 (India, Russia, Myanmar, Cambodia, Laos, Mongolia, Bangladesh, Brunei, Timor-Leste, the Solomon Islands, Vanuatu, New Caledonia, Samoa, Tonga and Palau) were refused by the leaderboard. They post now.",
+    "Players online and the news feed no longer go blank once old lines pile up, for the same 50-request reason.",
+    "Your registered name, your campaigns and your Discord announcement choice are kept. Announcing on the Discord is optional and never affected posting.",
+    "Your score posts with your next turn, so play one turn to put yourself back on the board.",
+  ] },
   { v: "1.0.19 beta", date: "5 Nov 2026", title: "Lag, battery and hi-score fix", items: [
     "## Lag in replays and orders",
     "Fixed the 1.0.18 slowdown. When enemy radar contacts were on screen, every frame started another drawing loop, so the map was redrawn dozens of times for each screen refresh. In a test campaign with three contacts in sight, a replay drew the map 76 times per refresh and managed about 5 frames a second. It now draws once per refresh. On the slowed-down test phone, the replay of a large war's turn took 3 min 48 s instead of 1 min 14 s; it now takes 1 min 14 s.",

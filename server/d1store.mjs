@@ -29,5 +29,18 @@ export function d1Store(db) {
       return r.results.map(x => { try { return JSON.parse(x.v); } catch { return null; } }).filter(Boolean);
     },
     async delete(k) { await init(); await db.prepare("DELETE FROM kv WHERE k = ?1").bind(k).run(); },
+    // 1.0.20: the free plan allows 50 queries per request and a batch counts as one, so bulk work goes through these
+    async entries(prefix) {
+      await init();
+      const r = await db.prepare("SELECT k, v FROM kv WHERE k >= ?1 AND k < ?2 ORDER BY k").bind(...range(prefix)).all();
+      return r.results.map(x => { try { return [x.k, JSON.parse(x.v)]; } catch { return null; } }).filter(Boolean);
+    },
+    // writes (set) and deletes (value undefined) all at once, atomically; `clear` prefixes are emptied first
+    async writeMany(sets, clear = []) {
+      await init();
+      const st = [...clear.map(p => db.prepare("DELETE FROM kv WHERE k >= ?1 AND k < ?2").bind(...range(p))),
+        ...sets.map(([k, v]) => v === undefined ? db.prepare("DELETE FROM kv WHERE k = ?1").bind(k) : db.prepare("INSERT INTO kv (k, v) VALUES (?1, ?2) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(k, JSON.stringify(v)))];
+      for (let i = 0; i < st.length; i += 500) await db.batch(st.slice(i, i + 500));
+    },
   };
 }

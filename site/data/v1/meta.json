@@ -3,12 +3,30 @@
  "game": "The Fractured Coasts: WW3",
  "inGameTitle": "The Fractured Coasts: WW3",
  "formerly": "Pacific Rim WW3",
- "version": "1.0.19 beta",
- "released": "5 Nov 2026",
+ "version": "1.0.20 beta",
+ "released": "6 Nov 2026",
  "discord": "https://discord.gg/jv8T6Pxz3e",
  "play": "https://fractured-coasts.playfracturedcoast.workers.dev/",
  "mode": "Single-player against AI nations",
  "patchNotes": [
+  {
+   "version": "1.0.20 beta",
+   "date": "6 Nov 2026",
+   "title": "A fresh leaderboard",
+   "sections": [
+    {
+     "heading": "Hi-scores fixed",
+     "items": [
+      "The leaderboard has been wiped and rebuilt from campaigns actually played on this site. The scores copied from the old site are gone, including commanders who never played here, so the board shows the people playing now.",
+      "Found and fixed: the server could only make 50 storage requests for each visit, and copying the old site's board needed more. Every attempt ran out part-way and the whole request failed, so for a while no score got through.",
+      "Found and fixed: campaigns as the 15 nations added in 1.0.13 (India, Russia, Myanmar, Cambodia, Laos, Mongolia, Bangladesh, Brunei, Timor-Leste, the Solomon Islands, Vanuatu, New Caledonia, Samoa, Tonga and Palau) were refused by the leaderboard. They post now.",
+      "Players online and the news feed no longer go blank once old lines pile up, for the same 50-request reason.",
+      "Your registered name, your campaigns and your Discord announcement choice are kept. Announcing on the Discord is optional and never affected posting.",
+      "Your score posts with your next turn, so play one turn to put yourself back on the board."
+     ]
+    }
+   ]
+  },
   {
    "version": "1.0.19 beta",
    "date": "5 Nov 2026",

@@ -3,7 +3,8 @@
 // Pure logic over a store with get/setJSON/list/delete, so it can be tested without Netlify.
 // Web Crypto only, so the same file runs on Cloudflare (Pages Functions), Netlify Functions and Node 20+.
 
-export const NATIONS = ["CN", "JP", "KR", "KP", "TW", "PH", "VN", "TH", "MY", "SG", "ID", "PG", "AU", "NZ", "FJ", "US"];
+// every playable nation (1.0.20: the 15 added in 1.0.13 were missing, so their campaigns were refused)
+export const NATIONS = ["CN", "JP", "KR", "KP", "TW", "PH", "VN", "TH", "MY", "SG", "ID", "PG", "AU", "NZ", "FJ", "US", "BN", "TL", "SB", "VU", "NC", "WS", "TO", "PW", "RU", "MM", "LA", "KH", "MN", "IN", "BD"];
 export const RESULTS = ["In progress", "Victory", "Defeat"];
 export const RESERVED = { "mr-forbid-dev": { dev: true } }; // names only the developer (with DEV_CODE) can use
 export const TOP_EVENTS = 5;
@@ -35,6 +36,49 @@ async function readAll(s, prefix) {
   const { blobs } = await s.list({ prefix });
   const rows = await Promise.all(blobs.map(b => s.get(b.key, { type: "json" }).catch(() => null)));
   return rows.filter(Boolean);
+}
+
+// ---- bulk helpers: one query on D1 (the free plan allows 50 per request; a batch counts as one), loops elsewhere
+export async function entriesOf(s, prefix) {
+  if (s.entries) return s.entries(prefix);
+  const blobs = (await s.list({ prefix })).blobs.sort((a, b) => (a.key < b.key ? -1 : 1));
+  return (await Promise.all(blobs.map(async b => [b.key, await s.get(b.key, { type: "json" }).catch(() => null)]))).filter(x => x[1]);
+}
+export async function writeMany(s, sets, clear = []) {
+  if (s.writeMany) return s.writeMany(sets, clear);
+  for (const p of clear) for (const b of (await s.list({ prefix: p })).blobs) await s.delete(b.key);
+  for (const [k, v] of sets) v === undefined ? await s.delete(k) : await s.setJSON(k, v);
+}
+
+// 1.0.20, once: a fresh leaderboard. Rows copied from the old site (players who may never have played here)
+// are dropped, and the board is rebuilt only from campaigns actually played on this site (scores/*), with the
+// names those players registered here. Campaign records, names, events and the feed are kept. The old site's
+// board is never copied again. Runs in a handful of queries.
+export const RESET_TAG = "meta/reset-1.0.20";
+export async function resetBoard(s) {
+  const tag = await s.get(RESET_TAG, { type: "json" });
+  if (tag && (tag.state === "done" || Date.now() - tag.at < 120000)) return false; // done, or another request is on it
+  await s.setJSON(RESET_TAG, { at: Date.now(), state: "running" }); // a run that died part-way is retried 2 minutes later
+  const [camps, names, oldBest] = await Promise.all([entriesOf(s, "scores/"), entriesOf(s, "names/"), entriesOf(s, "best/")]);
+  const nameRec = new Map(names.map(([k, v]) => [k.slice(6), v])), prevRow = new Map(oldBest.map(([k, v]) => [k.slice(5), v]));
+  const by = new Map();
+  for (const [, e] of camps) {
+    if (!e || !e.name || !NATIONS.includes(e.nation) || e.implausible || !plausible(e.score, e.turn, e.result)) continue;
+    const slug = e.slug || slugOf(e.name); (by.get(slug) || by.set(slug, []).get(slug)).push(e);
+  }
+  const rows = [];
+  for (const [slug, list] of by) {
+    const best = list.reduce((a, b) => (b.score > a.score || (b.score === a.score && b.at < a.at) ? b : a));
+    const last = list.reduce((a, b) => (b.at > a.at ? b : a)), rec = nameRec.get(slug), prev = prevRow.get(slug);
+    rows.push([`best/${slug}`, { slug, name: best.name, nation: best.nation, score: best.score, turn: best.turn, result: best.result, vp: best.vp || 0, gid: best.gid, at: best.at,
+      campaigns: list.length, claimed: !!rec, dev: !!(rec && rec.dev), announce: !!(prev && prev.announce && !prev.imported),
+      latest: { gid: last.gid, nation: last.nation, score: last.score, turn: last.turn, result: last.result, at: last.at } }]);
+  }
+  const now = Date.now();
+  rows.push(["meta/best-v1", { at: now, rebuilt: "1.0.20" }], ["meta/imported-netlify", { at: now, skipped: "1.0.20 reset" }],
+    [RESET_TAG, { at: now, state: "done", commanders: by.size, campaigns: camps.length, dropped: oldBest.length }]);
+  await writeMany(s, rows, ["best/"]);
+  return true;
 }
 
 // one-time move from one row per campaign to one row per commander (keeps every campaign record)
@@ -90,14 +134,13 @@ export async function logEvent(s, ev) {
 }
 
 // newer than `since` (ms) or, exactly, after event id `after` (what FORBID COMMAND uses)
-export async function recentEvents(s, since = 0, n = 50, after = null) {
-  const { blobs } = await s.list({ prefix: "events/" });
-  const keys = blobs.map(b => b.key).sort();
-  const old = keys.filter(k => Number(k.slice(7, 22)) < Date.now() - 30 * 864e5);
-  if (old.length) await Promise.all(old.slice(0, 50).map(k => s.delete(k).catch(() => {})));
-  const fresh = (after ? keys.filter(k => k > `events/${after}`) : keys.filter(k => Number(k.slice(7, 22)) > since)).slice(after ? 0 : -n, after ? n : undefined);
-  const rows = await Promise.all(fresh.map(k => s.get(k, { type: "json" }).catch(() => null)));
-  return rows.filter(Boolean); // keys sort in the order the events happened
+export async function recentEvents(s, since = 0, n = 50, after = null) { // 1.0.20: two queries at most
+  const all = await entriesOf(s, "events/"), cut = Date.now() - 30 * 864e5;
+  const old = all.filter(([k]) => Number(k.slice(7, 22)) < cut);
+  if (old.length) await writeMany(s, old.map(([k]) => [k, undefined])).catch(() => {});
+  const live = all.filter(([k]) => Number(k.slice(7, 22)) >= cut);
+  const fresh = (after ? live.filter(([k]) => k > `events/${after}`) : live.filter(([k]) => Number(k.slice(7, 22)) > since)).slice(after ? 0 : -n, after ? n : undefined);
+  return fresh.map(([, v]) => v); // keys sort in the order the events happened
 }
 
 // accept one campaign's score; returns { status, body, feed? } where feed is a line for the activity log

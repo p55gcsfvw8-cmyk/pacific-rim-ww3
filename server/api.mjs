@@ -6,11 +6,12 @@
 //   GET  /api/v1/status                                  game, storage and live version
 //   POST /api/v1/transfer  GET /api/v1/transfer?code=    one-time save transfer from the old site
 // `ctx` = { store, env, assets(path) -> Response|null, now? }. Storage logic lives in board.mjs and here.
-import { topBoard, submitScore, recentEvents, isDev, cleanName, cleanId, int, NATIONS, slugOf, ensureBest } from "./board.mjs";
+import { topBoard, submitScore, recentEvents, isDev, cleanName, cleanId, int, NATIONS, slugOf, ensureBest, resetBoard, entriesOf, writeMany } from "./board.mjs";
 
 export const OLD_ORIGIN = "https://pacific-rim-ww3.netlify.app";
 const ONLINE_MS = 150 * 1000;
-const NATION_NAME = { CN: "China", JP: "Japan", KR: "South Korea", KP: "North Korea", TW: "Taiwan", PH: "the Philippines", VN: "Vietnam", TH: "Thailand", MY: "Malaysia", SG: "Singapore", ID: "Indonesia", PG: "Papua New Guinea", AU: "Australia", NZ: "New Zealand", FJ: "Fiji", US: "the United States" };
+const NATION_NAME = { CN: "China", JP: "Japan", KR: "South Korea", KP: "North Korea", TW: "Taiwan", PH: "the Philippines", VN: "Vietnam", TH: "Thailand", MY: "Malaysia", SG: "Singapore", ID: "Indonesia", PG: "Papua New Guinea", AU: "Australia", NZ: "New Zealand", FJ: "Fiji", US: "the United States",
+  BN: "Brunei", TL: "Timor-Leste", SB: "the Solomon Islands", VU: "Vanuatu", NC: "New Caledonia", WS: "Samoa", TO: "Tonga", PW: "Palau", RU: "Russia", MM: "Myanmar", LA: "Laos", KH: "Cambodia", MN: "Mongolia", IN: "India", BD: "Bangladesh" };
 
 const json = (data, status = 200, extra = {}) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...extra } });
 const OPEN = { "access-control-allow-origin": "*" };
@@ -21,13 +22,11 @@ export async function feedLine(s, text) {
   const at = Date.now();
   await s.setJSON(`feed/${String(at).padStart(15, "0")}-${Math.random().toString(36).slice(2, 7)}`, { text: String(text).slice(0, 160), at });
 }
-async function recentFeed(s, n = 25) {
-  const { blobs } = await s.list({ prefix: "feed/" });
-  const keys = blobs.map(b => b.key).sort();
-  const old = keys.filter(k => Number(k.slice(5, 20)) < Date.now() - 7 * 864e5);
-  if (old.length) await Promise.all(old.slice(0, 50).map(k => s.delete(k).catch(() => {})));
-  const rows = await Promise.all(keys.slice(-n).map(k => s.get(k, { type: "json" }).catch(() => null)));
-  return rows.filter(Boolean).sort((a, b) => b.at - a.at);
+async function recentFeed(s, n = 25) { // 1.0.20: two queries, not one per line (D1 free plan: 50 per request)
+  const all = await entriesOf(s, "feed/"), cut = Date.now() - 7 * 864e5;
+  const old = all.filter(([k]) => Number(k.slice(5, 20)) < cut);
+  if (old.length) await writeMany(s, old.map(([k]) => [k, undefined])).catch(() => {});
+  return all.filter(([k]) => Number(k.slice(5, 20)) >= cut).slice(-n).map(([, v]) => v).sort((a, b) => b.at - a.at);
 }
 
 // ---------- the old site's leaderboard, copied over once ----------
@@ -86,6 +85,7 @@ export async function handle(req, ctx) {
   }
 
   if (path === "/api/scores" || path === "/api/v1/leaderboard") {
+    if (ctx.reset !== false) await resetBoard(s); // 1.0.20, once: fresh board from campaigns played here (also ends the old-site import)
     if (ctx.importOld !== false) await importOldBoard(s, ctx.fetch || fetch).catch(() => {});
     if (m === "GET") return json(await topBoard(s, int(url.searchParams.get("top") ?? 20, 1, 100) ?? 20), 200, OPEN);
     if (m !== "POST" || path !== "/api/scores") return json({ error: "method" }, 405);
@@ -114,11 +114,11 @@ export async function handle(req, ctx) {
       return json({ ok: true });
     }
     if (m !== "GET") return json({ error: "method" }, 405);
-    const rows = s.values ? await s.values("presence/") : await Promise.all((await s.list({ prefix: "presence/" })).blobs.map(x => s.get(x.key, { type: "json" }).catch(() => null)));
+    const ent = await entriesOf(s, "presence/"), rows = ent.map(x => x[1]);
     const now = Date.now();
-    if (Math.random() < .05) { // now and then, forget devices not seen for a week
-      const { blobs } = await s.list({ prefix: "presence/" });
-      for (const x of blobs.slice(0, 200)) { const p = await s.get(x.key, { type: "json" }).catch(() => null); if (p && now - p.at > 7 * 864e5) await s.delete(x.key).catch(() => {}); }
+    if (Math.random() < .05) { // now and then, forget devices not seen for a week (one batch)
+      const gone = ent.filter(([, p]) => p && now - p.at > 7 * 864e5).map(([k]) => [k, undefined]);
+      if (gone.length) await writeMany(s, gone).catch(() => {});
     }
     const online = rows.filter(p => p && now - p.at < ONLINE_MS).sort((a, b) => b.at - a.at).slice(0, 50);
     return json({ online: online.map(({ name, nation, turn, view, at, dev }) => ({ name, nation, turn, view, at, dev: !!dev })), feed: await recentFeed(s, 25) });
